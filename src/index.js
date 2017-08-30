@@ -23,10 +23,14 @@
 	function PlayerAgent(name, startX = 0, startY = 0) {
 		Object.assign(this, {
 			name: name,
-			x: startX,
-			y: startY,
-			dx: 0,
-			dy: 0,
+			pos: {
+				x: startX,
+				y: startY,
+			},
+			drv: {		// "drive" -- direction of movement
+				x: randomInt(-3, 3),
+				y: randomInt(-3, 3),
+			},
 			aim: Math.random() * 2* Math.PI,	// random initial AIM
 		});
 	}
@@ -39,20 +43,61 @@
 		ctx.strokeStyle = `hsl(${color}, 50%, 33%)`;
 		ctx.fillStyle = `hsl(${color}, 50%, 67%)`;
 		ctx.beginPath();
-		ctx.arc(this.x, this.y, PlayerAgent.RADIUS, 0, 2 * Math.PI);
+		ctx.arc(this.pos.x, this.pos.y, PlayerAgent.RADIUS, 0, 2 * Math.PI);
 
 		ctx.fill();
 		// aim pointer
-		ctx.moveTo(this.x, this.y);
-		let x2 = this.x + PlayerAgent.RADIUS * Math.cos(this.aim);
-		let y2 = this.y + PlayerAgent.RADIUS * Math.sin(this.aim);
+		ctx.moveTo(this.pos.x, this.pos.y);
+		let x2 = this.pos.x + PlayerAgent.RADIUS * Math.cos(this.aim);
+		let y2 = this.pos.y + PlayerAgent.RADIUS * Math.sin(this.aim);
 		ctx.lineTo(x2, y2);
 
 		ctx.stroke();		
 	}
 
+	function randomInt(lo, hi) {
+		let rand = Math.floor(Math.random() * (hi - lo + 1));
+		rand += lo;
+		return rand;
+	}
+
 	PlayerAgent.prototype.update = function () {
 		this.setAim(this.getAim() + 5);
+		let pos2 = {x: this.pos.x, y: this.pos.y};
+
+		// This will make bots appear to bounce:
+		/* 
+		if (this.drv.x === 0) {
+			this.drv.x = randomInt(-3, 3);
+		}
+		if (this.drv.y === 0) {
+			this.drv.y = randomInt(-3, 3);
+		}
+		*/
+
+		let r = PlayerAgent.RADIUS + 1;
+		pos2.x += this.drv.x;
+		if (pos2.x + r > ns.arena.width) {
+			// EAST
+			pos2.x = ns.arena.width - r;
+			this.drv.x = 0;
+		} else if (pos2.x - r < 0) {
+			// WEST
+			pos2.x = r;
+			this.drv.x = 0;
+		}
+		pos2.y += this.drv.y;
+		if (pos2.y - r < 0) {
+			// NORTH
+			pos2.y = r;
+			this.drv.y = 0;
+		} else if (pos2.y + r > ns.arena.height) {
+			// SOUTH
+			pos2.y = ns.arena.height - r;
+			this.drv.y = 0;
+		}
+		this.pos = pos2;
+
 	}
 
 	/** 
@@ -87,8 +132,8 @@
 			rh2 = Math.floor(ns.arena.height/(2*n));	// 1/2 row height
 		// Place bots in the middle of their randomly generated cell
 		botList.map((e,i) => {
-			e.x = (rows[i] * cw2 * 2) + cw2; 
-			e.y = (cols[i] * rh2 * 2) + rh2;
+			e.pos.x = (rows[i] * cw2 * 2) + cw2; 
+			e.pos.y = (cols[i] * rh2 * 2) + rh2;
 		});
 	}
 
@@ -138,6 +183,7 @@
 	function render() {
 		let arena = e_("arena");
 		let ctx = arena.getContext("2d");
+		ctx.clearRect(0, 0, ns.arena.width, ns.arena.height);
 		let n = ns.sprites.length;
 		for (var i = 0; i < n; ++i) {
 			let s = ns.sprites[i];
