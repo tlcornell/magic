@@ -27,6 +27,18 @@ let RoboWar = (() => {
 	  return radians * 180 / Math.PI;
 	};
 
+	function randomInt(lo, hi) {
+		let rand = Math.floor(Math.random() * (hi - lo + 1));
+		rand += lo;
+		return rand;
+	}
+
+	function randomFloat(lo, hi) {
+		let rand = Math.random() * (hi - lo);
+		rand += lo;
+		return rand;
+	}
+
 
 	function PlayerAgent(name) {
 		Object.assign(this, {
@@ -70,18 +82,6 @@ let RoboWar = (() => {
 		ctx.fillText(this.name, pos.x, pos.y + PlayerAgent.RADIUS + 12);
 	}
 
-	function randomInt(lo, hi) {
-		let rand = Math.floor(Math.random() * (hi - lo + 1));
-		rand += lo;
-		return rand;
-	}
-
-	function randomFloat(lo, hi) {
-		let rand = Math.random() * (hi - lo);
-		rand += lo;
-		return rand;
-	}
-
 	PlayerAgent.prototype.update = function () {
 		//console.log(this.name, '[1]', this.body.velocity);
 		this.setAim(this.getAim() + 5);
@@ -121,6 +121,40 @@ let RoboWar = (() => {
 		this.pos = Matter.Vector.create(pos.x, pos.y);
 	}
 
+	PlayerAgent.prototype.onWall = function (whichWall) {
+		if (whichWall === 'NORTH' || whichWall === 'SOUTH') {
+			this.drv.y = -1 * this.drv.y;
+		} else {
+			this.drv.x = -1 * this.drv.x;
+		}
+	}
+
+
+	function handleCollisions(evt) {
+		//console.log(evt);
+		for (let i = 0; i < evt.pairs.length; ++i) {
+			let bodyA = evt.pairs[i].bodyA,
+				bodyB = evt.pairs[i].bodyB;
+			if (isWall(bodyA)) {
+				console.log(bodyB.label, 'collided with', bodyA.label);
+				sprites[bodyB.spriteIndex].onWall(bodyA.label);
+			} else {
+				console.log(bodyA.label, 'collided with', bodyB.label);
+				if (isWall(bodyB)) {
+					sprites[bodyA.spriteIndex].onWall(bodyB.label);
+				}
+			}
+		}
+		//stop = true;
+	}
+
+	function isWall(body) {
+		return body.label === 'NORTH' ||
+			body.label === 'SOUTH' ||
+			body.label === 'EAST' ||
+			body.label === 'WEST';
+	}
+
 	/**
 	* Position the agents in botList so that no one else is in their
 	* row or col. That is, initializing AIM to 0, 90, 180, or 270 should
@@ -150,20 +184,20 @@ let RoboWar = (() => {
 		let north = Matter.Bodies.rectangle(
 			arena.outerWidth/2, WALL_THICKNESS/2,
 			arena.outerWidth, WALL_THICKNESS,
-			{ isStatic: true }
+			{ isStatic: true, label: "NORTH" }
 		);
 		let south = Matter.Bodies.rectangle(
 			arena.outerWidth/2, arena.outerHeight - WALL_THICKNESS/2,
 			arena.outerWidth, WALL_THICKNESS,
-			{ isStatic: true });
+			{ isStatic: true, label: "SOUTH" });
 		let west = Matter.Bodies.rectangle(
 			WALL_THICKNESS/2, arena.outerHeight/2,
 			WALL_THICKNESS, arena.outerHeight - 2*WALL_THICKNESS,
-			{ isStatic: true });
+			{ isStatic: true, label: "EAST" });
 		let east = Matter.Bodies.rectangle(
 			arena.outerWidth - WALL_THICKNESS/2, arena.outerHeight/2,
 			WALL_THICKNESS, arena.outerHeight - 2*WALL_THICKNESS,
-			{ isStatic: true });
+			{ isStatic: true, label: "WEST" });
 		Matter.World.add(matterEngine.world, [north, south, west, east]);
 		// Add bots
 		for (var i = 0; i < spriteList.length; ++i) {
@@ -183,6 +217,7 @@ let RoboWar = (() => {
 					//restitution: defaults to 0
 				}
 			);
+			sprite.body.spriteIndex = i;
 			Matter.World.add(matterEngine.world, sprite.body);
 		}
 	}
@@ -251,20 +286,26 @@ let RoboWar = (() => {
 		} 
 	}
 
+	Matter.Events.on(matterEngine, 'collisionActive', handleCollisions);
+	Matter.Events.on(matterEngine, 'collisionStart', handleCollisions);
+
 	function gameLoop() {
-		if (!stop) {
-			requestAnimationFrame(gameLoop);
+		if (stop) {
+			return;
 		}
+		requestAnimationFrame(gameLoop);
 		update();
 		render();
+	}
+
+	function keyHandler(evt) {
+		stop = true;
 	}
 
 	main = () => {
 		console.log("RoboWar starting...");
 		matterEngine.world.gravity.y = 0;
-		document.addEventListener('keydown', (evt) => {
-			stop = true;	// on any key
-		})
+		document.addEventListener('keydown', keyHandler);
 		configureArena();
 		addSprites();
 		render();
