@@ -16,5 +16,6 @@
   "author": "Tom Cornell",
   "license": "MIT",
   "dependencies": {
+    "matter-js": "^0.13.0"
   }
 }
