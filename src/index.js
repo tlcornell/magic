@@ -11,6 +11,8 @@ let RoboWar = (() => {
 	// Set up MatterJS
 	let matterEngine = Matter.Engine.create();
 
+	const WALL_THICKNESS = 20;
+
 	function e_(id) {
 		return document.getElementById(id);
 	}
@@ -44,12 +46,13 @@ let RoboWar = (() => {
 	PlayerAgent.RADIUS = 15;
 
 	PlayerAgent.prototype.render = function (ctx, index, count) {
-		let pos = this.getPosition(); // get true position from physics body
+		//console.log(this.name, this.body.velocity, this.body.position);
 		let color = ((360/count) % 360) * index;
 		// circle
 		ctx.strokeStyle = `hsl(${color}, 50%, 33%)`;
 		ctx.fillStyle = `hsl(${color}, 50%, 67%)`;
 		ctx.beginPath();
+		let pos = this.body.position; // get true position from physics body
 		ctx.arc(pos.x, pos.y, PlayerAgent.RADIUS, 0, 2 * Math.PI);
 
 		ctx.fill();
@@ -74,41 +77,13 @@ let RoboWar = (() => {
 	}
 
 	PlayerAgent.prototype.update = function () {
+		//console.log(this.name, '[1]', this.body.velocity);
 		this.setAim(this.getAim() + 5);
-		
-		let pos2 = {x: this.pos.x, y: this.pos.y};
-		
-		// This will make bots appear to bounce:
-		if (this.drv.x === 0) {
-			this.drv.x = randomInt(-3, 3);
-		}
-		if (this.drv.y === 0) {
-			this.drv.y = randomInt(-3, 3);
-		}
-
-		let r = PlayerAgent.RADIUS + 1;
-		pos2.x += this.drv.x;
-		if (pos2.x + r > arena.width) {
-			// EAST
-			pos2.x = arena.width - r;
-			this.drv.x = 0;
-		} else if (pos2.x - r < 0) {
-			// WEST
-			pos2.x = r;
-			this.drv.x = 0;
-		}
-		pos2.y += this.drv.y;
-		if (pos2.y - r < 0) {
-			// NORTH
-			pos2.y = r;
-			this.drv.y = 0;
-		} else if (pos2.y + r > arena.height) {
-			// SOUTH
-			pos2.y = arena.height - r;
-			this.drv.y = 0;
-		}
-
-		this.setPosition(pos2);
+		let forceX = randomInt(-3, 3) * 0.1 * this.body.mass;
+		let forceY = randomInt(-3, 3) * 0.1 * this.body.mass;
+		let force = Matter.Vector.create(forceX, forceY);
+		//Matter.Body.applyForce(this.body, this.getPosition(), force);
+		Matter.Body.setVelocity(this.body, this.drv);
 	}
 
 	/** 
@@ -163,6 +138,26 @@ let RoboWar = (() => {
 	}
 
 	function addSpritesToPhysicsEngine(spriteList) {
+		// Add walls
+		let north = Matter.Bodies.rectangle(
+			arena.outerWidth/2, WALL_THICKNESS/2,
+			arena.outerWidth, WALL_THICKNESS,
+			{ isStatic: true }
+		);
+		let south = Matter.Bodies.rectangle(
+			arena.outerWidth/2, arena.outerHeight - WALL_THICKNESS/2,
+			arena.outerWidth, WALL_THICKNESS,
+			{ isStatic: true });
+		let west = Matter.Bodies.rectangle(
+			WALL_THICKNESS/2, arena.outerHeight/2,
+			WALL_THICKNESS, arena.outerHeight - 2*WALL_THICKNESS,
+			{ isStatic: true });
+		let east = Matter.Bodies.rectangle(
+			arena.outerWidth - WALL_THICKNESS/2, arena.outerHeight/2,
+			WALL_THICKNESS, arena.outerHeight - 2*WALL_THICKNESS,
+			{ isStatic: true });
+		Matter.World.add(matterEngine.world, [north, south, west, east]);
+		// Add bots
 		for (var i = 0; i < spriteList.length; ++i) {
 			let sprite = spriteList[i];
 			sprite.body = Matter.Bodies.circle(
@@ -172,12 +167,12 @@ let RoboWar = (() => {
 				// options:
 				{
 					angle: sprite.aim,
+					density: 1,
 					friction: 0,
 					frictionAir: 0,
 					frictionStatic: 0,
 					label: sprite.name,
 					//restitution: defaults to 0
-					type: "player",	// just in case
 				}
 			);
 			Matter.World.add(matterEngine.world, sprite.body);
@@ -200,10 +195,16 @@ let RoboWar = (() => {
 		}
 	}
 
+	/**
+	* Arena 'height' and 'width' represent the *inside* of the arena,
+	* not including the walls.
+	*/
 	function configureArena() {
 		let canvas = e_("arena");
-		arena.width = canvas.width;
-		arena.height = canvas.height;
+		arena.width = canvas.width - (2 * WALL_THICKNESS);
+		arena.height = canvas.height - (2 * WALL_THICKNESS);
+		arena.outerWidth = canvas.width;
+		arena.outerHeight = canvas.height;
 		console.log("Arena:", arena);
 	}
 
@@ -218,21 +219,28 @@ let RoboWar = (() => {
 	}
 
 	function update() {
-		Matter.Engine.update(matterEngine, 1000/60);
 		let n = sprites.length;
 		for (var i = 0; i < n; ++i) {
 			sprites[i].update();
 		}
+		Matter.Engine.update(matterEngine, 1000/60);
 	}
 
 	function render() {
-		ctx.clearRect(0, 0, arena.width, arena.height);
+		ctx.clearRect(0, 0, arena.outerWidth, arena.outerHeight);
+		ctx.fillStyle = "#AAA";
+		ctx.fillRect(0, 0, arena.outerWidth, WALL_THICKNESS);
+		ctx.fillRect(0, arena.outerHeight - WALL_THICKNESS, 
+			arena.outerWidth, arena.outerHeight);
+		ctx.fillRect(0, WALL_THICKNESS, 
+			WALL_THICKNESS, arena.outerHeight - WALL_THICKNESS);
+		ctx.fillRect(arena.outerWidth - WALL_THICKNESS, WALL_THICKNESS, 
+			arena.outerWidth, arena.outerHeight - WALL_THICKNESS);
 		let n = sprites.length;
 		for (var i = 0; i < n; ++i) {
 			let s = sprites[i];
 			s.render(ctx, i, n);
 		} 
-		//console.log(sprites[0].body.position);
 	}
 
 	function gameLoop() {
