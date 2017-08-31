@@ -4,7 +4,7 @@
 */
 let RoboWar = (() => {
 
-
+	let stop = false;
 	let sprites = [];
 	let arena = e_("arena");
 	let ctx = arena.getContext("2d");
@@ -36,8 +36,8 @@ let RoboWar = (() => {
 				y: 0,
 			},
 			drv: {		// "drive" -- direction of movement
-				x: randomInt(-3, 3),
-				y: randomInt(-3, 3),
+				x: randomFloat(-3, 3),
+				y: randomFloat(-3, 3),
 			},
 			aim: Math.random() * 2* Math.PI,	// random initial AIM
 		});
@@ -76,13 +76,21 @@ let RoboWar = (() => {
 		return rand;
 	}
 
+	function randomFloat(lo, hi) {
+		let rand = Math.random() * (hi - lo);
+		rand += lo;
+		return rand;
+	}
+
 	PlayerAgent.prototype.update = function () {
 		//console.log(this.name, '[1]', this.body.velocity);
 		this.setAim(this.getAim() + 5);
-		let forceX = randomInt(-3, 3) * 0.1 * this.body.mass;
-		let forceY = randomInt(-3, 3) * 0.1 * this.body.mass;
+		/*
+		let forceX = (Math.random() - 0.5) * 0.001 * this.body.mass;
+		let forceY = (Math.random() - 0.5) * 0.001 * this.body.mass;
 		let force = Matter.Vector.create(forceX, forceY);
-		//Matter.Body.applyForce(this.body, this.getPosition(), force);
+		Matter.Body.applyForce(this.body, this.getPosition(), force);
+		*/
 		Matter.Body.setVelocity(this.body, this.drv);
 	}
 
@@ -244,13 +252,19 @@ let RoboWar = (() => {
 	}
 
 	function gameLoop() {
-		requestAnimationFrame(gameLoop);
+		if (!stop) {
+			requestAnimationFrame(gameLoop);
+		}
 		update();
 		render();
 	}
 
 	main = () => {
 		console.log("RoboWar starting...");
+		matterEngine.world.gravity.y = 0;
+		document.addEventListener('keydown', (evt) => {
+			stop = true;	// on any key
+		})
 		configureArena();
 		addSprites();
 		render();
