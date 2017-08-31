@@ -43,6 +43,7 @@ let RoboWar = (() => {
 	function PlayerAgent(name) {
 		Object.assign(this, {
 			name: name,
+			health: 100,
 			pos: {		// Should just be read only? Based on physics body props
 				x: 0,
 				y: 0,
@@ -57,29 +58,40 @@ let RoboWar = (() => {
 
 	PlayerAgent.RADIUS = 15;
 
-	PlayerAgent.prototype.render = function (ctx, index, count) {
+	PlayerAgent.prototype.render = function (ctx, index, count, layer) {
 		//console.log(this.name, this.body.velocity, this.body.position);
-		let color = ((360/count) % 360) * index;
-		// circle
-		ctx.strokeStyle = `hsl(${color}, 50%, 33%)`;
-		ctx.fillStyle = `hsl(${color}, 50%, 67%)`;
-		ctx.beginPath();
 		let pos = this.body.position; // get true position from physics body
-		ctx.arc(pos.x, pos.y, PlayerAgent.RADIUS, 0, 2 * Math.PI);
+		if (layer === 0) {
+			let color = ((360/count) % 360) * index;
+			// circle
+			ctx.strokeStyle = `hsl(${color}, 50%, 33%)`;
+			ctx.fillStyle = `hsl(${color}, 50%, 67%)`;
+			ctx.beginPath();
+			ctx.arc(pos.x, pos.y, PlayerAgent.RADIUS, 0, 2 * Math.PI);
 
-		ctx.fill();
-		// aim pointer
-		ctx.moveTo(pos.x, pos.y);
-		let x2 = pos.x + PlayerAgent.RADIUS * Math.cos(this.aim);
-		let y2 = pos.y + PlayerAgent.RADIUS * Math.sin(this.aim);
-		ctx.lineTo(x2, y2);
+			ctx.fill();
+			// aim pointer
+			ctx.moveTo(pos.x, pos.y);
+			let x2 = pos.x + PlayerAgent.RADIUS * Math.cos(this.aim);
+			let y2 = pos.y + PlayerAgent.RADIUS * Math.sin(this.aim);
+			ctx.lineTo(x2, y2);
 
-		ctx.stroke();
+			ctx.stroke();
+		} else if (layer === 1) {
+			ctx.font = "8px sans";
+			ctx.textAlign = "center";
+			ctx.fillStyle = "black";
+			ctx.fillText(this.name, pos.x, pos.y + PlayerAgent.RADIUS + 12);
 
-		ctx.font = "8px sans";
-		ctx.textAlign = "center";
-		ctx.fillStyle = "black";
-		ctx.fillText(this.name, pos.x, pos.y + PlayerAgent.RADIUS + 12);
+			let barX = pos.x - PlayerAgent.RADIUS,
+				barY = pos.y - PlayerAgent.RADIUS - 8,
+				barW = 2 * PlayerAgent.RADIUS,
+				barH = 3;
+			ctx.fillStyle = 'red';
+			ctx.fillRect(barX, barY, barW, barH);
+			ctx.fillStyle = 'green';
+			ctx.fillRect(barX, barY, barW * this.health / 100, barH);
+		}
 	}
 
 	PlayerAgent.prototype.update = function () {
@@ -121,12 +133,21 @@ let RoboWar = (() => {
 		this.pos = Matter.Vector.create(pos.x, pos.y);
 	}
 
+	PlayerAgent.prototype.removeHealth = function (amt) {
+		this.health -= amt;
+		if (this.health < 0) {
+			this.health = 0;
+		}
+	}
+
 	PlayerAgent.prototype.onWall = function (whichWall) {
 		if (whichWall === 'NORTH' || whichWall === 'SOUTH') {
 			this.drv.y = -1 * this.drv.y;
 		} else {
 			this.drv.x = -1 * this.drv.x;
 		}
+
+		this.removeHealth(5);
 	}
 
 
@@ -142,6 +163,9 @@ let RoboWar = (() => {
 				console.log(bodyA.label, 'collided with', bodyB.label);
 				if (isWall(bodyB)) {
 					sprites[bodyA.spriteIndex].onWall(bodyB.label);
+				} else {
+					sprites[bodyA.spriteIndex].removeHealth(1);
+					sprites[bodyB.spriteIndex].removeHealth(1);
 				}
 			}
 		}
@@ -280,10 +304,12 @@ let RoboWar = (() => {
 		ctx.fillRect(arena.outerWidth - WALL_THICKNESS, WALL_THICKNESS, 
 			arena.outerWidth, arena.outerHeight - WALL_THICKNESS);
 		let n = sprites.length;
-		for (var i = 0; i < n; ++i) {
-			let s = sprites[i];
-			s.render(ctx, i, n);
-		} 
+		for (var layer = 0; layer < 2; ++layer) {
+			for (var i = 0; i < n; ++i) {
+				let s = sprites[i];
+				s.render(ctx, i, n, layer);
+			}
+		}
 	}
 
 	Matter.Events.on(matterEngine, 'collisionActive', handleCollisions);
