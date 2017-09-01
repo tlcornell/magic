@@ -60,12 +60,18 @@ let RoboWar = (() => {
 
 	PlayerAgent.prototype.render = function (ctx, index, count, layer) {
 		//console.log(this.name, this.body.velocity, this.body.position);
-		let pos = this.body.position; // get true position from physics body
+		let pos = this.getPosition(); // get true position from physics body
 		if (layer === 0) {
-			let color = ((360/count) % 360) * index;
+			let color = ((360/count) % 360) * index,
+				stroke = `hsl(${color}, 50%, 33%)`,
+				fill = `hsl(${color}, 50%, 67%)`;
+			if (this.health === 0) {
+				stroke = '#888';
+				fill = '#BBB';
+			}
 			// circle
-			ctx.strokeStyle = `hsl(${color}, 50%, 33%)`;
-			ctx.fillStyle = `hsl(${color}, 50%, 67%)`;
+			ctx.strokeStyle = stroke;
+			ctx.fillStyle = fill;
 			ctx.beginPath();
 			ctx.arc(pos.x, pos.y, PlayerAgent.RADIUS, 0, 2 * Math.PI);
 
@@ -83,6 +89,11 @@ let RoboWar = (() => {
 			ctx.fillStyle = "black";
 			ctx.fillText(this.name, pos.x, pos.y + PlayerAgent.RADIUS + 12);
 
+			if (this.health === 0) {
+				// Don't bother with the health bar
+				return;
+			}
+
 			let barX = pos.x - PlayerAgent.RADIUS,
 				barY = pos.y - PlayerAgent.RADIUS - 8,
 				barW = 2 * PlayerAgent.RADIUS,
@@ -95,8 +106,12 @@ let RoboWar = (() => {
 	}
 
 	PlayerAgent.prototype.update = function () {
-		//console.log(this.name, '[1]', this.body.velocity);
+		if (this.health === 0) {
+			return;
+		}
+
 		this.setAim(this.getAim() + 5);
+
 		/*
 		let forceX = (Math.random() - 0.5) * 0.001 * this.body.mass;
 		let forceY = (Math.random() - 0.5) * 0.001 * this.body.mass;
@@ -123,6 +138,9 @@ let RoboWar = (() => {
 
 	PlayerAgent.prototype.getPosition = function () {
 		// Make sure pos registers are up to date
+		if (!this.body) {
+			return this.pos;
+		}
 		this.pos.x = this.body.position.x;
 		this.pos.y = this.body.position.y;
 		return this.body.position;
@@ -134,9 +152,16 @@ let RoboWar = (() => {
 	}
 
 	PlayerAgent.prototype.removeHealth = function (amt) {
+		if (this.health === 0) {
+			// Can't die twice
+			return;
+		}
 		this.health -= amt;
 		if (this.health < 0) {
 			this.health = 0;
+		}
+		if (this.health === 0) {
+			console.log(this.name, "has died");
 		}
 	}
 
@@ -150,26 +175,29 @@ let RoboWar = (() => {
 		this.removeHealth(5);
 	}
 
+	PlayerAgent.prototype.onBump = function (otherSprite) {
+		this.removeHealth(1);
+	}
+
 
 	function handleCollisions(evt) {
-		//console.log(evt);
 		for (let i = 0; i < evt.pairs.length; ++i) {
 			let bodyA = evt.pairs[i].bodyA,
-				bodyB = evt.pairs[i].bodyB;
+				bodyB = evt.pairs[i].bodyB,
+				spriteA = sprites[bodyA.spriteIndex],
+				spriteB = sprites[bodyB.spriteIndex];
+
 			if (isWall(bodyA)) {
-				console.log(bodyB.label, 'collided with', bodyA.label);
-				sprites[bodyB.spriteIndex].onWall(bodyA.label);
+				spriteB.onWall(bodyA.label);
 			} else {
-				console.log(bodyA.label, 'collided with', bodyB.label);
 				if (isWall(bodyB)) {
-					sprites[bodyA.spriteIndex].onWall(bodyB.label);
+					spriteA.onWall(bodyB.label);
 				} else {
-					sprites[bodyA.spriteIndex].removeHealth(1);
-					sprites[bodyB.spriteIndex].removeHealth(1);
+					spriteA.onBump(spriteB);
+					spriteB.onBump(spriteA);
 				}
 			}
 		}
-		//stop = true;
 	}
 
 	function isWall(body) {
@@ -315,6 +343,17 @@ let RoboWar = (() => {
 	Matter.Events.on(matterEngine, 'collisionActive', handleCollisions);
 	Matter.Events.on(matterEngine, 'collisionStart', handleCollisions);
 
+	function removeDeadSprites(sprites) {
+		for (var i = 0; i < sprites.length; ++i) {
+			let sprite = sprites[i];
+			if (sprite.health > 0 || !sprite.body) {
+				continue;
+			}
+			Matter.World.remove(matterEngine.world, sprite.body, true);
+			delete sprite.body;
+		}
+	}
+
 	function gameLoop() {
 		if (stop) {
 			return;
@@ -322,6 +361,7 @@ let RoboWar = (() => {
 		requestAnimationFrame(gameLoop);
 		update();
 		render();
+		removeDeadSprites(sprites);
 	}
 
 	function keyHandler(evt) {
