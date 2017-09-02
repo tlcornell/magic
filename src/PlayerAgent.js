@@ -1,9 +1,10 @@
 
 var MAGIC = (function(ns) {
 
+	// Imports
 	let randomFloat = ns.randomFloat;
 
-	ns.PlayerAgent = function (name) {
+	let PlayerAgent = function (name) {
 		Object.assign(this, {
 			name: name,
 			health: 100,
@@ -19,9 +20,9 @@ var MAGIC = (function(ns) {
 		});
 	}
 
-	ns.PlayerAgent.RADIUS = 15;
+	PlayerAgent.RADIUS = 15;
 
-	ns.PlayerAgent.prototype.update = function () {
+	PlayerAgent.prototype.update = function () {
 		if (this.health === 0) {
 			return;
 		}
@@ -38,7 +39,7 @@ var MAGIC = (function(ns) {
 		
 	}
 
-	ns.PlayerAgent.prototype.render = function (ctx, index, count, layer) {
+	PlayerAgent.prototype.render = function (ctx, index, count, layer) {
 		//console.log(this.name, this.body.velocity, this.body.position);
 		let pos = this.getPosition(); // get true position from physics body
 		if (layer === 0) {
@@ -89,22 +90,22 @@ var MAGIC = (function(ns) {
 	* Return contents of AIM register, converted to degrees.
 	* Returns an integer value.
 	*/
-	ns.PlayerAgent.prototype.getAim = function () {
+	PlayerAgent.prototype.getAim = function () {
 		return Math.floor(this.aim * 180 / Math.PI);
 	}
 
 	/**
 	* Set contents of AIM register. Input is in degrees; convert to radians
 	*/
-	ns.PlayerAgent.prototype.setAim = function (degrees) {
+	PlayerAgent.prototype.setAim = function (degrees) {
 		this.aim = degrees * Math.PI / 180;
 	}
 
-	ns.PlayerAgent.prototype.setAimV = function (vector) {
+	PlayerAgent.prototype.setAimV = function (vector) {
 		this.aim = Matter.Vector.angle(this.getPosition(), vector);
 	}
 
-	ns.PlayerAgent.prototype.getPosition = function () {
+	PlayerAgent.prototype.getPosition = function () {
 		// Make sure pos registers are up to date
 		if (!this.body) {
 			return this.pos;
@@ -114,12 +115,12 @@ var MAGIC = (function(ns) {
 		return this.body.position;
 	}
 
-	ns.PlayerAgent.prototype.setPosition = function (pos) {
+	PlayerAgent.prototype.setPosition = function (pos) {
 		if (this.body) this.body.position = Matter.Vector.create(pos.x, pos.y);
 		this.pos = Matter.Vector.create(pos.x, pos.y);
 	}
 
-	ns.PlayerAgent.prototype.removeHealth = function (amt) {
+	PlayerAgent.prototype.removeHealth = function (amt) {
 		if (this.health === 0) {
 			// Can't die twice
 			return;
@@ -133,7 +134,7 @@ var MAGIC = (function(ns) {
 		}
 	}
 
-	ns.PlayerAgent.prototype.driveVector = function (vec) {
+	PlayerAgent.prototype.driveVector = function (vec) {
 		this.drv.x = vec.x;
 		this.drv.y = vec.y;
 		Matter.Body.setVelocity(this.body, this.drv);
@@ -141,7 +142,7 @@ var MAGIC = (function(ns) {
 		//Matter.Body.applyForce(this.body, this.getPosition(), force);
 	}
 
-	ns.PlayerAgent.prototype.onWall = function (whichWall) {
+	PlayerAgent.prototype.onWall = function (whichWall) {
 		if (whichWall === 'NORTH' || whichWall === 'SOUTH') {
 			this.driveVector({x: this.drv.x, y: -1 * this.drv.y});
 		} else {
@@ -151,10 +152,13 @@ var MAGIC = (function(ns) {
 		this.removeHealth(5);
 	}
 
-	ns.PlayerAgent.prototype.onBump = function (otherSprite) {
+	PlayerAgent.prototype.onBump = function (otherSprite) {
 		this.removeHealth(1);
 		this.setAimV(otherSprite.getPosition());
 	}
+
+	// Exports
+	ns.PlayerAgent = PlayerAgent;
 
 	return ns;
 
