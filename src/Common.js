@@ -27,6 +27,14 @@ var MAGIC = (function (ns) {
 	}
 
 
+	ns.Layer = Object.freeze({
+		MIN: 1,
+		GROUND: 1,
+		ACTIVE: 2,
+		LABELS: 3,
+		MAX: 3,
+	});
+
 	return ns;
 
 })(MAGIC || {});

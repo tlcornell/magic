@@ -5,7 +5,8 @@
 var MAGIC = ((ns) => {
 
 	let e_ = ns.e_,
-		PlayerAgent = ns.PlayerAgent;
+		PlayerAgent = ns.PlayerAgent,
+		Layer = ns.Layer;
 
 	let stop = false;
 	let sprites = [];
@@ -145,8 +146,11 @@ var MAGIC = ((ns) => {
 
 	function addSprites() {
 		/// List of agents we will be running (PCs only, for now)
-		for (var i = 0; i < 6; ++i) {
-			sprites.push(new PlayerAgent(`Agent${i}`));
+		let count = 6;
+		for (var i = 0; i < count; ++i) {
+			let agent = new PlayerAgent(`Agent${i}`);
+			sprites.push(agent);
+			agent.color = ((360/count) % 360) * i;
 		}
 		initialPositions(sprites);
 		addSpritesToPhysicsEngine(sprites);
@@ -173,10 +177,10 @@ var MAGIC = ((ns) => {
 		ctx.clearRect(0, 0, arena.outerWidth, arena.outerHeight);
 		renderWalls();
 		let n = sprites.length;
-		for (var layer = 0; layer < 2; ++layer) {
+		for (var layer = Layer.MIN; layer <= Layer.MAX; ++layer) {
 			for (var i = 0; i < n; ++i) {
 				let s = sprites[i];
-				s.render(ctx, i, n, layer);
+				s.render(ctx, layer);
 			}
 		}
 	}
