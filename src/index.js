@@ -5,7 +5,6 @@
 var MAGIC = ((ns) => {
 
 	let e_ = ns.e_,
-		randomeFloat = ns.randomFloat,
 		PlayerAgent = ns.PlayerAgent;
 
 	let stop = false;
@@ -172,6 +171,17 @@ var MAGIC = ((ns) => {
 
 	function render() {
 		ctx.clearRect(0, 0, arena.outerWidth, arena.outerHeight);
+		renderWalls();
+		let n = sprites.length;
+		for (var layer = 0; layer < 2; ++layer) {
+			for (var i = 0; i < n; ++i) {
+				let s = sprites[i];
+				s.render(ctx, i, n, layer);
+			}
+		}
+	}
+
+	function renderWalls() {
 		ctx.fillStyle = "#AAA";
 		ctx.fillRect(0, 0, arena.outerWidth, WALL_THICKNESS);
 		ctx.fillRect(0, arena.outerHeight - WALL_THICKNESS, 
@@ -180,13 +190,6 @@ var MAGIC = ((ns) => {
 			WALL_THICKNESS, arena.outerHeight - WALL_THICKNESS);
 		ctx.fillRect(arena.outerWidth - WALL_THICKNESS, WALL_THICKNESS, 
 			arena.outerWidth, arena.outerHeight - WALL_THICKNESS);
-		let n = sprites.length;
-		for (var layer = 0; layer < 2; ++layer) {
-			for (var i = 0; i < n; ++i) {
-				let s = sprites[i];
-				s.render(ctx, i, n, layer);
-			}
-		}
 	}
 
 	Matter.Events.on(matterEngine, 'collisionActive', handleCollisions);
