@@ -185,13 +185,13 @@ var MAGIC = ((ns) => {
 			name: name,
 			type: 'wall',
 		}
-		let body = Physics.wallSegment(x, y, w, h, name);
+		let wall = this.createGameObject(properties);
+		let body = Physics.wallSegment(x, y, w, h, name, wall);
 		this.physics.addBody(body);
 		let sprite = Graphics.createSprite('wall', properties);
-		let object = this.createGameObject(properties);
-		object.body = body;
-		object.sprite = sprite;
-		this.objects.map.push(object);
+		wall.body = body;
+		wall.sprite = sprite;
+		this.objects.map.push(wall);
 	};
 
 	Game.prototype.createActors = function () {
@@ -241,7 +241,7 @@ var MAGIC = ((ns) => {
 	 */
 	Game.prototype.createActor = function (properties) {
 		let actor = this.createGameObject(properties);
-		actor.body = Physics.actorBody(properties);
+		actor.body = Physics.actorBody(actor, properties);
 		actor.sprite = Graphics.createSprite('actor',	properties);
 		this.physics.addBody(actor.body);
 		this.objects.actors.push(actor);
@@ -353,8 +353,25 @@ var MAGIC = ((ns) => {
 		this.aim = radians(deg);
 	};
 
+	GenericActor.prototype.setAimVector = function (vec) {
+		this.aim = Matter.Vector.angle(this.getPosition(), vec);
+	};
+
 	GenericActor.prototype.getHealth = function () {
 		return this.health;
+	};
+
+	GenericActor.prototype.setHealth = function (amt) {
+		this.health = Math.max(amt, 0);
+	}
+
+	GenericActor.prototype.removeHealth = function (amt) {
+		let H = this.getHealth();
+		if (H === 0) {
+			return;
+		}
+		this.setHealth(H - amt);
+		// Note that setHealth floors out at zero. So it's okay even if H-amt is neg.
 	};
 
 	GenericActor.prototype.getMaxHealth = function () {
@@ -402,6 +419,22 @@ var MAGIC = ((ns) => {
 
 	GenericActor.prototype.render = function (gfx) {
 		this.sprite.render(gfx, this);
+	};
+
+	GenericActor.prototype.onWall = function(whichWall) {
+		let name = whichWall.name;
+		if (name === 'NORTH' || name === 'SOUTH') {
+			this.driveVector({x: this.drv.x, y: -1 * this.drv.y});
+		} else {
+			this.driveVector({x: -1 * this.drv.x, y: this.drv.y});
+		}
+
+		this.removeHealth(5);
+	};
+
+	GenericActor.prototype.onBump = function (otherActor) {
+		this.removeHealth(1);
+		this.setAimVector(otherActor.getPosition());
 	};
 
 
@@ -633,56 +666,30 @@ var MAGIC = ((ns) => {
 		console.log("Physics.prototype.initialize");
 		this.matter = Matter.Engine.create();
 		this.matter.world.gravity.y = 0;
-		Matter.Events.on(this.matter, 'collisionActive', handleCollisions);
-		Matter.Events.on(this.matter, 'collisionStart', handleCollisions);
+		Matter.Events.on(this.matter, 'collisionActive', this.handleCollisions.bind(this));
+		Matter.Events.on(this.matter, 'collisionStart', this.handleCollisions.bind(this));
 	};
-
-	function handleCollisions(evt) {
-		for (let i = 0; i < evt.pairs.length; ++i) {
-			let bodyA = evt.pairs[i].bodyA,
-				bodyB = evt.pairs[i].bodyB;
-
-			if (isWall(bodyA)) {
-				console.log(bodyB.label, "on", bodyA.label);
-			} else {
-				if (isWall(bodyB)) {
-					console.log(bodyA.label, "on", bodyB.label);
-				} else {
-					console.log(bodyA.label, "collides with", bodyB.label);
-					console.log(evt);
-				}
-			}
-		}
-	}
-
-	function isWall(body) {
-		return body.label === 'NORTH' ||
-			body.label === 'SOUTH' ||
-			body.label === 'EAST' ||
-			body.label === 'WEST';
-	}
 
 	Physics.prototype.update = function () {
 		Matter.Engine.update(this.matter, 1000/60);
+		// Okay, maybe we have some events to deal with...
 	};
 
-	Physics.wallSegment = function (x, y, w, h, name) {
+	Physics.wallSegment = function (x, y, w, h, name, actor) {
 		let body = Matter.Bodies.rectangle(
 			x + w/2, y + h/2, w, h,
 			{	isStatic: true, label: name });
-		//
-		// We could wrap the Matter body with our own stuff here...
-		//
+		// Extend Matter.js body with 'controller', a back-pointer
+		body.controller = actor;
 		return body;
 	};
 
-	Physics.actorBody = function (properties) {
+	Physics.actorBody = function (actor, properties) {
 		let body = Matter.Bodies.circle(
 			properties.pos.x, properties.pos.y,
 			Game.const.ACTOR_RADIUS,
 			// options:
 			{
-				angle: properties.aim,
 				density: 1,
 				friction: 0,
 				frictionAir: 0,
@@ -690,9 +697,8 @@ var MAGIC = ((ns) => {
 				label: properties.name,
 				// restitution: defaults to 0
 			});
-		//
-		// Fill in our own wrapper stuff here, if needed.
-		//
+		// Extend Matter.js body with 'controller', a back-pointer
+		body.controller = actor;
 		return body;
 	};
 
@@ -700,6 +706,35 @@ var MAGIC = ((ns) => {
 		console.log('addBody', body);
 		Matter.World.add(this.matter.world, body);
 	};
+
+	Physics.prototype.handleCollisions = function (evt) {
+		for (let i = 0; i < evt.pairs.length; ++i) {
+			let bodyA = evt.pairs[i].bodyA,
+					bodyB = evt.pairs[i].bodyB;
+
+			if (isWall(bodyA)) {
+				console.log(bodyB.label, "on", bodyA.label);
+				bodyB.controller.onWall(bodyA.controller);
+			} else {
+				if (isWall(bodyB)) {
+					console.log(bodyA.label, "on", bodyB.label);
+					bodyA.controller.onWall(bodyB.controller);
+				} else {
+					console.log(bodyA.label, "collides with", bodyB.label);
+					console.log(evt);
+					bodyA.controller.onBump(bodyB.controller);
+					bodyB.controller.onBump(bodyA.controller);
+				}
+			}
+		}
+	};
+
+	function isWall(body) {
+		return body.label === 'NORTH' ||
+			body.label === 'SOUTH' ||
+			body.label === 'EAST' ||
+			body.label === 'WEST';
+	}
 
 
 	// EXPORTS
