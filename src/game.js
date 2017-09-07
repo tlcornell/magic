@@ -116,9 +116,9 @@ var MAGIC = ((ns) => {
 	};
 
 
-	/**
-	 * Game: Main game object.
-	 */
+	////////////////////////////////////////////////////////////////////////////
+	// Game: Main game object.
+
 	function Game(theApp) {
 		Object.assign(this, {
 			app: theApp,		// Back reference to container
@@ -250,9 +250,9 @@ var MAGIC = ((ns) => {
 	Game.prototype.createGameObject = function (properties) {
 		switch (properties.type) {
 			case 'actor/generic':
-				return new GenericActor(properties);
+				return new GenericActor(this, properties);
 			case 'wall':
-				return new WallObject(properties);
+				return new WallObject(this, properties);
 			default:
 				throw new Error(`Unrecognized game object type: ${properties.type}`);
 		}
@@ -273,14 +273,29 @@ var MAGIC = ((ns) => {
 	Game.prototype.loop = function () {
 		++this.loopCounter;
 		this.requestId = requestAnimationFrame(this.loop.bind(this));
-		console.log("Game.loop", this.loopCounter);
+		//console.log("Game.loop", this.loopCounter);
 		this.update();
 		this.render();
 	};
 
 	Game.prototype.update = function () {
 		this.physics.update();
-		this.objects.actors.forEach((actor) => actor.update());
+		this.objects.actors
+			.reduce((ts, actor) => ts.concat(actor.update()), [])
+			.forEach((task) => this.execute(task));
+	};
+
+	Game.prototype.execute = function (task) {
+		console.log("Execute game task", task);
+		switch (task.op) {
+			case 'actorDied':
+				task.actor.setState(Q_DEAD);
+				task.actor.deathCounter = 200;
+				this.physics.removeBody(task.actor);
+				break;
+			default:
+				throw new Error(`Unknown task operator (${task.op})`);
+		}
 	};
 
 	Game.prototype.render = function () {
@@ -298,8 +313,9 @@ var MAGIC = ((ns) => {
 	const Q_DEAD = 4;
 	const Q_ELIMINATED = 5;
 
-	function GenericActor(properties) {
+	function GenericActor(game, properties) {
 		Object.assign(this, {
+			game: game,
 			name: properties.name,
 			health: 100,
 			maxHealth: 100,
@@ -314,15 +330,15 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericActor.prototype.isNotDead = function () {
-		return this.state === Q_NOT_DEAD;
+		return this.getState() === Q_NOT_DEAD;
 	};
 
 	GenericActor.prototype.isDead = function () {
-		return this.state === Q_DEAD;
+		return this.getState() === Q_DEAD;
 	};
 
 	GenericActor.prototype.isEliminated = function () {
-		return this.state === Q_ELIMINATED;
+		return this.getState() === Q_ELIMINATED;
 	};
 
 	GenericActor.prototype.getName = function () {
@@ -366,6 +382,9 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericActor.prototype.removeHealth = function (amt) {
+		if (amt < 0) {
+			throw new Error(`removeHealth: Negative amount (${amt})`);
+		}
 		let H = this.getHealth();
 		if (H === 0) {
 			return;
@@ -386,35 +405,51 @@ var MAGIC = ((ns) => {
 		//Matter.Body.applyForce(this.body, this.getPosition(), force);
 	};
 
+	GenericActor.prototype.getState = function () {
+		return this.state;
+	};
+
+	GenericActor.prototype.setState = function (qNew) {
+		this.state = qNew;
+	};
+
 	GenericActor.prototype.update = function () {
+
+		let gameTasks = [];
+
+		// Handle event notifications (event queue)
+		// Trigger events if warranted (e.g., we just died)
+
 		if (this.isEliminated()) {
 			console.log(`${this.getName()} eliminated`);
-			return;
-		}
-		if (this.isDead()) {
-			console.log(`${this.getName()} dead`);
+		} else if (this.isDead()) {
+			console.log(`${this.getName()} dead (${this.deathCounter})`);
 			if (--this.deathCounter === 0) {
 				this.state = Q_ELIMINATED;
 			}
 		} else if (this.isNotDead()) {
-			if (this.getHealth() <= 0) {
-				this.state = Q_DEAD;
-				this.deathCounter = 20;
-				return;
+			if (this.getHealth() === 0) {
+				gameTasks.push({
+					op: 'actorDied',
+					actor: this,
+				});
+			} else {
+				//---------------------------------------------------
+				// This is where the bot program gets advanced
+				// (While the bot has any energy)
+
+				this.setAimDegrees(this.getAimDegrees() + 5);
+
+				// End of bot program step (i.e., end of chronon?)
+				//---------------------------------------------------		
+				
+				this.driveVector(this.drv);
 			}
-			//---------------------------------------------------
-			// This is where the bot program gets advanced
-			// (If the bot has any energy)
-
-			this.setAimDegrees(this.getAimDegrees() + 5);
-
-			// End of bot program step (i.e., end of chronon?)
-			//---------------------------------------------------		
-			
-			this.driveVector(this.drv);
 		} else {
 			throw new Error(`Game object ${this.getName()} in invalid state for update`);
 		}
+
+		return gameTasks;
 	};
 
 	GenericActor.prototype.render = function (gfx) {
@@ -442,9 +477,10 @@ var MAGIC = ((ns) => {
 	///////////////////////////////////////////////////////////////////////////
 	// Walls and other map objects
 
-	function WallObject(properties) {
+	function WallObject(game, properties) {
 		let p = properties;
 		Object.assign(this, {
+			game: game,
 			name: p.name,
 		});
 	}
@@ -707,21 +743,26 @@ var MAGIC = ((ns) => {
 		Matter.World.add(this.matter.world, body);
 	};
 
+	Physics.prototype.removeBody = function (actor) {
+		console.log('removeBody', actor.body);
+		Matter.World.remove(this.matter.world, actor.body, true);
+	};
+
 	Physics.prototype.handleCollisions = function (evt) {
 		for (let i = 0; i < evt.pairs.length; ++i) {
 			let bodyA = evt.pairs[i].bodyA,
 					bodyB = evt.pairs[i].bodyB;
 
 			if (isWall(bodyA)) {
-				console.log(bodyB.label, "on", bodyA.label);
+				//console.log(bodyB.label, "on", bodyA.label);
 				bodyB.controller.onWall(bodyA.controller);
 			} else {
 				if (isWall(bodyB)) {
-					console.log(bodyA.label, "on", bodyB.label);
+					//console.log(bodyA.label, "on", bodyB.label);
 					bodyA.controller.onWall(bodyB.controller);
 				} else {
-					console.log(bodyA.label, "collides with", bodyB.label);
-					console.log(evt);
+					//console.log(bodyA.label, "collides with", bodyB.label);
+					//console.log(evt);
 					bodyA.controller.onBump(bodyB.controller);
 					bodyB.controller.onBump(bodyA.controller);
 				}
