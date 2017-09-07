@@ -1,11 +1,22 @@
-canvas {
-    padding: 0;
-    margin: auto;
-    display: block;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+#arena {
+    position: relative;
+    width: 800px;
+    height: 640px;
     background: #F8F8F8;
+}
+
+canvas {
+	position: absolute;
+}
+
+#ground-layer {
+	z-index: 1;
+}
+
+#active-layer {
+	z-index: 2;
+}
+
+#labels-layer {
+	z-index: 3;
 }
