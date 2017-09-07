@@ -107,7 +107,7 @@ var MAGIC = ((ns) => {
 		// Pause on any key. Maybe should just be spacebar?
 		switch (evt.key) {
 			case " ":
-				this.game.pause();
+				this.game.togglePaused();
 				break;
 			default:
 				// ignore
@@ -134,16 +134,15 @@ var MAGIC = ((ns) => {
 		});
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
-		this.logic = new GameLogic(this);
 	};
 
 	Game.const = {
+		ACTOR_RADIUS: 15,
 		WALL_THICKNESS: 20,
 		arena: {
 			width: 800,
 			height: 640,
 		},
-		ACTOR_RADIUS: 15,
 	};
 
 	Game.prototype.start = function () {
@@ -156,7 +155,6 @@ var MAGIC = ((ns) => {
 		console.log("Game.prototype.initializeSubsystems");
 		this.graphics.initialize();
 		this.physics.initialize();
-		this.logic.initialize();
 	};
 
 	Game.prototype.populateTheArena = function () {
@@ -260,8 +258,7 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	Game.prototype.pause = function () {
-		//console.log("Game.prototype.pause");
+	Game.prototype.togglePaused = function () {
 		if (this.flags.paused) {
 			this.flags.paused = false;
 			this.loop();
@@ -282,18 +279,18 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.update = function () {
-		console.log("Game.prototype.update");
+		this.physics.update();
 		this.objects.actors.forEach((actor) => actor.update());
 	};
 
 	Game.prototype.render = function () {
-		console.log("Game.prototype.render");
+		this.graphics.clearViewport();
 		this.objects.map.map((wall) => wall.render(this.graphics));
 		this.objects.actors.map((actor) => actor.render(this.graphics));
 	};
 
 	///////////////////////////////////////////////////////////////////////////
-	// Actors and their states
+	// Actors
 	
 	const Q_DONE = 1;
 	const Q_NOT_DONE = 2;
@@ -315,14 +312,6 @@ var MAGIC = ((ns) => {
 		});
 		this.state = Q_NOT_DEAD;
 	}
-
-	GenericActor.prototype.update = function () {
-		console.log("GenericActor.prototype.update");
-	};
-
-	GenericActor.prototype.render = function (gfx) {
-		this.sprite.render(gfx, this);
-	};
 
 	GenericActor.prototype.isNotDead = function () {
 		return this.state === Q_NOT_DEAD;
@@ -360,12 +349,59 @@ var MAGIC = ((ns) => {
 		return degrees(this.aim);
 	};
 
+	GenericActor.prototype.setAimDegrees = function (deg) {
+		this.aim = radians(deg);
+	};
+
 	GenericActor.prototype.getHealth = function () {
 		return this.health;
 	};
 
 	GenericActor.prototype.getMaxHealth = function () {
 		return this.maxHealth;
+	};
+
+	GenericActor.prototype.driveVector = function (vec) {
+		this.drv.x = vec.x;
+		this.drv.y = vec.y;
+		Matter.Body.setVelocity(this.body, this.drv);
+		//let force = Matter.Vector.create(this.drv.x, this.drv.y);
+		//Matter.Body.applyForce(this.body, this.getPosition(), force);
+	};
+
+	GenericActor.prototype.update = function () {
+		if (this.isEliminated()) {
+			console.log(`${this.getName()} eliminated`);
+			return;
+		}
+		if (this.isDead()) {
+			console.log(`${this.getName()} dead`);
+			if (--this.deathCounter === 0) {
+				this.state = Q_ELIMINATED;
+			}
+		} else if (this.isNotDead()) {
+			if (this.getHealth() <= 0) {
+				this.state = Q_DEAD;
+				this.deathCounter = 20;
+				return;
+			}
+			//---------------------------------------------------
+			// This is where the bot program gets advanced
+			// (If the bot has any energy)
+
+			this.setAimDegrees(this.getAimDegrees() + 5);
+
+			// End of bot program step (i.e., end of chronon?)
+			//---------------------------------------------------		
+			
+			this.driveVector(this.drv);
+		} else {
+			throw new Error(`Game object ${this.getName()} in invalid state for update`);
+		}
+	};
+
+	GenericActor.prototype.render = function (gfx) {
+		this.sprite.render(gfx, this);
 	};
 
 
@@ -437,6 +473,10 @@ var MAGIC = ((ns) => {
 		}
 	};
 
+	Graphics.prototype.clearViewport = function () {
+		this.surface.clear();
+	};
+
 
 	/**
 	 * Abstraction over multiple stacked canvases
@@ -467,6 +507,13 @@ var MAGIC = ((ns) => {
 		this.layers[idx] = layer;
 	};
 
+	LayeredCanvas.prototype.clear = function () {
+		for (var i = Graphics.Layer.MIN; i <= Graphics.Layer.MAX; ++i) {
+			let ctx = this.layers[i].getContext('2d');
+			ctx.clearRect(0, 0, Game.const.arena.width, Game.const.arena.height);
+		}
+	};
+
 
 	/**
 	 * A SpriteMaster is a drawable that may draw different actual sprites
@@ -487,7 +534,6 @@ var MAGIC = ((ns) => {
 	};
 
 	WallSprite.prototype.render = function (gfx) {
-		console.log("WallSprite.prototype.render", this.name);
 		// Walls draw in the GROUND layer, so get the right context
 		let ground = Graphics.Layer.GROUND;
 		let ctx = gfx.getContext(ground);
@@ -581,16 +627,43 @@ var MAGIC = ((ns) => {
 		Object.assign(this, {
 			game: theGame,
 		});
-		this.matter = Matter.Engine.create();
 	};
 
 	Physics.prototype.initialize = function () {
 		console.log("Physics.prototype.initialize");
+		this.matter = Matter.Engine.create();
 		this.matter.world.gravity.y = 0;
+		Matter.Events.on(this.matter, 'collisionActive', handleCollisions);
+		Matter.Events.on(this.matter, 'collisionStart', handleCollisions);
 	};
 
+	function handleCollisions(evt) {
+		for (let i = 0; i < evt.pairs.length; ++i) {
+			let bodyA = evt.pairs[i].bodyA,
+				bodyB = evt.pairs[i].bodyB;
+
+			if (isWall(bodyA)) {
+				console.log(bodyB.label, "on", bodyA.label);
+			} else {
+				if (isWall(bodyB)) {
+					console.log(bodyA.label, "on", bodyB.label);
+				} else {
+					console.log(bodyA.label, "collides with", bodyB.label);
+					console.log(evt);
+				}
+			}
+		}
+	}
+
+	function isWall(body) {
+		return body.label === 'NORTH' ||
+			body.label === 'SOUTH' ||
+			body.label === 'EAST' ||
+			body.label === 'WEST';
+	}
+
 	Physics.prototype.update = function () {
-		console.log("Physics.prototype.update");
+		Matter.Engine.update(this.matter, 1000/60);
 	};
 
 	Physics.wallSegment = function (x, y, w, h, name) {
@@ -624,31 +697,10 @@ var MAGIC = ((ns) => {
 	};
 
 	Physics.prototype.addBody = function (body) {
+		console.log('addBody', body);
 		Matter.World.add(this.matter.world, body);
 	};
 
-
-
-	/**
-	 * GameLogic: This subsystem is responsible for state updates, 
-	 * apart from what the physics engine handles.
-	 */
-	GameLogic = function (theGame) {
-		Object.assign(this, {
-			game: theGame,
-			mapObjects: [],
-			actorObjects: [],
-			projectileObjects: [],
-		});
-	};
-
-	GameLogic.prototype.initialize = function () {
-		console.log("GameLogic.prototype.initialize");
-	};
-
-	GameLogic.prototype.update = function () {
-		console.log("GameLogic.prototype.update");
-	};
 
 	// EXPORTS
 	ns.App = App;
