@@ -68,10 +68,43 @@ var MAGIC = ((ns) => {
 		return rand;
 	}
 
+	function randomRadian() {
+		return Math.random() * 2 * Math.PI;
+	}
 
 	/**
-	 * App is for loading resources, talking to servers, interacting with UI
+	 * URL: https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
+	 * E: Start of ray vector
+	 * L: End of ray vector
+	 * C: Center of circle
+	 * r: Radius of circle
 	 */
+	function intersectLineCircle(E, L, C, r) {
+		let d = Matter.Vector.sub(L, E),
+				f = Matter.Vector.sub(E, C),
+				a = Matter.Vector.dot(d, d),
+				b = 2 * Matter.Vector.dot(f, d),
+				c = Matter.Vector.dot(f, f) - (r * r),
+				discriminant = (b * b) - (4 * a * c);
+		if (discriminant < 0) {
+			return false;
+		}
+		discriminant = Math.sqrt(discriminant);
+		let t1 = (-b - discriminant) / (2 * a),
+				t2 = (-b + discriminant) / (2 * a);
+		if (t1 >= 0 && t1 <= 1) {
+			return true;
+		}
+		if (t2 >= 0 && t2 <= 1) {
+			return true;
+		}
+		return false;
+	}
+
+
+	///////////////////////////////////////////////////////////////////////////
+	// App is for loading resources, talking to servers, interacting with UI
+
 	let App = function () {};
 
 	/**
@@ -136,8 +169,13 @@ var MAGIC = ((ns) => {
 		this.physics = new Physics(this);
 	};
 
+	/**
+	 * These are constants within a game, but could be considered parameters
+	 * of variation between different types of game.
+	 */
 	Game.const = {
 		ACTOR_RADIUS: 15,
+		LOOK_DISTANCE: 1024,	// size of arena diagonal, apparently
 		WALL_THICKNESS: 20,
 		arena: {
 			width: 800,
@@ -270,6 +308,53 @@ var MAGIC = ((ns) => {
 		}
 	};
 
+	/**
+	 * Sets observer.look.thing if there is anything to see at
+	 * observer.look.angle. Object returned will be the closest, 
+	 * in case there are multiple candidates.
+	 */
+	Game.prototype.checkLookEvents = function (observer) {
+		observer.look.thing = null;
+		let lookRay = Matter.Vector.create(Game.const.LOOK_DISTANCE, 0),
+				angle = observer.look.angle,
+				pos = observer.getPosition(),
+				actors = this.objects.actors;
+		lookRay = Matter.Vector.rotateAbout(lookRay, angle, pos);
+		let candidates = [];
+		for (var i = 0; i < actors.length; ++i) {
+			let actor = actors[i];
+			if (!actor.isNotDead() || observer === actor) {
+				continue;
+			}
+			let C = actor.getPosition(),
+					r = Game.const.ACTOR_RADIUS;
+			if (intersectLineCircle(pos, lookRay, C, r)) {
+				candidates.push(actor);
+			}
+		}
+		if (candidates.length === 1) {
+			observer.look.thing = candidates[0];
+		} else if (candidates.length > 1) {
+			let min = Infinity,
+					argmin = null;
+			for (var i = 0; i < candidates.length; ++i) {
+				let thing = candidates[i],
+						pos1 = thing.getPosition(),
+						dx = pos1.x - pos.x,
+						dy = pos1.y - pos.y,
+						dist2 = (dx * dx) + (dy * dy);	// distance squared, good enough
+				if (dist2 < min) {
+					min = dist2;
+					argmin = thing;
+				}
+			}
+			observer.look.thing = argmin;
+		}
+		if (observer.look.thing !== null) {
+			observer.onLook();
+		}
+	};
+
 	Game.prototype.loop = function () {
 		++this.loopCounter;
 		this.requestId = requestAnimationFrame(this.loop.bind(this));
@@ -293,12 +378,17 @@ var MAGIC = ((ns) => {
 				task.actor.deathCounter = 200;
 				this.physics.removeBody(task.actor);
 				break;
+			case 'actorEliminated':
+				task.actor.setState(Q_ELIMINATED);
+				// remove from render loop
+				break;
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
 		}
 	};
 
 	Game.prototype.render = function () {
+		//if (this.norender) return;	// for debugging
 		this.graphics.clearViewport();
 		this.objects.map.map((wall) => wall.render(this.graphics));
 		this.objects.actors.map((actor) => actor.render(this.graphics));
@@ -307,13 +397,12 @@ var MAGIC = ((ns) => {
 	///////////////////////////////////////////////////////////////////////////
 	// Actors
 	
-	const Q_DONE = 1;
-	const Q_NOT_DONE = 2;
 	const Q_NOT_DEAD = 3;
 	const Q_DEAD = 4;
 	const Q_ELIMINATED = 5;
 
 	function GenericActor(game, properties) {
+		let a0 = randomRadian();
 		Object.assign(this, {
 			game: game,
 			name: properties.name,
@@ -324,7 +413,11 @@ var MAGIC = ((ns) => {
 				x: randomFloat(-3, 3),
 				y: randomFloat(-3, 3),
 			},
-			aim: Math.random() * 2 * Math.PI, // randomRadian?
+			aim: a0,
+			look: {
+				angle: a0,
+				thing: {},
+			},
 		});
 		this.state = Q_NOT_DEAD;
 	}
@@ -413,6 +506,11 @@ var MAGIC = ((ns) => {
 		this.state = qNew;
 	};
 
+	GenericActor.prototype.setLookAngle = function (rad) {
+		this.look.angle = rad;
+		this.checkLookEvents();
+	};
+
 	GenericActor.prototype.update = function () {
 
 		let gameTasks = [];
@@ -421,11 +519,12 @@ var MAGIC = ((ns) => {
 		// Trigger events if warranted (e.g., we just died)
 
 		if (this.isEliminated()) {
-			console.log(`${this.getName()} eliminated`);
 		} else if (this.isDead()) {
-			console.log(`${this.getName()} dead (${this.deathCounter})`);
 			if (--this.deathCounter === 0) {
-				this.state = Q_ELIMINATED;
+				gameTasks.push({
+					op: 'actorEliminated',
+					actor: this,
+				});
 			}
 		} else if (this.isNotDead()) {
 			if (this.getHealth() === 0) {
@@ -434,22 +533,31 @@ var MAGIC = ((ns) => {
 					actor: this,
 				});
 			} else {
+
+				this.checkLookEvents();
+
 				//---------------------------------------------------
 				// This is where the bot program gets advanced
 				// (While the bot has any energy)
 
 				this.setAimDegrees(this.getAimDegrees() + 5);
+				this.setLookAngle(this.getAim());
 
 				// End of bot program step (i.e., end of chronon?)
 				//---------------------------------------------------		
 				
 				this.driveVector(this.drv);
+
 			}
 		} else {
 			throw new Error(`Game object ${this.getName()} in invalid state for update`);
 		}
 
 		return gameTasks;
+	};
+
+	GenericActor.prototype.checkLookEvents = function () {
+		this.game.checkLookEvents(this);
 	};
 
 	GenericActor.prototype.render = function (gfx) {
@@ -470,6 +578,15 @@ var MAGIC = ((ns) => {
 	GenericActor.prototype.onBump = function (otherActor) {
 		this.removeHealth(1);
 		this.setAimVector(otherActor.getPosition());
+	};
+
+	GenericActor.prototype.onLook = function () {
+		let seen = this.look.thing;
+		console.log(this.name, "sees", seen.name);
+		let p1 = this.getPosition(),
+				p2 = seen.getPosition();
+		//this.game.graphics.drawLine(p1, p2);
+		//this.game.togglePaused();
 	};
 
 
@@ -544,6 +661,17 @@ var MAGIC = ((ns) => {
 
 	Graphics.prototype.clearViewport = function () {
 		this.surface.clear();
+	};
+
+	// for debugging:
+	Graphics.prototype.drawLine = function (p1, p2) {
+		console.log("drawLine", p1, p2);
+		let ctx = this.getContext(Graphics.Layer.LABELS);
+		ctx.strokeStyle = 'black';
+		ctx.beginPath();
+		ctx.moveTo(p1.x, p1.y);
+		ctx.lineTo(p2.x, p2.y);
+		ctx.stroke();
 	};
 
 
