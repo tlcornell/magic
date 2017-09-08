@@ -384,7 +384,7 @@ var MAGIC = ((ns) => {
 				// remove from render loop
 				break;
 			case 'interrupt':
-				task.obj.queueEvents(task);
+				task.obj.queueEvent(task);
 				break;
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
@@ -913,52 +913,37 @@ var MAGIC = ((ns) => {
 
 			if (isWall(bodyA)) {
 				console.log(bodyB.label, "on", bodyA.label);
-				//bodyB.controller.onWall(bodyA.controller);
-				this.tasks.push({
-					op: 'interrupt',
-					type: 'wall',
-					obj: bodyB.controller,
-					data: {
-						bumped: bodyA.controller,
-					},
-				});
+				this.tasks.push(mkWallEvt(bodyB.controller, bodyA.controller));
 			} else {
 				if (isWall(bodyB)) {
 					console.log(bodyA.label, "on", bodyB.label);
-					//bodyA.controller.onWall(bodyB.controller);
-					this.tasks.push({
-						op: 'interrupt',
-						type: 'wall',
-						obj: bodyA.controller,
-						data: {
-							bumped: bodyB.controller,
-						},
-					});
+					this.tasks.push(mkWallEvt(bodyA.controller, bodyB.controller));
 				} else {
 					console.log(bodyA.label, "collides with", bodyB.label);
 					//console.log(evt);
-					//bodyA.controller.onBump(bodyB.controller);
-					//bodyB.controller.onBump(bodyA.controller);
-					this.tasks.push({
-						op: 'interrupt',
-						type: 'collision',
-						obj: bodyA.controller,
-						data: {
-							bumped: bodyB.controller,
-						},
-					});
-					this.tasks.push({
-						op: 'interrupt',
-						type: 'collision',
-						obj: bodyB.controller,
-						data: {
-							bumped: bodyA.controller,
-						},
-					});
+					this.tasks.push(mkCollEvt(bodyA.controller, bodyB.controller));
+					this.tasks.push(mkCollEvt(bodyB.controller, bodyA.controller));
 				}
 			}
 		}
 	};
+
+	function createInterrupt(type, subject, data) {
+		let task = {};
+		task.op = 'interrupt';
+		task.type = type;
+		task.obj = subject;
+		task.data = data;
+		return task;
+	}
+
+	function mkWallEvt(A, B) {
+		return createInterrupt('wall', A, {bumped: B});
+	}
+
+	function mkCollEvt(A, B) {
+		return createInterrupt('collision', A, {bumped: B});
+	}
 
 	function isWall(body) {
 		return body.label === 'NORTH' ||
