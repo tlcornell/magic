@@ -358,13 +358,14 @@ var MAGIC = ((ns) => {
 	Game.prototype.loop = function () {
 		++this.loopCounter;
 		this.requestId = requestAnimationFrame(this.loop.bind(this));
-		//console.log("Game.loop", this.loopCounter);
+		console.log("Game.loop", this.loopCounter);
 		this.update();
 		this.render();
 	};
 
 	Game.prototype.update = function () {
-		this.physics.update();
+		this.physics.update()
+			.forEach((task) => this.execute(task));
 		this.objects.actors
 			.reduce((ts, actor) => ts.concat(actor.update()), [])
 			.forEach((task) => this.execute(task));
@@ -381,6 +382,9 @@ var MAGIC = ((ns) => {
 			case 'actorEliminated':
 				task.actor.setState(Q_ELIMINATED);
 				// remove from render loop
+				break;
+			case 'interrupt':
+				task.obj.queueEvents(task);
 				break;
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
@@ -406,6 +410,8 @@ var MAGIC = ((ns) => {
 		Object.assign(this, {
 			game: game,
 			name: properties.name,
+			eventQueue: [],
+			state: Q_NOT_DEAD,
 			health: 100,
 			maxHealth: 100,
 			pos: properties.pos,
@@ -419,7 +425,6 @@ var MAGIC = ((ns) => {
 				thing: {},
 			},
 		});
-		this.state = Q_NOT_DEAD;
 	}
 
 	GenericActor.prototype.isNotDead = function () {
@@ -516,6 +521,9 @@ var MAGIC = ((ns) => {
 		let gameTasks = [];
 
 		// Handle event notifications (event queue)
+		// Right now there's no prioritization; it's just a flat list
+		this.eventQueue.forEach((evt) => this.handleEvent(evt));
+		this.eventQueue = [];
 		// Trigger events if warranted (e.g., we just died)
 
 		if (this.isEliminated()) {
@@ -560,23 +568,41 @@ var MAGIC = ((ns) => {
 		this.game.checkLookEvents(this);
 	};
 
+	GenericActor.prototype.queueEvents = function (evt) {
+		this.eventQueue.push(evt);
+	};
+
 	GenericActor.prototype.render = function (gfx) {
 		this.sprite.render(gfx, this);
 	};
 
+	GenericActor.prototype.handleEvent = function (evt) {
+		console.log("Actor.handleEvent", evt);
+		switch (evt.type) {
+			case 'collision':
+				this.removeHealth(1);
+				this.onBump(evt.data.bumped);
+				break;
+			case 'wall':
+				this.removeHealth(5);
+				this.onWall(evt.data.bumped.name);
+				break;
+			default:
+				throw new Error(`Actor does not recognize event type (${evt.type})`);
+		}
+	};
+
 	GenericActor.prototype.onWall = function(whichWall) {
-		let name = whichWall.name;
+		let name = whichWall;
 		if (name === 'NORTH' || name === 'SOUTH') {
 			this.driveVector({x: this.drv.x, y: -1 * this.drv.y});
 		} else {
 			this.driveVector({x: -1 * this.drv.x, y: this.drv.y});
 		}
 
-		this.removeHealth(5);
 	};
 
 	GenericActor.prototype.onBump = function (otherActor) {
-		this.removeHealth(1);
 		this.setAimVector(otherActor.getPosition());
 	};
 
@@ -835,8 +861,12 @@ var MAGIC = ((ns) => {
 	};
 
 	Physics.prototype.update = function () {
+		this.tasks = [];
 		Matter.Engine.update(this.matter, 1000/60);
 		// Okay, maybe we have some events to deal with...
+		// Event handlers registered with Matter will add tasks to 
+		// this.tasks.
+		return this.tasks;
 	};
 
 	Physics.wallSegment = function (x, y, w, h, name, actor) {
@@ -882,17 +912,49 @@ var MAGIC = ((ns) => {
 					bodyB = evt.pairs[i].bodyB;
 
 			if (isWall(bodyA)) {
-				//console.log(bodyB.label, "on", bodyA.label);
-				bodyB.controller.onWall(bodyA.controller);
+				console.log(bodyB.label, "on", bodyA.label);
+				//bodyB.controller.onWall(bodyA.controller);
+				this.tasks.push({
+					op: 'interrupt',
+					type: 'wall',
+					obj: bodyB.controller,
+					data: {
+						bumped: bodyA.controller,
+					},
+				});
 			} else {
 				if (isWall(bodyB)) {
-					//console.log(bodyA.label, "on", bodyB.label);
-					bodyA.controller.onWall(bodyB.controller);
+					console.log(bodyA.label, "on", bodyB.label);
+					//bodyA.controller.onWall(bodyB.controller);
+					this.tasks.push({
+						op: 'interrupt',
+						type: 'wall',
+						obj: bodyA.controller,
+						data: {
+							bumped: bodyB.controller,
+						},
+					});
 				} else {
-					//console.log(bodyA.label, "collides with", bodyB.label);
+					console.log(bodyA.label, "collides with", bodyB.label);
 					//console.log(evt);
-					bodyA.controller.onBump(bodyB.controller);
-					bodyB.controller.onBump(bodyA.controller);
+					//bodyA.controller.onBump(bodyB.controller);
+					//bodyB.controller.onBump(bodyA.controller);
+					this.tasks.push({
+						op: 'interrupt',
+						type: 'collision',
+						obj: bodyA.controller,
+						data: {
+							bumped: bodyB.controller,
+						},
+					});
+					this.tasks.push({
+						op: 'interrupt',
+						type: 'collision',
+						obj: bodyB.controller,
+						data: {
+							bumped: bodyA.controller,
+						},
+					});
 				}
 			}
 		}
