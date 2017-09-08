@@ -425,6 +425,8 @@ var MAGIC = ((ns) => {
 				thing: {},
 			},
 		});
+		this.prog = {};
+		this.prog.main = beNotDead;
 	}
 
 	GenericActor.prototype.isNotDead = function () {
@@ -526,71 +528,50 @@ var MAGIC = ((ns) => {
 		this.eventQueue = [];
 		// Trigger events if warranted (e.g., we just died)
 
-		if (this.isEliminated()) {
-		} else if (this.isDead()) {
-			if (--this.deathCounter === 0) {
-				gameTasks.push({
-					op: 'actorEliminated',
-					actor: this,
-				});
-			}
-		} else if (this.isNotDead()) {
-			if (this.getHealth() === 0) {
-				gameTasks.push({
-					op: 'actorDied',
-					actor: this,
-				});
-			} else {
-
-				this.checkLookEvents();
-
-				//---------------------------------------------------
-				// This is where the bot program gets advanced
-				// (While the bot has any energy)
-
-				this.setAimDegrees(this.getAimDegrees() + 5);
-				this.setLookAngle(this.getAim());
-
-				// End of bot program step (i.e., end of chronon?)
-				//---------------------------------------------------		
-				
-				this.driveVector(this.drv);
-
-			}
-		} else {
-			throw new Error(`Game object ${this.getName()} in invalid state for update`);
-		}
+		this.prog.main.call(this, gameTasks);
 
 		return gameTasks;
+
 	};
 
-	GenericActor.prototype.checkLookEvents = function () {
-		this.game.checkLookEvents(this);
-	};
+	let beNotDead = function (gameTasks) {
+		if (this.getHealth() === 0) {
+			gameTasks.push({
+				op: 'actorDied',
+				actor: this,
+			});
+			this.prog.main = beDead;
+		} else {
 
-	GenericActor.prototype.queueEvents = function (evt) {
-		this.eventQueue.push(evt);
-	};
+			this.checkLookEvents();
 
-	GenericActor.prototype.render = function (gfx) {
-		this.sprite.render(gfx, this);
-	};
+			//---------------------------------------------------
+			// This is where the bot program gets advanced
+			// (While the bot has any energy)
 
-	GenericActor.prototype.handleEvent = function (evt) {
-		console.log("Actor.handleEvent", evt);
-		switch (evt.type) {
-			case 'collision':
-				this.removeHealth(1);
-				this.onBump(evt.data.bumped);
-				break;
-			case 'wall':
-				this.removeHealth(5);
-				this.onWall(evt.data.bumped.name);
-				break;
-			default:
-				throw new Error(`Actor does not recognize event type (${evt.type})`);
+			this.setAimDegrees(this.getAimDegrees() + 5);
+			this.setLookAngle(this.getAim());
+
+			// End of bot program step (i.e., end of chronon?)
+			//---------------------------------------------------		
+			
+			this.driveVector(this.drv);
+
 		}
 	};
+
+	let beDead = function (gameTasks) {
+		if (--this.deathCounter === 0) {
+			gameTasks.push({
+				op: 'actorEliminated',
+				actor: this,
+			});
+			this.prog.main = beEliminated;
+		}
+	}
+
+	let beEliminated = function (gameTasks) {
+	}
 
 	GenericActor.prototype.onWall = function(whichWall) {
 		let name = whichWall;
@@ -614,6 +595,35 @@ var MAGIC = ((ns) => {
 		//this.game.graphics.drawLine(p1, p2);
 		//this.game.togglePaused();
 	};
+
+	GenericActor.prototype.checkLookEvents = function () {
+		this.game.checkLookEvents(this);
+	};
+
+	GenericActor.prototype.queueEvent = function (evt) {
+		this.eventQueue.push(evt);
+	};
+
+	GenericActor.prototype.render = function (gfx) {
+		this.sprite.render(gfx, this);
+	};
+
+	GenericActor.prototype.handleEvent = function (evt) {
+		console.log("Actor.handleEvent", evt);
+		switch (evt.type) {
+			case 'collision':
+				this.removeHealth(1);
+				this.onBump(evt.data.bumped);
+				break;
+			case 'wall':
+				this.removeHealth(5);
+				this.onWall(evt.data.bumped.name);
+				break;
+			default:
+				throw new Error(`Actor does not recognize event type (${evt.type})`);
+		}
+	};
+
 
 
 
