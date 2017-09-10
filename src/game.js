@@ -350,6 +350,7 @@ var MAGIC = ((ns) => {
 			}
 			observer.look.thing = argmin;
 		}
+		
 		if (observer.look.thing !== null) {
 			observer.onLook();
 		}
@@ -425,8 +426,11 @@ var MAGIC = ((ns) => {
 				thing: {},
 			},
 		});
-		this.prog = {};
-		this.prog.main = beNotDead;
+		this.prog = {
+			main: beNotDead,
+			onWall: bounceOffWall,
+			onBump: pushThroughCollisions,
+		};
 	}
 
 	GenericActor.prototype.isNotDead = function () {
@@ -573,17 +577,15 @@ var MAGIC = ((ns) => {
 	let beEliminated = function (gameTasks) {
 	}
 
-	GenericActor.prototype.onWall = function(whichWall) {
-		let name = whichWall;
-		if (name === 'NORTH' || name === 'SOUTH') {
+	let bounceOffWall = function (whichWall) {
+		if (whichWall === 'NORTH' || whichWall === 'SOUTH') {
 			this.driveVector({x: this.drv.x, y: -1 * this.drv.y});
 		} else {
 			this.driveVector({x: -1 * this.drv.x, y: this.drv.y});
 		}
+	}
 
-	};
-
-	GenericActor.prototype.onBump = function (otherActor) {
+	let pushThroughCollisions = function (otherActor) {
 		this.setAimVector(otherActor.getPosition());
 	};
 
@@ -613,11 +615,11 @@ var MAGIC = ((ns) => {
 		switch (evt.type) {
 			case 'collision':
 				this.removeHealth(1);
-				this.onBump(evt.data.bumped);
+				this.prog.onBump.call(this, evt.data.bumped);
 				break;
 			case 'wall':
 				this.removeHealth(5);
-				this.onWall(evt.data.bumped.name);
+				this.prog.onWall.call(this, evt.data.bumped.name);
 				break;
 			default:
 				throw new Error(`Actor does not recognize event type (${evt.type})`);
