@@ -1,0 +1,436 @@
+////////////////////////////////////////////////////////////////////////////
+//
+// Interpreter.js
+
+var MAGIC = ((ns) => {
+
+	function ERROR (line, char, msg) {
+		console.log(`[${line}.${char}] ERROR ${msg}`);
+		throw new Error(msg);
+	}
+
+
+	function Interpreter () {
+		Object.assign(this, {
+			pc: 0,
+			program: {},
+			framestack: [{
+				locals: {},
+				args: [],
+			}],
+			bot: {},
+			globals: {},
+		});
+	}
+
+	Interpreter.OpCode = Object.freeze({
+		add: true,
+		args: true,
+		call: true,
+		gt: true,
+		ifnz: true,
+		jump: true,
+		label: true,
+		return: true,
+		store: true,
+	});
+
+	Interpreter.HWRegister = Object.freeze({
+		aim: true,
+		fire: true,
+		range: true,
+	});
+
+	Interpreter.prototype.step = function () {
+		// Check that this.bot is alive, awake, and has any energy.
+		if (!this.bot.isActive()) {
+			return;
+		}
+		// Any events to handle?
+		// Okay, execute the instruction at this.pc
+		if (this.pc > this.program.length) {
+			ERROR(this.pc, 0, `Foops, out of rope! (${this.pc})`);
+		}
+
+		let self = this;
+
+		let rawInstr = this.program.instructions[this.pc],
+				instrToks = rawInstr.tokens,
+				opcode = instrToks[0].value;
+		// sanity check:
+		if (this.pc !== rawInstr.location) {
+			ERROR(this.pc, 0, `PC does not match instr loc: ${this.pc}/${rawInstr.location}`);
+		}
+
+		var dest,
+				val1,
+				val2;
+		switch (opcode) {
+			case 'add':
+				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				storeLVal(dest, val1 + val2);
+				++this.pc;
+				break;
+			case 'gt':
+				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				console.log(dest, val1, val2);
+				storeLVal(dest, (val1 > val2) ? 1 : 0);
+				++this.pc;
+				console.log("[A]", this.framestack);
+				break;
+			case 'ifnz':
+				console.log("[B]", this.framestack);
+				let cond = decodeRVal(instrToks[1]),
+						brThen = decodeRVal(instrToks[2]),
+						brElse = null;
+				// There may or may not be an else branch
+				if (instrToks.length === 4) {
+					brElse = decodeRVal(instrToks[3]);
+				}
+				if (cond) {
+					this.pc = brThen;
+				} else if (brElse !== null) {
+					this.pc = brElse;
+				} else {
+					++this.pc;
+				}
+				break;
+			case 'label':
+				++this.pc;
+				this.step();
+				break;
+			default:
+				ERROR(this.pc, 0, `Unhandled opcode ${opcode}`);
+		}
+
+		function decodeRVal(token) {
+			if (token.type === 'NUMBER') {
+				return token.value;
+			}
+			if (token.type === 'IDENTIFIER') {
+				let framePtr = self.framestack.length - 1,
+						frame = self.framestack[framePtr];
+				let parts = token.value.split('.');
+				if (parts[0] === 'sys') {
+					// Load hardware register
+					let reg = parts[1];
+					if (!self.bot.hasOwnProperty(reg)) {
+						ERROR(self.pc, 0, `Unknown hardware register (${reg})`);
+					}
+					return self.bot[reg];
+				} else if (parts[0] === 'user') {
+					// Fetch contents of global register
+					// Eventually we should consider recursively decoding that
+					if (!self.globals.hasOwnProperty(parts[1])) {
+						ERROR(self.pc, 0, `Attempt to load undefined global (${parts[1]})`);
+					}
+					return self.globals[parts[1]];
+				} else if (parts[0] === 'args') {
+					// Fetch a token from the args list
+					let i = parseInt(parts[1]);
+					if (isNaN(i)) {
+						ERROR(self.pc, 0, `Args index is not a number: ${parts[1]}`);
+					}
+					if (i >= frame.args.length) {
+						ERROR(self.pc, 0, `Args index out of bounds: ${i}`);
+					}
+					let argi = frame.args[i];
+					// Decode it (it's still a raw token)
+					return decodeRVal(argi);
+				} else if (program.labels.hasOwnProperty(parts[0])) {
+					// Return the program location for this label
+					return program.labels[parts[0]];
+				} else {
+					// Must be a local
+					let name = parts[0];
+					if (!frame.locals.hasOwnProperty(name)) {
+						ERROR(self.pc, 0, `Attempt to load unknown local (${name})`);
+					}
+					// Someday we may want to decode the local value
+					// Also someday there might be locals with more than one part
+					return frame.locals[name];
+				}
+			}
+		}
+
+		/**
+		 * In general, an LValue will look like:
+		 * { container: ..., key: ... }
+		 */
+		function decodeLVal(token) {
+			//console.log("decodeLVal", token);
+			let parts = token.value.split('.');
+			var decoded;
+			if (parts[0] === 'sys') {
+				if (!Interpreter.HWRegister.hasOwnProperty(parts[1])) {
+					ERROR(self.pc, 0, `Unrecognized hardware register (${parts[1]})`);
+				}
+				decoded = {container: self.bot, key: parts[1]};
+			} else if (parts[0] === 'user') {
+				decoded = {container: self.globals, key: parts[1]};
+			} else {
+				let framePtr = self.framestack.length - 1,
+						frame = self.framestack[framePtr];
+				decoded = {container: frame.locals, key: parts[0]};
+			}
+			//console.log(decoded);
+			return decoded;
+		}
+
+		function storeLVal(lval, x) {
+			lval.container[lval.key] = x;
+		}
+
+	};
+
+
+	////////////////////////////////////////////////////////////////////////////
+	// Scanner
+
+	function Scanner (source) {
+
+		this.line = 1;
+		this.char = 0;
+
+		this.source = source;
+		this.pos = 0;
+
+	}
+
+	Scanner.prototype.scanToken = function () {
+
+		var self = this;
+
+		function atEnd() {
+			return self.pos >= self.source.length;
+		}
+
+		function peek() {
+			return self.source.charAt(self.pos);
+		}
+
+		function skipComment() {
+			if (atEnd()) {
+				return;
+			}
+			if (peek() !== '#') {
+				return;
+			}
+			++self.pos;	// consume '#'
+			while (!atEnd() && peek() !== '\n') {
+				++self.pos;
+			}
+			// atEnd() || peek() === \n
+			++self.pos; 	// consume \n, or EOF, but that shouldn't matter
+			++self.line;
+			self.char = 0;
+			// pos points past newline, and maybe past EOF
+		}
+
+		function skipSpace() {
+			while (!atEnd()) {
+				switch (peek()) {
+					case '\n':
+						++self.line;
+						self.char = 0;
+					case ' ':
+					case '\t':
+						++self.pos;
+						break;
+					case '#':
+						skipComment();
+						break;
+					default:
+						return;
+				}
+			}
+		}
+
+		function createToken(type, value) {
+			return {
+				type: type,
+				value: value,
+			}
+		}
+
+		function isspace(ch) {
+			return ch === ' ' || ch === '\t' || ch === '\n';
+		}
+
+		function isdigit(ch) {
+			return '0' <= ch && ch <= '9';
+		}
+
+		function islower(ch) {
+			return 'a' <= ch && ch <= 'z';
+		}
+
+		function isupper(ch) {
+			return 'A' <= ch && ch <= 'Z';
+		}
+
+		function isletter(ch) {
+			return islower(ch) || isupper(ch);
+		}
+
+		/**
+		 * Technically, this allows identifiers to start with a number,
+		 * so only call it after handling the numeric token case.
+		 */
+		function isidchar(ch) {
+			return isdigit(ch) || isletter(ch) || ch === '_' || ch === '.';
+		}
+
+		function scanNumber() {
+			let start = self.pos;
+			if (peek() === '-') {
+				++self.pos;
+			}
+			while (!atEnd() && isdigit(peek())) {
+				++self.pos;
+			}
+			// atEnd || !isdigit -- better be whitespace!
+			let str = self.source.substr(start, self.pos - start),
+					val = parseInt(str);
+			if (isNaN(val)) {
+				ERROR(self.line, self.char, `scanNumber failed (${str})`);
+			}
+			return createToken('NUMBER', val);
+		}
+
+		function scanSymbol() {
+			let start = self.pos;
+			while (!atEnd() && isidchar(peek())) {
+				++self.pos;
+			}
+			let str = self.source.substr(start, self.pos - start);
+			return str;
+		}
+
+		function isopcode(sym) {
+			sym.toLowerCase();
+			return Interpreter.OpCode.hasOwnProperty(sym);
+		}
+
+		skipSpace();
+		if (atEnd()) {
+			return createToken('EOF', -1);
+		}
+		let ch = peek();
+		while (!atEnd() && !isspace(ch)) {
+			if (ch === '-' || isdigit(ch)) {
+				return scanNumber();
+			} else {
+				let sym = scanSymbol();
+				let symL = sym.toLowerCase();
+				if (isopcode(symL)) {
+					return createToken('OPCODE', symL);
+				} else if (sym.length) {
+					return createToken('IDENTIFIER', sym);	
+					// storage or address, we'll narrow it down later
+				} else {
+					ERROR(self.line, self.char, `Unrecognized token`);
+				}
+			}
+		}
+	};
+
+	Scanner.prototype.scanProgram = function (program) {
+		let instruction = [],
+				counter = 0,
+				labelMap = {};
+		while (true) {
+			let token = this.scanToken();
+			if (token.type === 'EOF') {
+				break;
+			}
+			if (token.type === 'OPCODE') {
+				if (instruction.length) {
+					program.push(createInstruction(counter, instruction, labelMap));
+					++counter;
+					instruction = [];
+				}
+			}
+			instruction.push(token);
+		}
+		if (instruction.length) {
+			program.push(createInstruction(counter, instruction, labelMap));
+		}
+
+		return {instructions: program, labels: labelMap};
+
+		function createInstruction(num, instr, map) {
+			//console.log(num, instr);
+			if (instr[0].value === 'label') {
+				map[instr[1].value] = num;
+			}
+			return {location: num, tokens: instr};
+		}
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Testing
+
+	let prog = `
+# ShotBot
+# Written 1/3/90 by David Harris
+
+# Translated to MAGIC/VMC by Tom Cornell
+
+LABEL Main
+	GT sys.range 0 A
+	IFNZ A CallFireSub CallRotateSub
+LABEL CallRotateSub
+	ARGS -5
+	CALL RotateSub 	# no return value to store
+	JUMP IfEnd
+LABEL CallFireSub
+	ARGS 20
+	CALL FireSub 	# no return value to store
+LABEL IfEnd
+	JUMP Main
+
+LABEL FireSub
+	STORE args.1 sys.fire
+	RETURN
+
+LABEL RotateSub
+	ADD sys.aim args.1 sys.aim
+	RETURN
+	`;
+
+	let testBot = {
+		program: prog,
+		// Hardware Registers:
+		aim: 0,
+		fire: 0,
+		range: 111,
+	};
+
+	testBot.isActive = function () {
+		return true;
+	}
+
+	let testScanner = new Scanner(prog),
+			instructions = [],
+			program = testScanner.scanProgram(instructions);
+	console.log("code", program.instructions);
+	console.log("map", program.labels);
+
+	let interp = new Interpreter();
+	interp.program = program;
+	interp.bot = testBot;
+	while (true) {
+		interp.step();		
+	}
+
+	// EXPORTS
+	// None as yet
+
+	return ns;
+
+})(MAGIC || {});
