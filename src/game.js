@@ -175,7 +175,7 @@ var MAGIC = ((ns) => {
 	 */
 	Game.const = {
 		ACTOR_RADIUS: 15,
-		LOOK_DISTANCE: 1024,	// size of arena diagonal, apparently
+		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently
 		WALL_THICKNESS: 20,
 		arena: {
 			width: 800,
@@ -281,6 +281,9 @@ var MAGIC = ((ns) => {
 		let actor = this.createGameObject(properties);
 		actor.body = Physics.actorBody(actor, properties);
 		actor.sprite = Graphics.createSprite('actor',	properties);
+		actor.sourceCode = ns.samples.ModifiedShotBot;
+		ns.Compiler.compile(actor);	// --> actor.program
+		actor.interpreter = new ns.Interpreter(actor);
 		this.physics.addBody(actor.body);
 		this.objects.actors.push(actor);
 	};
@@ -309,17 +312,18 @@ var MAGIC = ((ns) => {
 	};
 
 	/**
-	 * Sets observer.look.thing if there is anything to see at
-	 * observer.look.angle. Object returned will be the closest, 
-	 * in case there are multiple candidates.
+	 * Sets observer.sight.thing if there is anything to see at
+	 * observer.sight.angle + observer.sight.offset. 
+	 * Object returned will be the closest, in case there are 
+	 * multiple candidates.
 	 */
-	Game.prototype.checkLookEvents = function (observer) {
-		observer.look.thing = null;
-		let lookRay = Matter.Vector.create(Game.const.LOOK_DISTANCE, 0),
-				angle = observer.look.angle,
+	Game.prototype.checkSightEvents = function (observer) {
+		observer.sight.thing = null;
+		let sightRay = Matter.Vector.create(Game.const.SIGHT_DISTANCE, 0),
+				angle = observer.sight.angle + observer.sight.offset,
 				pos = observer.getPosition(),
 				actors = this.objects.actors;
-		lookRay = Matter.Vector.rotateAbout(lookRay, angle, pos);
+		sightRay = Matter.Vector.rotateAbout(sightRay, angle, pos);
 		let candidates = [];
 		for (var i = 0; i < actors.length; ++i) {
 			let actor = actors[i];
@@ -328,12 +332,12 @@ var MAGIC = ((ns) => {
 			}
 			let C = actor.getPosition(),
 					r = Game.const.ACTOR_RADIUS;
-			if (intersectLineCircle(pos, lookRay, C, r)) {
+			if (intersectLineCircle(pos, sightRay, C, r)) {
 				candidates.push(actor);
 			}
 		}
 		if (candidates.length === 1) {
-			observer.look.thing = candidates[0];
+			observer.sight.thing = candidates[0];
 		} else if (candidates.length > 1) {
 			let min = Infinity,
 					argmin = null;
@@ -348,11 +352,12 @@ var MAGIC = ((ns) => {
 					argmin = thing;
 				}
 			}
-			observer.look.thing = argmin;
+			observer.sight.thing = argmin;
+			observer.sight.dist = Math.sqrt(min);
 		}
 		
-		if (observer.look.thing !== null) {
-			observer.onLook();
+		if (observer.sight.thing !== null) {
+			observer.onSight();
 		}
 	};
 
@@ -373,7 +378,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.execute = function (task) {
-		console.log("Execute game task", task);
+		//console.log("Execute game task", task);
 		switch (task.op) {
 			case 'actorDied':
 				task.actor.setState(Q_DEAD);
@@ -413,6 +418,7 @@ var MAGIC = ((ns) => {
 			name: properties.name,
 			eventQueue: [],
 			state: Q_NOT_DEAD,
+			cpuSpeed: 50,
 			health: 100,
 			maxHealth: 100,
 			pos: properties.pos,
@@ -420,11 +426,13 @@ var MAGIC = ((ns) => {
 				x: randomFloat(-3, 3),
 				y: randomFloat(-3, 3),
 			},
-			aim: a0,
-			look: {
+			sight: {
 				angle: a0,
-				thing: {},
+				offset: 0,
+				thing: null,
+				dist: 0,
 			},
+			wall: 0,
 		});
 		this.prog = {
 			main: beNotDead,
@@ -458,24 +466,63 @@ var MAGIC = ((ns) => {
 		return this.pos;
 	};
 
+	GenericActor.prototype.getPosX = function () {
+		return this.getPosition().x;
+	};
+
+	GenericActor.prototype.getPosY = function () {
+		return this.getPosition().y;
+	};
+
 	/** 
 	* Return contents of AIM register, which are natively in radians.
 	*/
 	GenericActor.prototype.getAim = function () {
-		return this.aim;
+		return this.sight.angle;
 	};
 
 	GenericActor.prototype.getAimDegrees = function () {
-		return degrees(this.aim);
+		return degrees(this.getAim());
+	};
+
+	GenericActor.prototype.setAim = function (rad) {
+		this.sight.angle = rad;
+		this.checkSightEvents();
 	};
 
 	GenericActor.prototype.setAimDegrees = function (deg) {
-		this.aim = radians(deg);
+		this.setAim(radians(deg));
 	};
 
 	GenericActor.prototype.setAimVector = function (vec) {
-		this.aim = Matter.Vector.angle(this.getPosition(), vec);
+		let angle = Matter.Vector.angle(this.getPosition(), vec);
+		this.setAim(angle);
 	};
+
+	GenericActor.prototype.getLookDegrees = function () {
+		return degrees(this.sight.offset);
+	}
+
+	GenericActor.prototype.setLook = function (rad) {
+		this.vision.offset = rad;
+		this.checkSightEvents();
+	}
+
+	GenericActor.prototype.setLookDegrees = function (deg) {
+		this.setLook(radians(deg));
+	}
+
+	GenericActor.prototype.getSightDist = function () {
+		if (this.sight.dist) {
+			return this.sight.dist;
+		} else {
+			return 0;
+		}
+	};
+
+	GenericActor.prototype.getCPU = function () {
+		return this.cpuSpeed;
+	}
 
 	GenericActor.prototype.getHealth = function () {
 		return this.health;
@@ -501,6 +548,22 @@ var MAGIC = ((ns) => {
 		return this.maxHealth;
 	};
 
+	GenericActor.prototype.getSpeedX = function () {
+		return this.drv.x;
+	};
+
+	GenericActor.prototype.setSpeedX = function (dx) {
+		this.drv.x = dx;
+	}
+
+	GenericActor.prototype.getSpeedY = function () {
+		return this.drv.y;
+	};
+
+	GenericActor.prototype.setSpeedY = function (dy) {
+		this.drv.y = dy;
+	};
+
 	GenericActor.prototype.driveVector = function (vec) {
 		this.drv.x = vec.x;
 		this.drv.y = vec.y;
@@ -508,6 +571,10 @@ var MAGIC = ((ns) => {
 		//let force = Matter.Vector.create(this.drv.x, this.drv.y);
 		//Matter.Body.applyForce(this.body, this.getPosition(), force);
 	};
+
+	GenericActor.prototype.getWall = function () {
+		return this.wall;
+	}
 
 	GenericActor.prototype.getState = function () {
 		return this.state;
@@ -517,10 +584,9 @@ var MAGIC = ((ns) => {
 		this.state = qNew;
 	};
 
-	GenericActor.prototype.setLookAngle = function (rad) {
-		this.look.angle = rad;
-		this.checkLookEvents();
-	};
+	GenericActor.prototype.launchProjectile = function (angle, energy) {
+		console.log(this.name, "firing", energy, "at angle", degrees(angle));
+	}
 
 	GenericActor.prototype.update = function () {
 
@@ -528,6 +594,9 @@ var MAGIC = ((ns) => {
 
 		// Handle event notifications (event queue)
 		// Right now there's no prioritization; it's just a flat list
+		this.wall = 0;
+		this.sight.dist = 0;
+		this.sight.thing = null;
 		this.eventQueue.forEach((evt) => this.handleEvent(evt));
 		this.eventQueue = [];
 		// Trigger events if warranted (e.g., we just died)
@@ -547,20 +616,22 @@ var MAGIC = ((ns) => {
 			this.prog.main = beDead;
 		} else {
 
-			this.checkLookEvents();
+			//this.checkSightEvents();
+//			console.log(this.name, "at", this.getPosition(), "heading", this.drv);
 
 			//---------------------------------------------------
 			// This is where the bot program gets advanced
 			// (While the bot has any energy)
 
-			this.setAimDegrees(this.getAimDegrees() + 5);
-			this.setLookAngle(this.getAim());
+//			console.log(this.name, "-----------------------------");
+			for (var i = 0; i < this.getCPU(); ++i) {
+				this.interpreter.step();
+			}
 
-			// End of bot program step (i.e., end of chronon?)
+			// End of bot program cycle (i.e., end of chronon?)
 			//---------------------------------------------------		
 			
 			this.driveVector(this.drv);
-
 		}
 	};
 
@@ -589,17 +660,17 @@ var MAGIC = ((ns) => {
 		this.setAimVector(otherActor.getPosition());
 	};
 
-	GenericActor.prototype.onLook = function () {
-		let seen = this.look.thing;
-		console.log(this.name, "sees", seen.name);
+	GenericActor.prototype.onSight = function () {
+		let seen = this.sight.thing;
+//		console.log(this.name, "sees", seen.name);
 		let p1 = this.getPosition(),
 				p2 = seen.getPosition();
 		//this.game.graphics.drawLine(p1, p2);
 		//this.game.togglePaused();
 	};
 
-	GenericActor.prototype.checkLookEvents = function () {
-		this.game.checkLookEvents(this);
+	GenericActor.prototype.checkSightEvents = function () {
+		this.game.checkSightEvents(this);
 	};
 
 	GenericActor.prototype.queueEvent = function (evt) {
@@ -611,15 +682,17 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericActor.prototype.handleEvent = function (evt) {
-		console.log("Actor.handleEvent", evt);
+		console.log(this.name, "handleEvent", evt);
 		switch (evt.type) {
 			case 'collision':
 				this.removeHealth(1);
-				this.prog.onBump.call(this, evt.data.bumped);
+//				this.prog.onBump.call(this, evt.data.bumped);
 				break;
 			case 'wall':
+				console.log(this.name, "on wall", evt.data.bumped.name);
 				this.removeHealth(5);
-				this.prog.onWall.call(this, evt.data.bumped.name);
+				this.wall = 1;
+//				this.prog.onWall.call(this, evt.data.bumped.name);
 				break;
 			default:
 				throw new Error(`Actor does not recognize event type (${evt.type})`);
@@ -924,14 +997,14 @@ var MAGIC = ((ns) => {
 					bodyB = evt.pairs[i].bodyB;
 
 			if (isWall(bodyA)) {
-				console.log(bodyB.label, "on", bodyA.label);
+//				console.log(bodyB.label, "on", bodyA.label);
 				this.tasks.push(mkWallEvt(bodyB.controller, bodyA.controller));
 			} else {
 				if (isWall(bodyB)) {
-					console.log(bodyA.label, "on", bodyB.label);
+//					console.log(bodyA.label, "on", bodyB.label);
 					this.tasks.push(mkWallEvt(bodyA.controller, bodyB.controller));
 				} else {
-					console.log(bodyA.label, "collides with", bodyB.label);
+//					console.log(bodyA.label, "collides with", bodyB.label);
 					//console.log(evt);
 					this.tasks.push(mkCollEvt(bodyA.controller, bodyB.controller));
 					this.tasks.push(mkCollEvt(bodyB.controller, bodyA.controller));
