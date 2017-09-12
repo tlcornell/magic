@@ -12,7 +12,7 @@ var MAGIC = ((ns) => {
 		}
 		line += '\n';
 		ns.log += line;
-		console.log(line);
+		//console.log(line);
 		let display = e_('log-display');
 		display.append(line);
 		display.scrollTop = display.scrollHeight;
@@ -397,17 +397,18 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.loop = function () {
-		++this.loopCounter;
+		this.requestId = requestAnimationFrame(this.loop.bind(this));
 
+		// Count cycles and elapsed time
+		++this.loopCounter;
 		if (this.startTime === 0) {
 			this.startTime = Date.now();
 		} 
 		let elapsedTime = (Date.now() - this.startTime)/1000,
 				timeDisplay = e_("elapsed-time");
 		timeDisplay.innerHTML = elapsedTime.toString();
-
-		this.requestId = requestAnimationFrame(this.loop.bind(this));
 		LOG("Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
+
 		this.update();
 		this.render();
 	};
@@ -1233,6 +1234,7 @@ var MAGIC = ((ns) => {
 * Start up
 */
 window.onload = () => {
+	window.scrollTo(0, 0);
 	let magic_app = new MAGIC.App();
 	magic_app.start();
 };
