@@ -658,11 +658,11 @@ LABEL CheckRange
 	IFNZ A DoFire DoRotate
 
 LABEL DoFire
-	STORE 20 sys.fire
+	STORE 5 sys.fire
 	JUMP Main
 
 LABEL DoRotate
-	ADD sys.aim 5 sys.aim
+	ADD sys.aim 7 sys.aim
 	JUMP Main
 	`;
 

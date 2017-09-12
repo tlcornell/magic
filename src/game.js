@@ -1,5 +1,24 @@
 var MAGIC = ((ns) => {
 
+	/////////////////////////////////////////////////////////////////////////
+	// Logging
+
+	ns.log = "";
+
+	function LOG () {
+		let line = "";
+		for (var i = 0; i < arguments.length; ++i) {
+			line += arguments[i] + ' ';
+		}
+		line += '\n';
+		ns.log += line;
+		console.log(line);
+		let display = e_('log-display');
+		display.append(line);
+		display.scrollTop = display.scrollHeight;
+		window.scrollTo(0, 0);
+	}
+
 	//////////////////////////////////////////////////////////////////////
 	// Utility functions:
 
@@ -156,6 +175,7 @@ var MAGIC = ((ns) => {
 		Object.assign(this, {
 			app: theApp,		// Back reference to container
 			loopCounter: 0,
+			startTime: 0,
 			requestId: 0,		// returned from requestAnimationFrame
 			flags: {
 				paused: true,
@@ -378,8 +398,16 @@ var MAGIC = ((ns) => {
 
 	Game.prototype.loop = function () {
 		++this.loopCounter;
+
+		if (this.startTime === 0) {
+			this.startTime = Date.now();
+		} 
+		let elapsedTime = (Date.now() - this.startTime)/1000,
+				timeDisplay = e_("elapsed-time");
+		timeDisplay.innerHTML = elapsedTime.toString();
+
 		this.requestId = requestAnimationFrame(this.loop.bind(this));
-		console.log("Game.loop", this.loopCounter);
+		LOG("Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
 		this.update();
 		this.render();
 	};
@@ -447,7 +475,7 @@ var MAGIC = ((ns) => {
 			name: properties.name,
 			eventQueue: [],
 			state: Q_NOT_DEAD,
-			cpuSpeed: 50,
+			cpuSpeed: 20,
 			health: 100,
 			maxHealth: 100,
 			pos: properties.pos,
@@ -614,9 +642,9 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericActor.prototype.launchProjectile = function (angle, energy) {
-		let norm = angle2vector(angle, 1),
-				drv = Matter.Vector.mult(norm, 5),
-				offset = Matter.Vector.mult(norm, Game.const.ACTOR_RADIUS + 1),
+		let norm = angle2vector(angle, 1),	// direction of shot
+				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
+				offset = Matter.Vector.mult(norm, Game.const.ACTOR_RADIUS + 1), // start outside of shooter bot
 				pos = Matter.Vector.add(this.getPosition(), offset);
 		console.log(this.name, "firing", energy, "at angle", degrees(angle),
 			"start pos =", pos, "drive = ", drv);
