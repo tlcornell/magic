@@ -163,6 +163,7 @@ var MAGIC = ((ns) => {
 			objects: {
 				map: [],
 				actors: [],
+				projectiles: [],
 			},
 		});
 		this.graphics = new Graphics(this);
@@ -175,6 +176,7 @@ var MAGIC = ((ns) => {
 	 */
 	Game.const = {
 		ACTOR_RADIUS: 15,
+		BULLET_RADIUS: 3,
 		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently
 		WALL_THICKNESS: 20,
 		arena: {
@@ -288,6 +290,19 @@ var MAGIC = ((ns) => {
 		this.objects.actors.push(actor);
 	};
 
+	Game.prototype.createProjectile = function (pos, vec, energy) {
+		let proj = new Projectile(this, pos, vec, energy);
+		let properties = {
+			name: proj.name,
+			pos: pos,
+		};
+		proj.body = Physics.projectileBody(proj, properties);
+		proj.sprite = Graphics.createSprite('bullet', properties);
+		this.physics.addBody(proj.body);
+		this.objects.projectiles.push(proj);
+		console.log(proj);
+	};
+
 	Game.prototype.createGameObject = function (properties) {
 		switch (properties.type) {
 			case 'actor/generic':
@@ -375,8 +390,15 @@ var MAGIC = ((ns) => {
 		this.objects.actors
 			.reduce((ts, actor) => ts.concat(actor.update()), [])
 			.forEach((task) => this.execute(task));
+		this.objects.projectiles
+			// collect tasks from each projectile
+			.reduce((tasks, proj) => tasks.concat(proj.update()), [])
+			.forEach((task) => this.execute(task));
 	};
 
+	/**
+	 * Execute game tasks.
+	 */
 	Game.prototype.execute = function (task) {
 		//console.log("Execute game task", task);
 		switch (task.op) {
@@ -392,6 +414,12 @@ var MAGIC = ((ns) => {
 			case 'interrupt':
 				task.obj.queueEvent(task);
 				break;
+			case 'removeProjectile':
+				this.physics.removeBody(task.obj);
+				// Okay, which projectile do we remove from the objects list?
+				let place = this.objects.projectiles.findIndex((p) => p === task.obj);
+				this.objects.projectiles.splice(place, 1);
+				break;
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
 		}
@@ -400,8 +428,9 @@ var MAGIC = ((ns) => {
 	Game.prototype.render = function () {
 		//if (this.norender) return;	// for debugging
 		this.graphics.clearViewport();
-		this.objects.map.map((wall) => wall.render(this.graphics));
-		this.objects.actors.map((actor) => actor.render(this.graphics));
+		this.objects.map.forEach((wall) => wall.render(this.graphics));
+		this.objects.projectiles.forEach((p) => p.render(this.graphics));
+		this.objects.actors.forEach((actor) => actor.render(this.graphics));
 	};
 
 	///////////////////////////////////////////////////////////////////////////
@@ -423,8 +452,8 @@ var MAGIC = ((ns) => {
 			maxHealth: 100,
 			pos: properties.pos,
 			drv: {
-				x: randomFloat(-3, 3),
-				y: randomFloat(-3, 3),
+				x: randomFloat(-2, 2),
+				y: randomFloat(-2, 2),
 			},
 			sight: {
 				angle: a0,
@@ -585,7 +614,13 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericActor.prototype.launchProjectile = function (angle, energy) {
-		console.log(this.name, "firing", energy, "at angle", degrees(angle));
+		let norm = angle2vector(angle, 1),
+				drv = Matter.Vector.mult(norm, 5),
+				offset = Matter.Vector.mult(norm, Game.const.ACTOR_RADIUS + 1),
+				pos = Matter.Vector.add(this.getPosition(), offset);
+		console.log(this.name, "firing", energy, "at angle", degrees(angle),
+			"start pos =", pos, "drive = ", drv);
+		this.game.createProjectile(pos, drv, energy);
 	}
 
 	GenericActor.prototype.update = function () {
@@ -626,6 +661,10 @@ var MAGIC = ((ns) => {
 //			console.log(this.name, "-----------------------------");
 			for (var i = 0; i < this.getCPU(); ++i) {
 				this.interpreter.step();
+				if (this.interpreter.syncFlag) {
+					this.interpreter.syncFlag = false;
+					break;
+				}
 			}
 
 			// End of bot program cycle (i.e., end of chronon?)
@@ -685,18 +724,28 @@ var MAGIC = ((ns) => {
 		console.log(this.name, "handleEvent", evt);
 		switch (evt.type) {
 			case 'collision':
-				this.removeHealth(1);
-//				this.prog.onBump.call(this, evt.data.bumped);
+				if (evt.data.bumped instanceof Projectile) {
+					this.projectileImpact(evt.data.bumped);
+				} else {
+					// If data.bumped is a bot:
+					this.removeHealth(1);
+				}
 				break;
 			case 'wall':
 				console.log(this.name, "on wall", evt.data.bumped.name);
 				this.removeHealth(5);
 				this.wall = 1;
-//				this.prog.onWall.call(this, evt.data.bumped.name);
 				break;
 			default:
 				throw new Error(`Actor does not recognize event type (${evt.type})`);
 		}
+	};
+
+	GenericActor.prototype.projectileImpact = function (projectile) {
+		// Theoretically, we could have factors like shields and armor that
+		// lessen the effect of the impact. 
+		// For now, we just assess the full raw damage.
+		this.removeHealth(projectile.energy);
 	};
 
 
@@ -722,6 +771,77 @@ var MAGIC = ((ns) => {
 		// We might want to consider whether we really want to call this on 
 		// game loop renders. The walls never change, in this version.
 	};
+
+
+	///////////////////////////////////////////////////////////////////////////
+	// Projectile objects
+	//
+	// For now there's only one generic projectile type
+
+	function Projectile(game, startpos, velocity, energy) {
+		Object.assign(this, {
+			game: game,
+			name: `Projectile_${Projectile.idCounter++}`,
+			drv: velocity,
+			pos: startpos,
+			energy: energy,
+			eventQueue: [],
+		});
+	}
+
+	Projectile.idCounter = 0;
+
+	Projectile.prototype.getPosition = function () {
+		// Make sure pos registers are up to date
+		if (this.body) {
+			this.pos.x = this.body.position.x;
+			this.pos.y = this.body.position.y;
+		}
+		return this.pos;
+	};
+
+	Projectile.prototype.queueEvent = function (evt) {
+		this.eventQueue.push(evt);
+	};
+
+	Projectile.prototype.update = function () {
+		let gameTasks = [];
+		this.eventQueue.forEach((evt) => this.handleEvent(evt, gameTasks));
+		this.eventQueue = [];
+		Matter.Body.setVelocity(this.body, this.drv);
+		return gameTasks;	// we don't generate tasks yet...
+	};
+
+	/**
+	 * When projectiles handle events, this can lead to tasks for other
+	 * game objects (like calculating actual damage, removing this from 
+	 * the game, etc.)
+	 */
+	Projectile.prototype.handleEvent = function (evt, tasks) {
+		switch (evt.type) {
+			case 'collision':
+				tasks.push(createRemoveProjectileTask(this));
+				break;
+			case 'wall':
+				console.log(this.name, "on wall", evt.data.bumped.name);
+				tasks.push(createRemoveProjectileTask(this));
+				break;
+			default:
+				throw new Error(`Actor does not recognize event type (${evt.type})`);
+		}
+	};
+
+	function createRemoveProjectileTask(projectile) {
+		return {
+			op: 'removeProjectile',
+			obj: projectile,
+		};
+	}
+
+	Projectile.prototype.render = function (gfx) {
+		this.sprite.render(gfx, this);
+	};
+
 
 
 
@@ -762,7 +882,8 @@ var MAGIC = ((ns) => {
 		switch (key) {
 			case 'actor':
 				return new GenericActorSprite(properties);
-				break;
+			case 'bullet':
+				return new BulletSprite(properties);
 			case 'wall':
 				return new WallSprite(properties);
 			default:
@@ -928,9 +1049,23 @@ var MAGIC = ((ns) => {
 	};
 
 
-	/**
-	 * Physics: A wrapper around the Matter.js physics engine.
-	 */
+	function BulletSprite(properties) {
+		Object.assign(this, properties);
+	}
+
+	BulletSprite.prototype.render = function (gfx, model) {
+		let ctx = gfx.getContext(Graphics.Layer.ACTIVE);
+		let pos = model.getPosition();
+		ctx.fillStyle = '#444';
+		ctx.beginPath();
+		ctx.arc(pos.x, pos.y, Game.const.BULLET_RADIUS, 0, 2 * Math.PI);
+		ctx.fill();
+	}
+
+
+	////////////////////////////////////////////////////////////////////////////
+	// Physics: A wrapper around the Matter.js physics engine.
+
 	Physics = function (theGame) {
 		Object.assign(this, {
 			game: theGame,
@@ -981,6 +1116,21 @@ var MAGIC = ((ns) => {
 		return body;
 	};
 
+	Physics.projectileBody = function (projectile, properties) {
+		let body = Matter.Bodies.circle(
+			properties.pos.x, properties.pos.y,
+			Game.const.BULLET_RADIUS,
+			{
+				density: 1,
+				friction: 0,
+				frictionAir: 0,
+				frictionStatic: 0,
+				label: properties.name,
+			});
+		body.controller = projectile;
+		return body;
+	};
+
 	Physics.prototype.addBody = function (body) {
 		console.log('addBody', body);
 		Matter.World.add(this.matter.world, body);
@@ -996,15 +1146,20 @@ var MAGIC = ((ns) => {
 			let bodyA = evt.pairs[i].bodyA,
 					bodyB = evt.pairs[i].bodyB;
 
+			if (bodyA.controller instanceof Projectile && 
+					bodyB.controller instanceof Projectile) {
+				return;
+			}
+
 			if (isWall(bodyA)) {
-//				console.log(bodyB.label, "on", bodyA.label);
+				console.log(bodyB.label, "on", bodyA.label);
 				this.tasks.push(mkWallEvt(bodyB.controller, bodyA.controller));
 			} else {
 				if (isWall(bodyB)) {
-//					console.log(bodyA.label, "on", bodyB.label);
+					console.log(bodyA.label, "on", bodyB.label);
 					this.tasks.push(mkWallEvt(bodyA.controller, bodyB.controller));
 				} else {
-//					console.log(bodyA.label, "collides with", bodyB.label);
+					console.log(bodyA.label, "collides with", bodyB.label);
 					//console.log(evt);
 					this.tasks.push(mkCollEvt(bodyA.controller, bodyB.controller));
 					this.tasks.push(mkCollEvt(bodyB.controller, bodyA.controller));

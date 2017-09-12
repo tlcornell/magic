@@ -38,6 +38,7 @@ var MAGIC = ((ns) => {
 		or: true,	
 		return: true,
 		store: true,
+		sync: true,
 	});
 
 	Interpreter.HWRegister = Object.freeze({
@@ -209,6 +210,9 @@ var MAGIC = ((ns) => {
 				val1 = decodeRVal(instrToks[1]);
 				storeLVal(dest, val1);
 				++this.pc;
+				break;
+			case 'sync':
+				this.syncFlag = true;
 				break;
 			default:
 				console.log("------------------------------------------");
@@ -651,25 +655,15 @@ LABEL GetOffSouthWall
 
 LABEL CheckRange
 	GT sys.range 0 A
-	IFNZ A CallFireSub CallRotateSub
-LABEL CallRotateSub
-	ARGS -5
-	CALL RotateSub 	# no return value to store
-	JUMP IfEnd
-LABEL CallFireSub
-	ARGS 20
-	CALL FireSub 	# no return value to store
-LABEL IfEnd
+	IFNZ A DoFire DoRotate
+
+LABEL DoFire
+	STORE 20 sys.fire
 	JUMP Main
 
-LABEL FireSub
-	ADD sys.aim sys.look sys.aim
-	STORE args.1 sys.fire
-	RETURN
-
-LABEL RotateSub
-	ADD sys.aim args.1 sys.aim
-	RETURN
+LABEL DoRotate
+	ADD sys.aim 5 sys.aim
+	JUMP Main
 	`;
 
 let wallBouncer = `
