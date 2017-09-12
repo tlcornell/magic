@@ -12,7 +12,7 @@ var MAGIC = ((ns) => {
 		}
 		line += '\n';
 		ns.log += line;
-		//console.log(line);
+		console.log(line);
 		let display = e_('log-display');
 		display.append(line);
 		display.scrollTop = display.scrollHeight;
@@ -72,6 +72,16 @@ var MAGIC = ((ns) => {
 	function angle2vector(angle, distance) {
 		let x = Math.cos(angle) * distance,
 				y = Math.sin(angle) * distance;
+		return Matter.Vector.create(x, y);
+	}
+
+	/**
+	 * Return the normal vector from 'pos' at 'angle'.
+	 * Angle in radians.
+	 */
+	function a2v(pos, angle, length) {
+		let x = Math.cos(angle) * length + pos.x,
+		    y = Math.sin(angle) * length + pos.y;
 		return Matter.Vector.create(x, y);
 	}
 
@@ -209,7 +219,33 @@ var MAGIC = ((ns) => {
 		this.initializeSubsystems();
 		this.populateTheArena();
 		this.render();
+		let A = this.objects.actors[0],
+				posA = A.getPosition(),
+				B = this.objects.actors[1],
+				posB = B.getPosition();
+		console.log(A.getName(), "is at", posA);
+		console.log(B.getName(), "is at", posB);
+		let dx = posB.x - posA.x,
+				dy = posB.y - posA.y,
+				dist2 = dx * dx + dy * dy,
+				dist = Math.sqrt(dist2);
+		console.log("They are", dist, "pixels apart");
+		let rad = Math.atan2(dy, dx),
+				deg = degrees(rad);
+		console.log("The angle is", deg, "degrees");
 	};
+
+	function aimData(A, B) {
+		let posA = A.getPosition(),
+				posB = B.getPosition(),
+				dx = posB.x - posA.x,
+				dy = posB.y - posA.y,
+				dist2 = dx * dx + dy * dy,
+				dist = Math.sqrt(dist2),
+				rad = Math.atan2(dy, dx),
+				deg = degrees(rad);
+		return {dist: dist, rad: rad, deg: deg};
+	}
 
 	Game.prototype.initializeSubsystems = function () {
 		console.log("Game.prototype.initializeSubsystems");
@@ -255,7 +291,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.createActors = function () {
-		let count = 6;
+		let count = 2;
 		let initPosList = scatter(count);		// random positions, not too close
 		for (var i = 0; i < count; ++i) {
 			let properties = {
@@ -303,7 +339,7 @@ var MAGIC = ((ns) => {
 		let actor = this.createGameObject(properties);
 		actor.body = Physics.actorBody(actor, properties);
 		actor.sprite = Graphics.createSprite('actor',	properties);
-		actor.sourceCode = ns.samples.ModifiedShotBot;
+		actor.sourceCode = ns.samples.GunTurret;
 		ns.Compiler.compile(actor);	// --> actor.program
 		actor.interpreter = new ns.Interpreter(actor);
 		this.physics.addBody(actor.body);
@@ -354,25 +390,34 @@ var MAGIC = ((ns) => {
 	 */
 	Game.prototype.checkSightEvents = function (observer) {
 		observer.sight.thing = null;
-		let sightRay = Matter.Vector.create(Game.const.SIGHT_DISTANCE, 0),
-				angle = observer.sight.angle + observer.sight.offset,
+		let angle = observer.sight.angle + observer.sight.offset,
 				pos = observer.getPosition(),
-				actors = this.objects.actors;
-		sightRay = Matter.Vector.rotateAbout(sightRay, angle, pos);
+				sightRay = a2v(pos, angle, Game.const.SIGHT_DISTANCE);
+		let actors = this.objects.actors;
 		let candidates = [];
 		for (var i = 0; i < actors.length; ++i) {
 			let actor = actors[i];
 			if (!actor.isNotDead() || observer === actor) {
 				continue;
 			}
+			let debug = aimData(observer, actor),
+					dbgWhere = a2v(pos, angle, debug.dist);
 			let C = actor.getPosition(),
 					r = Game.const.ACTOR_RADIUS;
 			if (intersectLineCircle(pos, sightRay, C, r)) {
+				console.log(observer.getName(), "can see", actor.getName());
 				candidates.push(actor);
 			}
 		}
 		if (candidates.length === 1) {
+			let thing = candidates[0],
+					pos1 = thing.getPosition(),
+					dx = pos1.x - pos.x,
+					dy = pos1.y - pos.y,
+					dist2 = (dx * dx) + (dy * dy),
+					dist = Math.sqrt(dist2);
 			observer.sight.thing = candidates[0];
+			observer.sight.dist = dist;
 		} else if (candidates.length > 1) {
 			let min = Infinity,
 					argmin = null;
@@ -476,16 +521,16 @@ var MAGIC = ((ns) => {
 			name: properties.name,
 			eventQueue: [],
 			state: Q_NOT_DEAD,
-			cpuSpeed: 20,
+			cpuSpeed: 5,
 			health: 100,
 			maxHealth: 100,
 			pos: properties.pos,
 			drv: {
-				x: randomFloat(-2, 2),
-				y: randomFloat(-2, 2),
+				x: 0,
+				y: 0,
 			},
 			sight: {
-				angle: a0,
+				angle: 0,
 				offset: 0,
 				thing: null,
 				dist: 0,
@@ -680,14 +725,14 @@ var MAGIC = ((ns) => {
 			this.prog.main = beDead;
 		} else {
 
-			//this.checkSightEvents();
-//			console.log(this.name, "at", this.getPosition(), "heading", this.drv);
+			// Even without interrupts, we need to do this in case a bot
+			// has moved into our sights.
+			this.checkSightEvents();
 
 			//---------------------------------------------------
 			// This is where the bot program gets advanced
 			// (While the bot has any energy)
 
-//			console.log(this.name, "-----------------------------");
 			for (var i = 0; i < this.getCPU(); ++i) {
 				this.interpreter.step();
 				if (this.interpreter.syncFlag) {
