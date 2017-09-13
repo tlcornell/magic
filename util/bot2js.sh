@@ -13,7 +13,8 @@ var MAGIC = ((ns) => {
 let $BOTNAME = \`
 EOT
 
-while read -r LINE
+IFS=
+while read LINE
 do
 	echo $LINE
 done < $1

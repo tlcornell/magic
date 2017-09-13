@@ -7,13 +7,13 @@ let GunTurret = `
 #
 
 LABEL Main
-GT sys.range 0 A
-IFNZ A DoFire
-ADD 1 sys.aim sys.aim
-JUMP Main
+	GT sys.range 0 A
+	IFNZ A DoFire
+	ADD 7 sys.aim sys.aim
+	JUMP Main
 LABEL DoFire
-STORE 5 sys.fire
-JUMP Main
+	STORE 5 sys.fire
+	JUMP Main
 `;
 
 	// EXPORTS

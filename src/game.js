@@ -206,7 +206,7 @@ var MAGIC = ((ns) => {
 	 */
 	Game.const = {
 		ACTOR_RADIUS: 15,
-		BULLET_RADIUS: 3,
+		BULLET_RADIUS: 2,
 		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently
 		WALL_THICKNESS: 20,
 		arena: {
@@ -291,15 +291,21 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.createActors = function () {
-		let count = 2;
+		let count = 6;
 		let initPosList = scatter(count);		// random positions, not too close
 		for (var i = 0; i < count; ++i) {
 			let properties = {
 				name: `Agent${i}`,
 				type: 'actor/generic',
+				sourceCode: ns.samples.GunTurret,
 				color: ((360/count) % 360) * i,
 				pos: initPosList[i],
 				radius: Game.const.ACTOR_RADIUS,
+				hw: {
+					cpu: 10,
+					energy: 20,
+					damage: 100
+				}
 			};
 			this.createActor(properties);
 		}
@@ -339,7 +345,7 @@ var MAGIC = ((ns) => {
 		let actor = this.createGameObject(properties);
 		actor.body = Physics.actorBody(actor, properties);
 		actor.sprite = Graphics.createSprite('actor',	properties);
-		actor.sourceCode = ns.samples.GunTurret;
+		actor.sourceCode = properties.sourceCode; 
 		ns.Compiler.compile(actor);	// --> actor.program
 		actor.interpreter = new ns.Interpreter(actor);
 		this.physics.addBody(actor.body);
@@ -369,6 +375,10 @@ var MAGIC = ((ns) => {
 				throw new Error(`Unrecognized game object type: ${properties.type}`);
 		}
 	};
+
+	Game.prototype.remainingPlayers = function () {
+		return this.objects.actors.filter((a) => a.isNotDead()).length;
+	}
 
 	Game.prototype.togglePaused = function () {
 		if (this.flags.paused) {
@@ -409,32 +419,24 @@ var MAGIC = ((ns) => {
 				candidates.push(actor);
 			}
 		}
-		if (candidates.length === 1) {
-			let thing = candidates[0],
+		if (candidates.length === 0) {
+			return;
+		}
+		let min = Infinity,
+				argmin = null;
+		for (var i = 0; i < candidates.length; ++i) {
+			let thing = candidates[i],
 					pos1 = thing.getPosition(),
 					dx = pos1.x - pos.x,
 					dy = pos1.y - pos.y,
-					dist2 = (dx * dx) + (dy * dy),
-					dist = Math.sqrt(dist2);
-			observer.sight.thing = candidates[0];
-			observer.sight.dist = dist;
-		} else if (candidates.length > 1) {
-			let min = Infinity,
-					argmin = null;
-			for (var i = 0; i < candidates.length; ++i) {
-				let thing = candidates[i],
-						pos1 = thing.getPosition(),
-						dx = pos1.x - pos.x,
-						dy = pos1.y - pos.y,
-						dist2 = (dx * dx) + (dy * dy);	// distance squared, good enough
-				if (dist2 < min) {
-					min = dist2;
-					argmin = thing;
-				}
+					dist2 = (dx * dx) + (dy * dy);	// distance squared, good enough
+			if (dist2 < min) {
+				min = dist2;
+				argmin = thing;
 			}
-			observer.sight.thing = argmin;
-			observer.sight.dist = Math.sqrt(min);
 		}
+		observer.sight.thing = argmin;
+		observer.sight.dist = Math.sqrt(min);
 		
 		if (observer.sight.thing !== null) {
 			observer.onSight();
@@ -442,6 +444,14 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.loop = function () {
+
+		console.log("** Remaining:", this.remainingPlayers());
+		if (this.remainingPlayers() <= 1) {
+			// Game Over
+			cancelAnimationFrame(this.requestId);
+			return;
+		}
+
 		this.requestId = requestAnimationFrame(this.loop.bind(this));
 
 		// Count cycles and elapsed time
@@ -489,10 +499,13 @@ var MAGIC = ((ns) => {
 				task.obj.queueEvent(task);
 				break;
 			case 'removeProjectile':
+				console.log("execute removeProjectile task", task);
 				this.physics.removeBody(task.obj);
 				// Okay, which projectile do we remove from the objects list?
 				let place = this.objects.projectiles.findIndex((p) => p === task.obj);
 				this.objects.projectiles.splice(place, 1);
+				task.obj.sprite = null;
+				console.log("Removed projectile from position", place);
 				break;
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
@@ -514,6 +527,19 @@ var MAGIC = ((ns) => {
 	const Q_DEAD = 4;
 	const Q_ELIMINATED = 5;
 
+	/**
+	 * Properties assignable from outside include:
+	 *
+	 * name: robot identifier
+	 * pos: initial position
+	 * -- Hardware/Loadout --
+	 * cpu: CPU speed bought from the hardware store
+	 * energy: Max energy
+	 * health: Sustainable damage
+	 * -- Not Yet Supported --
+	 * shields: Max shields (at normal drain rates)
+	 * weapon: Currently only plain bullets are supported
+	 */
 	function GenericActor(game, properties) {
 		let a0 = randomRadian();
 		Object.assign(this, {
@@ -521,10 +547,14 @@ var MAGIC = ((ns) => {
 			name: properties.name,
 			eventQueue: [],
 			state: Q_NOT_DEAD,
-			cpuSpeed: 5,
-			health: 100,
-			maxHealth: 100,
+			// "Hardware Registers"
 			pos: properties.pos,
+			cpuSpeed: properties.hw.cpu,
+			energy: properties.hw.energy,
+			maxEnergy: properties.hw.energy,
+			fire: 0,
+			health: properties.hw.damage,
+			maxHealth: properties.hw.damage,
 			drv: {
 				x: 0,
 				y: 0,
@@ -627,6 +657,26 @@ var MAGIC = ((ns) => {
 		return this.cpuSpeed;
 	}
 
+	GenericActor.prototype.getBulletEnergy = function () {
+		return this.fire;
+	}
+
+	GenericActor.prototype.addBulletEnergy = function (e) {
+		this.fire += e;
+	}
+
+	GenericActor.prototype.clearBulletEnergy = function () {
+		this.fire = 0;
+	}
+
+	GenericActor.prototype.getEnergy = function () {
+		return this.energy;
+	}
+
+	GenericActor.prototype.rechargeEnergy = function () {
+		this.energy = Math.min(this.maxEnergy, this.energy + 2);
+	}
+
 	GenericActor.prototype.getHealth = function () {
 		return this.health;
 	};
@@ -687,6 +737,18 @@ var MAGIC = ((ns) => {
 		this.state = qNew;
 	};
 
+	GenericActor.prototype.fireWeapons = function () {
+		let payload = this.getBulletEnergy(),
+				angle = this.getAim();
+		// Cap the energy payload at this agent's available energy
+		payload = Math.min(this.getEnergy(), payload);
+		if (payload > 0) {
+			this.launchProjectile(angle, payload);
+			this.clearBulletEnergy();
+		}
+		// No other attacks supported at this time
+	}
+
 	GenericActor.prototype.launchProjectile = function (angle, energy) {
 		let norm = angle2vector(angle, 1),	// direction of shot
 				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
@@ -701,7 +763,8 @@ var MAGIC = ((ns) => {
 
 		let gameTasks = [];
 
-		// Handle event notifications (event queue)
+		// Handle event notifications (event queue) for "external" events 
+		// coming in from the Game object.
 		// Right now there's no prioritization; it's just a flat list
 		this.wall = 0;
 		this.sight.dist = 0;
@@ -716,6 +779,11 @@ var MAGIC = ((ns) => {
 
 	};
 
+	/**
+	 * This is the main agent state, where we run an interpreter over
+	 * the agent control program. This wrapper handles tasks that must
+	 * be executed before and after the actual interpreter cycle.
+	 */
 	let beNotDead = function (gameTasks) {
 		if (this.getHealth() === 0) {
 			gameTasks.push({
@@ -725,6 +793,7 @@ var MAGIC = ((ns) => {
 			this.prog.main = beDead;
 		} else {
 
+			this.rechargeEnergy();
 			// Even without interrupts, we need to do this in case a bot
 			// has moved into our sights.
 			this.checkSightEvents();
@@ -734,6 +803,9 @@ var MAGIC = ((ns) => {
 			// (While the bot has any energy)
 
 			for (var i = 0; i < this.getCPU(); ++i) {
+				if (this.getEnergy() <= 0) {
+					break;
+				}
 				this.interpreter.step();
 				if (this.interpreter.syncFlag) {
 					this.interpreter.syncFlag = false;
@@ -743,6 +815,10 @@ var MAGIC = ((ns) => {
 
 			// End of bot program cycle (i.e., end of chronon?)
 			//---------------------------------------------------		
+
+			// If any energy has been stored in a weapon register,
+			// fire that weapon now.
+			this.fireWeapons();
 			
 			this.driveVector(this.drv);
 		}
@@ -1210,9 +1286,10 @@ var MAGIC = ((ns) => {
 		Matter.World.add(this.matter.world, body);
 	};
 
-	Physics.prototype.removeBody = function (actor) {
-		console.log('removeBody', actor.body);
-		Matter.World.remove(this.matter.world, actor.body, true);
+	Physics.prototype.removeBody = function (object) {
+		console.log('removeBody', object.body);
+		Matter.World.remove(this.matter.world, object.body, true);
+		object.body = null;
 	};
 
 	Physics.prototype.handleCollisions = function (evt) {
