@@ -321,8 +321,9 @@ var MAGIC = ((ns) => {
 					self.bot.setAimDegrees(x);
 					break;
 				case 'fire':
-					//self.bot.addBulletEnergy(x);
-					self.bot.launchProjectile(self.bot.getAim(), x);
+					self.bot.addBulletEnergy(x);
+					self.bot.fireWeapons();
+					//self.bot.launchProjectile(self.bot.getAim(), x);
 					break;
 				case 'speedx':
 					self.bot.setSpeedX(x);

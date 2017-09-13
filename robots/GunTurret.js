@@ -12,7 +12,7 @@ LABEL Main
 	ADD 7 sys.aim sys.aim
 	JUMP Main
 LABEL DoFire
-	STORE 5 sys.fire
+	STORE 50 sys.fire
 	JUMP Main
 `;
 

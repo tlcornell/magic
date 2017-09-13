@@ -23,7 +23,7 @@ var MAGIC = ((ns) => {
 
 	function displayLog () {
 		let div = e_('log-div');
-		div.innerHTML = "<textarea id="log-display" rows="10" cols="80"></textarea>"
+		div.innerHTML = `<textarea id="log-display" rows="10" cols="80"></textarea>`;
 		let display = e_('log-display');
 		display.append(ns.log);
 		display.scrollTop = display.scrollHeight;
@@ -230,20 +230,6 @@ var MAGIC = ((ns) => {
 		this.initializeSubsystems();
 		this.populateTheArena();
 		this.render();
-		let A = this.objects.actors[0],
-				posA = A.getPosition(),
-				B = this.objects.actors[1],
-				posB = B.getPosition();
-		console.log(A.getName(), "is at", posA);
-		console.log(B.getName(), "is at", posB);
-		let dx = posB.x - posA.x,
-				dy = posB.y - posA.y,
-				dist2 = dx * dx + dy * dy,
-				dist = Math.sqrt(dist2);
-		console.log("They are", dist, "pixels apart");
-		let rad = Math.atan2(dy, dx),
-				deg = degrees(rad);
-		console.log("The angle is", deg, "degrees");
 	};
 
 	function aimData(A, B) {
@@ -377,7 +363,6 @@ var MAGIC = ((ns) => {
 		proj.sprite = Graphics.createSprite('bullet', properties);
 		this.physics.addBody(proj.body);
 		this.objects.projectiles.push(proj);
-		console.log(proj);
 	};
 
 	Game.prototype.createGameObject = function (properties) {
@@ -430,7 +415,6 @@ var MAGIC = ((ns) => {
 			let C = actor.getPosition(),
 					r = Game.const.ACTOR_RADIUS;
 			if (intersectLineCircle(pos, sightRay, C, r)) {
-				console.log(observer.getName(), "can see", actor.getName());
 				candidates.push(actor);
 			}
 		}
@@ -460,7 +444,6 @@ var MAGIC = ((ns) => {
 
 	Game.prototype.loop = function () {
 
-		console.log("** Remaining:", this.remainingPlayers());
 		if (this.remainingPlayers() <= 1) {
 			// Game Over
 			cancelAnimationFrame(this.requestId);
@@ -475,10 +458,12 @@ var MAGIC = ((ns) => {
 		if (this.startTime === 0) {
 			this.startTime = Date.now();
 		} 
-		let elapsedTime = (Date.now() - this.startTime)/1000,
+		let turnDisplay = e_("turn-number"),
+				elapsedTime = (Date.now() - this.startTime)/1000,
 				timeDisplay = e_("elapsed-time");
+		turnDisplay.innerHTML = this.loopCounter;
 		timeDisplay.innerHTML = elapsedTime.toString();
-		LOG("Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
+		//LOG("Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
 
 		this.update();
 		this.render();
@@ -527,23 +512,11 @@ var MAGIC = ((ns) => {
 					this.objects.projectiles.splice(place, 1);
 					task.obj.sprite = null;
 					task.obj.body = null;
-					console.log("Removed projectile from position", place);
 				}
 				break;
 			case 'interrupt':
 				task.obj.queueEvent(task);
 				break;
-			/*
-			case 'removeProjectile':
-				console.log("execute removeProjectile task", task);
-				this.physics.removeBody(task.obj);
-				// Okay, which projectile do we remove from the objects list?
-				let place = this.objects.projectiles.findIndex((p) => p === task.obj);
-				this.objects.projectiles.splice(place, 1);
-				task.obj.sprite = null;
-				console.log("Removed projectile from position", place);
-				break;
-				*/
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
 		}
@@ -700,6 +673,7 @@ var MAGIC = ((ns) => {
 
 	GenericActor.prototype.addBulletEnergy = function (e) {
 		this.fire += e;
+		this.energy -= e;
 	}
 
 	GenericActor.prototype.clearBulletEnergy = function () {
@@ -743,6 +717,11 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericActor.prototype.setSpeedX = function (dx) {
+		let diff = dx - this.drv.x;
+		// could be negative if we are lowering speed
+		this.energy -= diff;
+		// in which case we actually just gained energy
+		this.energy = Math.min(this.maxEnergy, this.energy);
 		this.drv.x = dx;
 	}
 
@@ -751,6 +730,11 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericActor.prototype.setSpeedY = function (dy) {
+		let diff = dy - this.drv.y;
+		// could be negative if we are lowering speed
+		this.energy -= diff;
+		// in which case we actually just gained energy
+		this.energy = Math.min(this.maxEnergy, this.energy);
 		this.drv.y = dy;
 	};
 
@@ -778,7 +762,7 @@ var MAGIC = ((ns) => {
 		let payload = this.getBulletEnergy(),
 				angle = this.getAim();
 		// Cap the energy payload at this agent's available energy
-		payload = Math.min(this.getEnergy(), payload);
+		//payload = Math.min(this.getEnergy(), payload);
 		if (payload > 0) {
 			this.launchProjectile(angle, payload);
 			this.clearBulletEnergy();
@@ -791,8 +775,6 @@ var MAGIC = ((ns) => {
 				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
 				offset = Matter.Vector.mult(norm, Game.const.ACTOR_RADIUS + 1), // start outside of shooter bot
 				pos = Matter.Vector.add(this.getPosition(), offset);
-		console.log(this.name, "firing", energy, "at angle", degrees(angle),
-			"start pos =", pos, "drive = ", drv);
 		this.game.createProjectile(this, pos, drv, energy);
 	}
 
@@ -840,13 +822,12 @@ var MAGIC = ((ns) => {
 			// (While the bot has any energy)
 
 			for (var i = 0; i < this.getCPU(); ++i) {
-				if (this.getEnergy() <= 0) {
-					break;
-				}
-				this.interpreter.step();
-				if (this.interpreter.syncFlag) {
-					this.interpreter.syncFlag = false;
-					break;
+				if (this.getEnergy() > 0) {
+					this.interpreter.step();
+					if (this.interpreter.syncFlag) {
+						this.interpreter.syncFlag = false;
+						break;
+					}
 				}
 			}
 
@@ -855,9 +836,11 @@ var MAGIC = ((ns) => {
 
 			// If any energy has been stored in a weapon register,
 			// fire that weapon now.
-			this.fireWeapons();
+			//this.fireWeapons();
 			
-			this.driveVector(this.drv);
+			if (this.getEnergy() > 0) {
+				this.driveVector(this.drv);
+			}
 		}
 	};
 
@@ -908,21 +891,28 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericActor.prototype.handleEvent = function (evt) {
-		console.log(this.name, "handleEvent", evt);
-		switch (evt.type) {
-			case 'collision':
-				this.removeHealth(1);
+//		console.log(this.name, "handleEvent", evt);
+		switch (evt.op) {
+			case 'interrupt':
+				switch (evt.type) {
+					case 'collision':
+						this.removeHealth(1);
+						break;
+					case 'wall':
+						console.log(this.name, "on wall", evt.data.bumped.name);
+						this.removeHealth(5);
+						this.wall = 1;
+						break;
+					default:
+						throw new Error(`Actor does not recognize event type (${evt.type})`);
+				}
 				break;
 			case 'hit':
 				this.projectileImpact(evt.data.hitBy);
 				break;
-			case 'wall':
-				console.log(this.name, "on wall", evt.data.bumped.name);
-				this.removeHealth(5);
-				this.wall = 1;
 				break;
-			default:
-				throw new Error(`Actor does not recognize event type (${evt.type})`);
+			case 'default':
+				throw new Error(`Actor does not recognize event operator (${evt.op})`);
 		}
 	};
 
@@ -1313,12 +1303,11 @@ var MAGIC = ((ns) => {
 				label: properties.name,
 			});
 		body.controller = projectile;
-		body.collisionFilter.group = -1 * properties.shooter;
+		body.collisionFilter.group = -1 /** properties.shooter*/;
 		return body;
 	};
 
 	Physics.prototype.addBody = function (body) {
-		console.log('addBody', body);
 		Matter.World.add(this.matter.world, body);
 	};
 
@@ -1326,7 +1315,6 @@ var MAGIC = ((ns) => {
 		if (object === null || object.body === null) {
 			return;
 		}
-		console.log('removeBody', object.body);
 		Matter.World.remove(this.matter.world, object.body, true);
 		object.body = null;
 	};
@@ -1347,6 +1335,7 @@ var MAGIC = ((ns) => {
 
 			if (A instanceof Projectile) {
 				if (B instanceof Projectile) {
+					/*
 					// eliminate A and B
 					if (bodyA.collisionFilter.group === bodyB.collisionFilter.group) {
 						LOG("ERROR", "Collision filtering isn't working properly.",
@@ -1354,6 +1343,7 @@ var MAGIC = ((ns) => {
 					}
 					this.tasks.push(mkImpactEvt(A, B));
 					this.tasks.push(mkImpactEvt(B, A));
+					*/
 				} else if (isWall(bodyB)) {
 					this.tasks.push(mkImpactEvt(A, B));
 				} else {
@@ -1371,6 +1361,7 @@ var MAGIC = ((ns) => {
 			} else {
 				if (B instanceof Projectile) {
 					this.tasks.push(mkImpactEvt(B, A));
+					this.tasks.push(mkTakeHitEvt(A, B));
 				} else if (isWall(bodyB)) {
 					console.log(bodyA.label, "on", bodyB.label);
 					this.tasks.push(mkWallEvt(A, B));
