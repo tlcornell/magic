@@ -13,8 +13,19 @@ var MAGIC = ((ns) => {
 		line += '\n';
 		ns.log += line;
 		console.log(line);
+		/*
 		let display = e_('log-display');
 		display.append(line);
+		display.scrollTop = display.scrollHeight;
+		window.scrollTo(0, 0);
+		*/
+	}
+
+	function displayLog () {
+		let div = e_('log-div');
+		div.innerHTML = "<textarea id="log-display" rows="10" cols="80"></textarea>"
+		let display = e_('log-display');
+		display.append(ns.log);
 		display.scrollTop = display.scrollHeight;
 		window.scrollTo(0, 0);
 	}
@@ -294,11 +305,13 @@ var MAGIC = ((ns) => {
 		let count = 6;
 		let initPosList = scatter(count);		// random positions, not too close
 		for (var i = 0; i < count; ++i) {
+			let idx = i + 1;
 			let properties = {
-				name: `Agent${i}`,
+				name: `Agent${idx}`,
+				number: idx,
+				color: ((360/count) % 360) * i,
 				type: 'actor/generic',
 				sourceCode: ns.samples.GunTurret,
-				color: ((360/count) % 360) * i,
 				pos: initPosList[i],
 				radius: Game.const.ACTOR_RADIUS,
 				hw: {
@@ -315,7 +328,7 @@ var MAGIC = ((ns) => {
 	 * Assign initial positions so no one is too close
 	 *
 	 * Divide the arena up into |actors| rows and columns, and
-	 * assign row, col pairs uniquely.
+	 * assign row, col pairs randomly and uniquely.
 	 */
 	function scatter(n) {
 		let rows = Array.from(Array(n).keys());
@@ -343,6 +356,7 @@ var MAGIC = ((ns) => {
 	 */
 	Game.prototype.createActor = function (properties) {
 		let actor = this.createGameObject(properties);
+		actor.number = properties.number;
 		actor.body = Physics.actorBody(actor, properties);
 		actor.sprite = Graphics.createSprite('actor',	properties);
 		actor.sourceCode = properties.sourceCode; 
@@ -352,10 +366,11 @@ var MAGIC = ((ns) => {
 		this.objects.actors.push(actor);
 	};
 
-	Game.prototype.createProjectile = function (pos, vec, energy) {
+	Game.prototype.createProjectile = function (shooter, pos, vec, energy) {
 		let proj = new Projectile(this, pos, vec, energy);
 		let properties = {
 			name: proj.name,
+			shooter: shooter.number,
 			pos: pos,
 		};
 		proj.body = Physics.projectileBody(proj, properties);
@@ -449,6 +464,7 @@ var MAGIC = ((ns) => {
 		if (this.remainingPlayers() <= 1) {
 			// Game Over
 			cancelAnimationFrame(this.requestId);
+			displayLog();
 			return;
 		}
 
@@ -495,9 +511,29 @@ var MAGIC = ((ns) => {
 				task.actor.setState(Q_ELIMINATED);
 				// remove from render loop
 				break;
+			case 'hit':
+				// A weapon hit something -- tell it to assess damage
+				task.obj.queueEvent(task);
+				break;
+			case 'impact':
+				// Remove the projectile that impacted something
+				// Someday this might trigger an animation and sound...
+				this.physics.removeBody(task.obj);
+				// Okay, which projectile do we remove from the objects list?
+				let place = this.objects.projectiles.findIndex((p) => p === task.obj);
+				if (place === -1) {
+					LOG("Projectile not found among game objects", task.obj.name);
+				} else {
+					this.objects.projectiles.splice(place, 1);
+					task.obj.sprite = null;
+					task.obj.body = null;
+					console.log("Removed projectile from position", place);
+				}
+				break;
 			case 'interrupt':
 				task.obj.queueEvent(task);
 				break;
+			/*
 			case 'removeProjectile':
 				console.log("execute removeProjectile task", task);
 				this.physics.removeBody(task.obj);
@@ -507,6 +543,7 @@ var MAGIC = ((ns) => {
 				task.obj.sprite = null;
 				console.log("Removed projectile from position", place);
 				break;
+				*/
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
 		}
@@ -756,7 +793,7 @@ var MAGIC = ((ns) => {
 				pos = Matter.Vector.add(this.getPosition(), offset);
 		console.log(this.name, "firing", energy, "at angle", degrees(angle),
 			"start pos =", pos, "drive = ", drv);
-		this.game.createProjectile(pos, drv, energy);
+		this.game.createProjectile(this, pos, drv, energy);
 	}
 
 	GenericActor.prototype.update = function () {
@@ -874,12 +911,10 @@ var MAGIC = ((ns) => {
 		console.log(this.name, "handleEvent", evt);
 		switch (evt.type) {
 			case 'collision':
-				if (evt.data.bumped instanceof Projectile) {
-					this.projectileImpact(evt.data.bumped);
-				} else {
-					// If data.bumped is a bot:
-					this.removeHealth(1);
-				}
+				this.removeHealth(1);
+				break;
+			case 'hit':
+				this.projectileImpact(evt.data.hitBy);
 				break;
 			case 'wall':
 				console.log(this.name, "on wall", evt.data.bumped.name);
@@ -1278,6 +1313,7 @@ var MAGIC = ((ns) => {
 				label: properties.name,
 			});
 		body.controller = projectile;
+		body.collisionFilter.group = -1 * properties.shooter;
 		return body;
 	};
 
@@ -1287,33 +1323,62 @@ var MAGIC = ((ns) => {
 	};
 
 	Physics.prototype.removeBody = function (object) {
+		if (object === null || object.body === null) {
+			return;
+		}
 		console.log('removeBody', object.body);
 		Matter.World.remove(this.matter.world, object.body, true);
 		object.body = null;
 	};
 
+	/** 
+	 * First layer of collision handling. Our physics wrapper gets a chance
+	 * to translate the raw physics engine events into something the game
+	 * can handle. The next layer outside this is the game itself, which
+	 * is able to handle the effects of collisions on objects and their
+	 * sprites.
+	 */
 	Physics.prototype.handleCollisions = function (evt) {
 		for (let i = 0; i < evt.pairs.length; ++i) {
 			let bodyA = evt.pairs[i].bodyA,
-					bodyB = evt.pairs[i].bodyB;
+					bodyB = evt.pairs[i].bodyB,
+					A = bodyA.controller,
+					B = bodyB.controller;
 
-			if (bodyA.controller instanceof Projectile && 
-					bodyB.controller instanceof Projectile) {
-				return;
-			}
-
-			if (isWall(bodyA)) {
-				console.log(bodyB.label, "on", bodyA.label);
-				this.tasks.push(mkWallEvt(bodyB.controller, bodyA.controller));
+			if (A instanceof Projectile) {
+				if (B instanceof Projectile) {
+					// eliminate A and B
+					if (bodyA.collisionFilter.group === bodyB.collisionFilter.group) {
+						LOG("ERROR", "Collision filtering isn't working properly.",
+							bodyA.collisionFilter.group);
+					}
+					this.tasks.push(mkImpactEvt(A, B));
+					this.tasks.push(mkImpactEvt(B, A));
+				} else if (isWall(bodyB)) {
+					this.tasks.push(mkImpactEvt(A, B));
+				} else {
+					this.tasks.push(mkImpactEvt(A, B));
+					this.tasks.push(mkTakeHitEvt(B, A));
+				}
+				// Everything else involves agents bumping into things
+			} else if (isWall(bodyA)) {
+				if (B instanceof Projectile) {
+					this.tasks.push(mkImpactEvt(B, A));
+				} else {
+					console.log(bodyB.label, "on", bodyA.label);
+					this.tasks.push(mkWallEvt(B, A));
+				}
 			} else {
-				if (isWall(bodyB)) {
+				if (B instanceof Projectile) {
+					this.tasks.push(mkImpactEvt(B, A));
+				} else if (isWall(bodyB)) {
 					console.log(bodyA.label, "on", bodyB.label);
-					this.tasks.push(mkWallEvt(bodyA.controller, bodyB.controller));
+					this.tasks.push(mkWallEvt(A, B));
 				} else {
 					console.log(bodyA.label, "collides with", bodyB.label);
 					//console.log(evt);
-					this.tasks.push(mkCollEvt(bodyA.controller, bodyB.controller));
-					this.tasks.push(mkCollEvt(bodyB.controller, bodyA.controller));
+					this.tasks.push(mkCollEvt(A, B));
+					this.tasks.push(mkCollEvt(B, A));
 				}
 			}
 		}
@@ -1336,11 +1401,46 @@ var MAGIC = ((ns) => {
 		return createInterrupt('collision', A, {bumped: B});
 	}
 
+	/**
+	 * 'A' is a projectile. The effect of this event should remove
+	 * 'A' from the game. Someday there might be a brief smash or
+	 * splatter animation... And a noise.
+	 */
+	function mkImpactEvt(A, B) {
+		let task = {
+			op: 'impact',
+			type: 'projectile',
+			obj: A,
+			data: {
+				hit: B,
+			},
+		};
+		return task;
+	}
+
+	/**
+	 * 'A' is an agent, 'B' is a weapon of some sort. 'A' needs to
+	 * assess damage, given the type of strike.
+	 */
+	function mkTakeHitEvt(A, B) {
+		return {
+			op: 'hit',
+			type: 'projectile',
+			obj: A,
+			data: {
+				hitBy: B,
+			},
+		};
+	}
+
 	function isWall(body) {
+		return body.controller instanceof WallObject;
+		/*
 		return body.label === 'NORTH' ||
 			body.label === 'SOUTH' ||
 			body.label === 'EAST' ||
 			body.label === 'WEST';
+			*/
 	}
 
 
