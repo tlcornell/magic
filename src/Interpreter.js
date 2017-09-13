@@ -241,6 +241,9 @@ var MAGIC = ((ns) => {
 			if (token.type === 'NUMBER') {
 				return token.value;
 			}
+			if (token.type === 'STRING') {
+				return token.value;
+			}
 			if (token.type === 'IDENTIFIER') {
 				let framePtr = self.framestack.length - 1,
 						frame = self.framestack[framePtr];
@@ -492,10 +495,10 @@ var MAGIC = ((ns) => {
 					++self.pos;
 				}
 			}
-			if (peek !== '"') {
+			if (peek() !== '"') {
 				ERROR(self.line, self.char, `Looks like the file ended in the middle of a string`);
 			}
-			let str = self.source.substr(start + 1, self.pos - start);
+			let str = self.source.substr(start + 1, self.pos - start - 1);
 			++self.pos;
 			return createToken('STRING', str);
 		}

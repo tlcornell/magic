@@ -1,8 +1,11 @@
 var MAGIC = ((ns) => {
 
-	let modifiedShotBot = `
+let ModifiedShotBot = `
 # ModifiedShotBot
 
+LABEL PreMain
+	STORE 2 sys.speedx
+	STORE 2 sys.speedy
 LABEL Main
 	IFZ sys.wall CheckRange
 LABEL Bounce
@@ -44,17 +47,17 @@ LABEL CheckRange
 	IFNZ A DoFire DoRotate
 
 LABEL DoFire
-	STORE 5 sys.fire
+	STORE 20 sys.fire
 	JUMP Main
 
 LABEL DoRotate
 	ADD sys.aim 7 sys.aim
 	JUMP Main
-	`;
+`;
 
 	// EXPORTS
 	ns.samples = ns.samples || {};
-	ns.samples.ModifiedShotBot = modifiedShotBot;
+	ns.samples.ModifiedShotBot = ModifiedShotBot;
 
 	return ns;
 

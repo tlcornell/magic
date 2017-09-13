@@ -13,12 +13,6 @@ var MAGIC = ((ns) => {
 		line += '\n';
 		ns.log += line;
 		console.log(line);
-		/*
-		let display = e_('log-display');
-		display.append(line);
-		display.scrollTop = display.scrollHeight;
-		window.scrollTo(0, 0);
-		*/
 	}
 
 	function displayLog () {
@@ -297,11 +291,11 @@ var MAGIC = ((ns) => {
 				number: idx,
 				color: ((360/count) % 360) * i,
 				type: 'actor/generic',
-				sourceCode: ns.samples.GunTurret,
+				sourceCode: ns.samples.Navigator,
 				pos: initPosList[i],
 				radius: Game.const.ACTOR_RADIUS,
 				hw: {
-					cpu: 10,
+					cpu: 20,
 					energy: 20,
 					damage: 100
 				}
@@ -899,7 +893,6 @@ var MAGIC = ((ns) => {
 						this.removeHealth(1);
 						break;
 					case 'wall':
-						console.log(this.name, "on wall", evt.data.bumped.name);
 						this.removeHealth(5);
 						this.wall = 1;
 						break;
@@ -1335,15 +1328,6 @@ var MAGIC = ((ns) => {
 
 			if (A instanceof Projectile) {
 				if (B instanceof Projectile) {
-					/*
-					// eliminate A and B
-					if (bodyA.collisionFilter.group === bodyB.collisionFilter.group) {
-						LOG("ERROR", "Collision filtering isn't working properly.",
-							bodyA.collisionFilter.group);
-					}
-					this.tasks.push(mkImpactEvt(A, B));
-					this.tasks.push(mkImpactEvt(B, A));
-					*/
 				} else if (isWall(bodyB)) {
 					this.tasks.push(mkImpactEvt(A, B));
 				} else {
@@ -1355,7 +1339,7 @@ var MAGIC = ((ns) => {
 				if (B instanceof Projectile) {
 					this.tasks.push(mkImpactEvt(B, A));
 				} else {
-					console.log(bodyB.label, "on", bodyA.label);
+//					console.log(bodyB.label, "on", bodyA.label);
 					this.tasks.push(mkWallEvt(B, A));
 				}
 			} else {
@@ -1363,11 +1347,10 @@ var MAGIC = ((ns) => {
 					this.tasks.push(mkImpactEvt(B, A));
 					this.tasks.push(mkTakeHitEvt(A, B));
 				} else if (isWall(bodyB)) {
-					console.log(bodyA.label, "on", bodyB.label);
+//					console.log(bodyA.label, "on", bodyB.label);
 					this.tasks.push(mkWallEvt(A, B));
 				} else {
-					console.log(bodyA.label, "collides with", bodyB.label);
-					//console.log(evt);
+//					console.log(bodyA.label, "collides with", bodyB.label);
 					this.tasks.push(mkCollEvt(A, B));
 					this.tasks.push(mkCollEvt(B, A));
 				}

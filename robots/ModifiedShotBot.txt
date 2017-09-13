@@ -1,5 +1,8 @@
 # ModifiedShotBot
 
+LABEL PreMain
+	STORE 2 sys.speedx
+	STORE 2 sys.speedy
 LABEL Main
 	IFZ sys.wall CheckRange
 LABEL Bounce
@@ -41,7 +44,7 @@ LABEL CheckRange
 	IFNZ A DoFire DoRotate
 
 LABEL DoFire
-	STORE 5 sys.fire
+	STORE 20 sys.fire
 	JUMP Main
 
 LABEL DoRotate
