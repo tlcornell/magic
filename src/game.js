@@ -212,7 +212,9 @@ var MAGIC = ((ns) => {
 	Game.const = {
 		ACTOR_RADIUS: 15,
 		BULLET_RADIUS: 2,
+		BUMP_DAMAGE: 1,
 		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently
+		WALL_DAMAGE: 5,
 		WALL_THICKNESS: 20,
 		arena: {
 			width: 800,
@@ -387,6 +389,28 @@ var MAGIC = ((ns) => {
 	};
 
 	/**
+	 * Game acts as a mediator between object logic and other modules.
+	 * In this case, we don't want objects to know anything about their
+	 * physical bodies, so we mediate getPosition() calls.
+	 */
+	Game.prototype.getPosition = function (object) {
+		if (object.body === null) {
+			return object.pos;
+		}
+		return object.body.position;
+	};
+
+	/**
+	 * See getPosition, above.
+	 */
+	Game.prototype.setVelocity = function (object, velocity) {
+		//let realV = Matter.Vector.mult(velocity, Game.const.CHRONONS_PER_FRAME);
+		return Matter.Body.setVelocity(object.body, velocity);
+		//let force = Matter.Vector.create(velocity.x, velocity.y);
+		//Matter.Body.applyForce(object.body, this.getPosition(object), force);
+	};
+
+	/**
 	 * Sets observer.sight.thing if there is anything to see at
 	 * observer.sight.angle + observer.sight.offset. 
 	 * Object returned will be the closest, in case there are 
@@ -464,15 +488,13 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.update = function () {
-		this.physics.update()
-			.forEach((task) => this.execute(task));
-		this.objects.actors
-			.reduce((ts, actor) => ts.concat(actor.update()), [])
-			.forEach((task) => this.execute(task));
-		this.objects.projectiles
-			// collect tasks from each projectile
-			.reduce((tasks, proj) => tasks.concat(proj.update()), [])
-			.forEach((task) => this.execute(task));
+		this.physics.update().forEach((task) => this.execute(task));
+		this.objects.actors.forEach((actor) => {
+			actor.update().forEach((task) => this.execute(task));
+		});
+		this.objects.projectiles.forEach((proj) => {
+			proj.update().forEach((task) => this.execute(task));
+		});
 	};
 
 	/**
@@ -596,9 +618,14 @@ var MAGIC = ((ns) => {
 
 	GenericActor.prototype.getPosition = function () {
 		// Make sure pos registers are up to date
-		if (this.body) {
+		let p = this.game.getPosition(this);	// delegates to Game.Physics
+		if (p) {
+			this.pos.x = p.x;
+			this.pos.y = p.y;
+			/*
 			this.pos.x = this.body.position.x;
 			this.pos.y = this.body.position.y;
+			*/
 		}
 		return this.pos;
 	};
@@ -735,9 +762,10 @@ var MAGIC = ((ns) => {
 	GenericActor.prototype.driveVector = function (vec) {
 		this.drv.x = vec.x;
 		this.drv.y = vec.y;
+		this.game.setVelocity(this, this.drv);	// delegates to Game.physics
+		/*
 		Matter.Body.setVelocity(this.body, this.drv);
-		//let force = Matter.Vector.create(this.drv.x, this.drv.y);
-		//Matter.Body.applyForce(this.body, this.getPosition(), force);
+		*/
 	};
 
 	GenericActor.prototype.getWall = function () {
@@ -774,7 +802,7 @@ var MAGIC = ((ns) => {
 
 	GenericActor.prototype.update = function () {
 
-		let gameTasks = [];
+		let generatedTasks = [];
 
 		// Handle event notifications (event queue) for "external" events 
 		// coming in from the Game object.
@@ -785,10 +813,11 @@ var MAGIC = ((ns) => {
 		this.eventQueue.forEach((evt) => this.handleEvent(evt));
 		this.eventQueue = [];
 		// Trigger events if warranted (e.g., we just died)
+		// We might add some generated tasks here.
 
-		this.prog.main.call(this, gameTasks);
+		this.prog.main.call(this, generatedTasks);
 
-		return gameTasks;
+		return generatedTasks;
 
 	};
 
@@ -890,11 +919,11 @@ var MAGIC = ((ns) => {
 			case 'interrupt':
 				switch (evt.type) {
 					case 'collision':
-						this.removeHealth(1);
+						this.environmentalDamage(Game.const.BUMP_DAMAGE);
 						break;
 					case 'wall':
-						this.removeHealth(5);
-						this.wall = 1;
+						this.environmentalDamage(Game.const.WALL_DAMAGE);
+						this.wall = 1;	// Raise wall condition, maybe triggering an interrupt
 						break;
 					default:
 						throw new Error(`Actor does not recognize event type (${evt.type})`);
@@ -908,6 +937,13 @@ var MAGIC = ((ns) => {
 				throw new Error(`Actor does not recognize event operator (${evt.op})`);
 		}
 	};
+
+	GenericActor.prototype.environmentalDamage = function (rawDmg) {
+		// Theoretically, we could have factors like shields and armor that
+		// lessen the effect of the impact. 
+		// For now, we just assess the full raw damage.
+		this.removeHealth.rawDmg;
+	}
 
 	GenericActor.prototype.projectileImpact = function (projectile) {
 		// Theoretically, we could have factors like shields and armor that
@@ -961,9 +997,10 @@ var MAGIC = ((ns) => {
 
 	Projectile.prototype.getPosition = function () {
 		// Make sure pos registers are up to date
-		if (this.body) {
-			this.pos.x = this.body.position.x;
-			this.pos.y = this.body.position.y;
+		let p = this.game.getPosition(this);
+		if (p) {
+			this.pos.x = p.x; //this.body.position.x;
+			this.pos.y = p.y; //this.body.position.y;
 		}
 		return this.pos;
 	};
@@ -976,7 +1013,8 @@ var MAGIC = ((ns) => {
 		let gameTasks = [];
 		this.eventQueue.forEach((evt) => this.handleEvent(evt, gameTasks));
 		this.eventQueue = [];
-		Matter.Body.setVelocity(this.body, this.drv);
+		this.game.setVelocity(this, this.drv);
+		//Matter.Body.setVelocity(this.body, this.drv);
 		return gameTasks;	// we don't generate tasks yet...
 	};
 
