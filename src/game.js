@@ -942,7 +942,7 @@ var MAGIC = ((ns) => {
 		// Theoretically, we could have factors like shields and armor that
 		// lessen the effect of the impact. 
 		// For now, we just assess the full raw damage.
-		this.removeHealth.rawDmg;
+		this.removeHealth(rawDmg);
 	}
 
 	GenericActor.prototype.projectileImpact = function (projectile) {
