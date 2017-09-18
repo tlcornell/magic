@@ -28,7 +28,7 @@ var MAGIC = ((ns) => {
 		status.style['grid-column'] = '2/span 4';
 		status.style['grid-row'] = `${ord*2}`;
 		this.root.appendChild(status);
-	}
+	};
 
 	StatusWidget.prototype.mkPortrait = function (agent, idx) {
 		let div = document.createElement('div');
@@ -47,7 +47,7 @@ var MAGIC = ((ns) => {
 
 		div.appendChild(canvas);
 		return div;
-	}
+	};
 
 	StatusWidget.prototype.mkName = function (name_id, name) {
 		let div = document.createElement('div');
@@ -57,7 +57,7 @@ var MAGIC = ((ns) => {
 		div.style.paddingLeft = '12px';
 		div.style.paddingTop = '3px';
 		return div;
-	}
+	};
 
 	StatusWidget.prototype.mkStatus = function (status_id, agent) {
 		let div = document.createElement('div');
@@ -111,39 +111,30 @@ var MAGIC = ((ns) => {
 			`<span class="conditionVal">${agent.getCondition()}</span>`;
 		div.appendChild(condition);
 		return div;
-	}
+	};
 
-	/*
-	function drawImg(ctx) {
-		let img = new Image();
-		img.src = 'assets/placeholder.png';
-		img.onload = function () {
-			ctx.drawImage(img, 8, 8, 48, 48);
+	StatusWidget.prototype.updateView = function () {
+		this.agents.forEach((agent, index) => this.updateAgentView(agent, index));
+	};
+
+	StatusWidget.prototype.updateAgentView = function (agent, idx) {
+		let hp = document.getElementsByClassName('currHP')[idx];
+		hp.innerText = agent.getHealth();
+		if (agent.getHealth() < agent.getMaxHealth() / 20) {
+			hp.style.color = 'red';
 		}
-	}
-
-	function drawBot(ctx, i) {
-		let color = ((360/numAgents) % 360) * i,
-				stroke = `hsl(${color}, 50%, 33%)`,
-				fill = `hsl(${color}, 50%, 67%)`,
-				radius = 15,
-				pos = {x: 32, y: 32},
-				aim = -45;
-		// render body
-		ctx.strokeStyle = stroke;
-		ctx.fillStyle = fill;
-		ctx.beginPath();
-		ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
-		ctx.fill();
-		// render turret
-		ctx.moveTo(pos.x, pos.y);
-		let x2 = pos.x + (radius * Math.cos(aim)),
-				y2 = pos.y + (radius * Math.sin(aim));
-		ctx.lineTo(x2, y2);
-		ctx.stroke();
-
-	}
-	*/
+		let en = document.getElementsByClassName('currEnergy')[idx];
+		en.innerText = agent.getEnergy();
+		let sh = document.getElementsByClassName('currShields')[idx];
+		sh.innerText = agent.getShields();
+		let co = document.getElementsByClassName('conditionVal')[idx],
+				agtCnd = agent.getCondition();
+		co.innerText = agtCnd;
+		if (agtCnd === 'DEAD') {
+			co.style['background-color'] = '#AAA';
+			co.style['border-color'] = '#888';
+		}
+	};
 
 	// EXPORTS
 	ns.StatusWidget = StatusWidget;

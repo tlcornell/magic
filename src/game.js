@@ -288,7 +288,7 @@ var MAGIC = ((ns) => {
 			name: name,
 			type: 'wall',
 		}
-		let wall = this.createGameObject(properties);
+		let wall = new WallObject(this, properties);
 		let body = Physics.wallSegment(x, y, w, h, name, wall);
 		this.physics.addBody(body);
 		let sprite = Graphics.createSprite('wall', properties);
@@ -352,7 +352,7 @@ var MAGIC = ((ns) => {
 	 * and would connect it to the sprite sheets for that character.
 	 */
 	Game.prototype.createActor = function (properties) {
-		let actor = this.createGameObject(properties);
+		let actor = new GenericActor(this, properties);
 		actor.number = properties.number;
 		actor.body = Physics.actorBody(actor, properties);
 		actor.sprite = Graphics.createSprite('actor',	properties);
@@ -374,17 +374,6 @@ var MAGIC = ((ns) => {
 		proj.sprite = Graphics.createSprite('bullet', properties);
 		this.physics.addBody(proj.body);
 		this.objects.projectiles.push(proj);
-	};
-
-	Game.prototype.createGameObject = function (properties) {
-		switch (properties.type) {
-			case 'actor/generic':
-				return new GenericActor(this, properties);
-			case 'wall':
-				return new WallObject(this, properties);
-			default:
-				throw new Error(`Unrecognized game object type: ${properties.type}`);
-		}
 	};
 
 	Game.prototype.remainingPlayers = function () {
@@ -476,6 +465,8 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.loop = function () {
+
+		this.statusDisplay.updateView();
 
 		if (this.remainingPlayers() <= 1) {
 			// Game Over
