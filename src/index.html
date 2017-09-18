@@ -17,10 +17,15 @@ Turn number: <span id="turn-number">0</span>
 Elapsed time: <span id="elapsed-time">0.0</span>
 </p>
 
-<div id="arena">
+<div id="game">
+	<div id="arena">
+	</div>
+
+	<div id="roster" class="status-widget">
+	</div>
 </div>
 
-<p>
+<p id="note-to-self">
 Press [Space] to start, pause, or restart.
 </p>
 
@@ -35,6 +40,7 @@ Press [Space] to start, pause, or restart.
 <script src="../robots/WallBouncer.js"></script>
 <script src="../robots/GunTurret.js"></script>
 <script src="../robots/Navigator.js"></script>
+<script src="StatusWidget.js"></script>
 <script src="Interpreter.js"></script>
 <!-- Main Program -->
 <script src="game.js"></script>

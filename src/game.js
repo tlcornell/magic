@@ -201,6 +201,7 @@ var MAGIC = ((ns) => {
 				projectiles: [],
 			},
 		});
+		this.statusDisplay = []; // array of pairs of (agent,widget)?
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
 	};
@@ -244,11 +245,24 @@ var MAGIC = ((ns) => {
 		console.log("Game.prototype.initializeSubsystems");
 		this.graphics.initialize();
 		this.physics.initialize();
+		this.createStatusDisplay();
 	};
+
+	Game.prototype.createStatusDisplay = function () {
+		let widget = document.getElementsByClassName("status-widget")[0];
+		this.statusDisplay = new ns.StatusWidget(widget);
+	}
 
 	Game.prototype.populateTheArena = function () {
 		this.createMap();
 		this.createActors();
+		this.populateStatusDisplay();
+	};
+
+	Game.prototype.populateStatusDisplay = function () {
+		this.objects.actors.forEach((e, i) => {
+			this.statusDisplay.addAgentDisplay(e, i);
+		});
 	};
 
 	Game.prototype.createMap = function () {
@@ -299,7 +313,8 @@ var MAGIC = ((ns) => {
 				hw: {
 					cpu: 20,
 					energy: 20,
-					damage: 100
+					damage: 100,
+					shields: 30,
 				}
 			};
 			this.createActor(properties);
@@ -581,6 +596,8 @@ var MAGIC = ((ns) => {
 			fire: 0,
 			health: properties.hw.damage,
 			maxHealth: properties.hw.damage,
+			shields: properties.hw.shields,
+			maxShields: properties.hw.shields,
 			drv: {
 				x: 0,
 				y: 0,
@@ -611,6 +628,18 @@ var MAGIC = ((ns) => {
 	GenericActor.prototype.isEliminated = function () {
 		return this.getState() === Q_ELIMINATED;
 	};
+
+	GenericActor.prototype.getCondition = function () {
+		switch (this.getState()) {
+			case Q_NOT_DEAD:
+				return 'GOOD';
+			case Q_DEAD:
+			case Q_ELIMINATED:
+				return 'DEAD';
+			default:
+				return 'UNKNOWN';
+		}
+	}
 
 	GenericActor.prototype.getName = function () {
 		return this.name;
@@ -709,6 +738,10 @@ var MAGIC = ((ns) => {
 		this.energy = Math.min(this.maxEnergy, this.energy + 2);
 	}
 
+	GenericActor.prototype.getMaxEnergy = function () {
+		return this.maxEnergy;
+	}
+
 	GenericActor.prototype.getHealth = function () {
 		return this.health;
 	};
@@ -732,6 +765,14 @@ var MAGIC = ((ns) => {
 	GenericActor.prototype.getMaxHealth = function () {
 		return this.maxHealth;
 	};
+
+	GenericActor.prototype.getShields = function () {
+		return this.shields;
+	}
+
+	GenericActor.prototype.getMaxShields = function () {
+		return this.maxShields;
+	}
 
 	GenericActor.prototype.getSpeedX = function () {
 		return this.drv.x;
@@ -1179,8 +1220,6 @@ var MAGIC = ((ns) => {
 
 	function GenericActorSprite(properties) {
 		Object.assign(this, properties);
-		/* This is where we fill in the actual sprite details,
-		   that is, the animation that this sprite runs on initial creation. */
 	}
 
 	/**
@@ -1196,20 +1235,7 @@ var MAGIC = ((ns) => {
 				maxHealth = model.getMaxHealth();
 		if (model.isNotDead()) {
 			let ctx = gfx.getContext(Graphics.Layer.ACTIVE);
-			let stroke = `hsl(${this.color}, 50%, 33%)`,
-					fill = `hsl(${this.color}, 50%, 67%)`;
-			// render body
-			ctx.strokeStyle = stroke;
-			ctx.fillStyle = fill;
-			ctx.beginPath();
-			ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
-			ctx.fill();
-			// render turret
-			ctx.moveTo(pos.x, pos.y);
-			let x2 = pos.x + (radius * Math.cos(aim)),
-					y2 = pos.y + (radius * Math.sin(aim));
-			ctx.lineTo(x2, y2);
-			ctx.stroke();
+			this.renderBodyCannon(ctx, pos, aim);
 			// decorations
 			// - label
 			ctx = gfx.getContext(Graphics.Layer.LABELS);
@@ -1253,6 +1279,24 @@ var MAGIC = ((ns) => {
 			throw new Error(`No valid drawing routine for ${name}`);
 		}
 	};
+
+	GenericActorSprite.prototype.renderBodyCannon = function (ctx, pos, aim) {
+		let radius = this.radius,
+				stroke = `hsl(${this.color}, 50%, 33%)`,
+				fill = `hsl(${this.color}, 50%, 67%)`;
+		// render body
+		ctx.strokeStyle = stroke;
+		ctx.fillStyle = fill;
+		ctx.beginPath();
+		ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
+		ctx.fill();
+		// render turret
+		ctx.moveTo(pos.x, pos.y);
+		let x2 = pos.x + (radius * Math.cos(aim)),
+				y2 = pos.y + (radius * Math.sin(aim));
+		ctx.lineTo(x2, y2);
+		ctx.stroke();
+	}
 
 
 	function BulletSprite(properties) {
