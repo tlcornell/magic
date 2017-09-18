@@ -120,8 +120,9 @@ var MAGIC = ((ns) => {
 	StatusWidget.prototype.updateAgentView = function (agent, idx) {
 		let hp = document.getElementsByClassName('currHP')[idx];
 		hp.innerText = agent.getHealth();
-		if (agent.getHealth() < agent.getMaxHealth() / 20) {
-			hp.style.color = 'red';
+		if (agent.getHealth() < agent.getMaxHealth() / 30) {
+			let health = document.getElementById(`status-${idx+1}`)
+			health.firstElementChild.style.color = 'red';
 		}
 		let en = document.getElementsByClassName('currEnergy')[idx];
 		en.innerText = agent.getEnergy();
