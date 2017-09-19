@@ -466,15 +466,6 @@ var MAGIC = ((ns) => {
 
 	Game.prototype.loop = function () {
 
-		this.statusDisplay.updateView();
-
-		if (this.remainingPlayers() <= 1) {
-			// Game Over
-			cancelAnimationFrame(this.requestId);
-			displayLog();
-			return;
-		}
-
 		this.requestId = requestAnimationFrame(this.loop.bind(this));
 
 		// Count cycles and elapsed time
@@ -491,6 +482,15 @@ var MAGIC = ((ns) => {
 
 		this.update();
 		this.render();
+		this.statusDisplay.updateView();
+
+		if (this.remainingPlayers() <= 1) {
+			// Game Over
+			cancelAnimationFrame(this.requestId);
+			displayLog();
+			return;
+		}
+
 	};
 
 	Game.prototype.update = function () {

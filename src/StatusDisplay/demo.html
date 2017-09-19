@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test Grid Layout</title>
+
+	<link rel="stylesheet" type="text/css" href="src/index.css"/>
+
+</head>
+<body>
+
+	<div class="status-widget" style="max-width: 440px;">
+	</div>
+
+	<div id="controls" style="margin-top: 24px;">
+		<button id="start-stop" onclick="doStart()">Start</button>
+	</div>
+
+
+	<!-- JavaScript -->
+
+	<script>
+		let agentDisplayWidgets = [];
+
+
+		function doStart() {
+			// Disable 'select' elements
+			// Replace all select boxes with the text of their current value
+			agentDisplayWidgets.forEach((obj) => {
+				obj.acceptSelection();
+			});
+			// [Start] --> [Stop]
+			let b = document.getElementById('start-stop');
+			b.innerText = 'Stop';
+			b.onclick = doStop;
+		}
+		function doStop() {
+			// Re-enable controls
+			agentDisplayWidgets.forEach((obj) => {
+				obj.allowSelection();
+			});
+			// [Stop] --> [Start]
+			let b = document.getElementById('start-stop');
+			b.innerText = 'Start';
+			b.onclick = doStart;
+		}
+
+
+
+
+
+		function AgentDisplayWidget (parent, i) {
+			// IRL this will be a game object; for now it's a name:
+			this.data = "";
+			// The <div> wrapping the selector/text:
+			this.boundElement = this.create(parent, i);
+		}
+
+		AgentDisplayWidget.prototype.create = function (parent, idx) {
+
+			let portrait = document.createElement('div');
+			portrait.style.margin = 0;
+			portrait.style.padding = 0;
+			portrait.setAttribute('class', 'widget-item');
+			let canvas = document.createElement('canvas');
+			canvas.setAttribute('width', '64');
+			canvas.setAttribute('height', '64');
+			canvas.class = 'widget-item';
+			portrait.appendChild(canvas);
+			portrait.style['grid-column'] = '1'
+			portrait.style['grid-row'] = `${(idx * 2) + 1}/span 2`;
+			parent.appendChild(portrait);
+
+			let name = document.createElement('div');
+			name.setAttribute('class', 'widget-item name');
+			//---------------------------------------
+			let sel = this.mkSelect();
+			name.appendChild(sel);
+			this.boundElement = name;
+			this.change(sel.value);
+			//---------------------------------------
+			name.style.paddingLeft = '12px';
+			name.style.paddingTop = '3px';
+			name.style['grid-column'] = '2/span 4'
+			name.style['grid-row'] = `${(idx * 2) + 1}`;
+			parent.appendChild(name);
+
+			let status = document.createElement('div');
+			status.setAttribute('class', 'widget-item status');
+			status.style['display'] ='grid';
+			status.style['grid-template-columns'] = '1fr 1fr 1fr 1fr';
+			status.style['align-items'] = 'center';
+			status.style['justify-items'] = 'center';
+			let health = document.createElement('div');
+			health.style['grid-column'] = '1';
+			health.style['grid-row'] = '1';
+			health.innerHTML = '(health)';
+			status.appendChild(health);
+			let energy = document.createElement('div');
+			energy.style['grid-column'] = '2';
+			energy.style['grid-row'] = '1';
+			energy.innerHTML = '(energy)';
+			status.appendChild(energy);
+			let shields = document.createElement('div');
+			shields.style['grid-column'] = '3';
+			shields.style['grid-row'] = '1';
+			shields.innerHTML = '(shields)';
+			status.appendChild(shields);
+			let condition = document.createElement('div');
+			condition.style['grid-column'] = '4';
+			condition.style['grid-row'] = '1';
+			condition.innerHTML = 
+				`<span class="conditionVal">UNKNOWN</span>`;
+			status.appendChild(condition);
+			status.style['grid-column'] = '2/span 4';
+			status.style['grid-row'] = `${(idx * 2) + 2}`;
+			parent.appendChild(status);
+
+			return name;
+		};
+
+		AgentDisplayWidget.prototype.handleEvent = function (evt) {
+			switch (evt.type) {
+				case 'change':
+					this.change(this.boundElement.childNodes[0].value);
+					break;
+			}
+		};
+
+		/**
+		 * This is the guts of the <select> onChange event handler, but it
+		 * is written so that it can be called by other clients besides the
+		 * game UI.
+		 */
+		AgentDisplayWidget.prototype.change = function (val) {
+			this.boundElement.childNodes[0].value = val;
+			this.data = val;
+		};
+
+		/**
+		 * Called on game start to fix the roster to the current state
+		 * of all the agent selectors.
+		 */
+		AgentDisplayWidget.prototype.acceptSelection = function () {
+			// Replace <select> with text from <select>.value
+			// Contract: this.data must equal the final value of <select>
+			this.boundElement.innerHTML = '';
+			this.boundElement.innerHTML = this.data;
+		};
+
+		/**
+		 * Called on game stop (but not pause!), to allow the selection of agents
+		 * in the roster.
+		 */
+		AgentDisplayWidget.prototype.allowSelection = function () {
+			this.boundElement.innerHTML = '';
+			let sel = this.mkSelect();
+			this.boundElement.appendChild(sel);
+			this.change(sel.value);
+		}
+
+		AgentDisplayWidget.prototype.mkSelect = function () {
+			let nameSel = document.createElement('select');
+			botsAvailable.forEach((nm) => {
+				let opt = document.createElement('option');
+				opt.value = nm;
+				opt.innerText = nm;
+				nameSel.appendChild(opt);
+			});
+			nameSel.addEventListener("change", this, false);
+			return nameSel;
+		}
+
+
+
+
+		//---------------------- Mainline ----------------------
+
+		let botsAvailable = [
+			"(empty)",
+			"Navigator",
+			"GunTurrent",
+			"ModifiedShotBot",
+			"WallBouncer",
+		];
+
+		let widget = document.getElementsByClassName("status-widget")[0];
+		for (let i = 0; i < 2; ++i) {
+			let sub = new AgentDisplayWidget(widget, i);
+			agentDisplayWidgets.push(sub);
+		}
+
+	</script>
+
+</body>
+</html>

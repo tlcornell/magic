@@ -6,6 +6,15 @@ var MAGIC = ((ns) => {
 		this.agents = [];
 	}
 
+	/**
+	 * Required properties of 'agent' (for mocking):
+	 * 	getName()
+	 *	getMaxHealth()
+	 *	getMaxShields()
+	 *	getMaxEnergy()
+	 *	getCondition()
+	 *	sprite.renderBodyCannon(context, pos, aim)
+	 */
 	StatusWidget.prototype.addAgentDisplay = function (agent, idx) {
 		this.agents.push(agent);
 
