@@ -148,11 +148,11 @@ var MAGIC = ((ns) => {
 	 * game. Later, a UI action by the user will be required to actually
 	 * start a game, once it has been configured.
 	 */
-	App.prototype.start = function () {
+	App.prototype.init = function () {
 		console.log("Starting MAGIC: The Metaprogram for Agent Generation Interaction and Control...");
 		this.setupUI();
 		this.game = new Game(this);
-		this.game.start();
+		this.game.init();
 	};
 
 	/**
@@ -164,16 +164,23 @@ var MAGIC = ((ns) => {
 	App.prototype.setupUI = function () {
 		// Need to use 'bind' here so that 'keyHandler' is called with 'this'
 		// equal to the app. Otherwise 'this' will be '#document' when called.
-		document.addEventListener('keydown', this.keyHandler.bind(this), false);
+		document.addEventListener('keydown', this.keyHandler.bind(this), true);
+		let startButton = e_('start-stop');
+		startButton.addEventListener('click', this.startAGame.bind(this), false);
+		// Create an empty Roster Manager
 	};
 
 	/**
 	 * UI event listener, for keypress events.
 	 */
+	
 	App.prototype.keyHandler = function (evt) {
-		// Pause on any key. Maybe should just be spacebar?
+		console.log(`keyHandler (${evt.key})`);
 		switch (evt.key) {
 			case " ":
+				// preventDefault is required to prevent the spacebar also triggering
+				// a 'click' event on the start button.
+				evt.preventDefault();
 				this.game.togglePaused();
 				break;
 			default:
@@ -181,6 +188,11 @@ var MAGIC = ((ns) => {
 				break;
 		}
 	};
+
+	App.prototype.startAGame = function () {
+		console.log('App::startAGame');
+		this.game.start();
+	}
 
 
 	////////////////////////////////////////////////////////////////////////////
@@ -201,7 +213,7 @@ var MAGIC = ((ns) => {
 				projectiles: [],
 			},
 		});
-		this.statusDisplay = []; // array of pairs of (agent,widget)?
+		this.statusDisplay = null; 
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
 	};
@@ -223,8 +235,16 @@ var MAGIC = ((ns) => {
 		},
 	};
 
-	Game.prototype.start = function () {
+	Game.prototype.init = function () {
+		console.log('Game::init');
 		this.initializeSubsystems();
+		this.createMap();
+		this.render();
+		//this.start();
+	};
+
+	Game.prototype.start = function () {
+		console.log('Game::start');
 		this.populateTheArena();
 		this.render();
 	};
@@ -242,7 +262,6 @@ var MAGIC = ((ns) => {
 	}
 
 	Game.prototype.initializeSubsystems = function () {
-		console.log("Game.prototype.initializeSubsystems");
 		this.graphics.initialize();
 		this.physics.initialize();
 		this.createStatusDisplay();
@@ -254,7 +273,7 @@ var MAGIC = ((ns) => {
 	}
 
 	Game.prototype.populateTheArena = function () {
-		this.createMap();
+		console.log('populateTheArena');
 		this.createActors();
 		this.populateStatusDisplay();
 	};
@@ -381,6 +400,7 @@ var MAGIC = ((ns) => {
 	}
 
 	Game.prototype.togglePaused = function () {
+		console.log('togglePaused', 'was', this.flags.paused);
 		if (this.flags.paused) {
 			this.flags.paused = false;
 			this.loop();
@@ -478,7 +498,7 @@ var MAGIC = ((ns) => {
 				timeDisplay = e_("elapsed-time");
 		turnDisplay.innerHTML = this.loopCounter;
 		timeDisplay.innerHTML = elapsedTime.toString();
-		//LOG("Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
+		LOG(this.requestId, "Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
 
 		this.update();
 		this.render();
@@ -1154,7 +1174,6 @@ var MAGIC = ((ns) => {
 	 */
 	LayeredCanvas = function (graphics) {
 		this.el = e_("arena");
-		console.log(this.el);
 		this.width = 800;
 		this.height = 640;
 		this.layers = [];
@@ -1482,12 +1501,6 @@ var MAGIC = ((ns) => {
 
 	function isWall(body) {
 		return body.controller instanceof WallObject;
-		/*
-		return body.label === 'NORTH' ||
-			body.label === 'SOUTH' ||
-			body.label === 'EAST' ||
-			body.label === 'WEST';
-			*/
 	}
 
 
@@ -1505,6 +1518,6 @@ var MAGIC = ((ns) => {
 window.onload = () => {
 	window.scrollTo(0, 0);
 	let magic_app = new MAGIC.App();
-	magic_app.start();
+	magic_app.init();
 };
 
