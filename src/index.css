@@ -47,9 +47,9 @@
 }
 .status-widget {
 	display: grid;
-	grid-template-columns: 64px repeat(4, 1fr);
+	grid-template-columns: auto repeat(4, 1fr);
 	/*grid-gap: 4px;*/
-	grid-auto-rows: 32px;
+	grid-auto-rows: auto;
 }
 .name {
 	font: bold 18px sans-serif;

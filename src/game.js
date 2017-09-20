@@ -167,13 +167,16 @@ var MAGIC = ((ns) => {
 		document.addEventListener('keydown', this.keyHandler.bind(this), true);
 		let startButton = e_('start-stop');
 		startButton.addEventListener('click', this.startAGame.bind(this), false);
-		// Create an empty Roster Manager
 	};
 
 	/**
 	 * UI event listener, for keypress events.
+	 *
+	 * Encountered a problem here: The spacebar is by default interpreted
+	 * as a click on any focused button (and I think other input elements
+	 * as well). I never knew that! So we have to be careful that our 
+	 * keyboard interface doesn't try to colonize the other UI components.
 	 */
-	
 	App.prototype.keyHandler = function (evt) {
 		console.log(`keyHandler (${evt.key})`);
 		switch (evt.key) {
@@ -213,7 +216,7 @@ var MAGIC = ((ns) => {
 				projectiles: [],
 			},
 		});
-		this.statusDisplay = null; 
+		this.rosterManager = null; 
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
 	};
@@ -226,6 +229,7 @@ var MAGIC = ((ns) => {
 		ACTOR_RADIUS: 15,
 		BULLET_RADIUS: 2,
 		BUMP_DAMAGE: 1,
+		MAX_ROSTER_SLOTS: 6,
 		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently
 		WALL_DAMAGE: 5,
 		WALL_THICKNESS: 20,
@@ -243,45 +247,10 @@ var MAGIC = ((ns) => {
 		//this.start();
 	};
 
-	Game.prototype.start = function () {
-		console.log('Game::start');
-		this.populateTheArena();
-		this.render();
-	};
-
-	function aimData(A, B) {
-		let posA = A.getPosition(),
-				posB = B.getPosition(),
-				dx = posB.x - posA.x,
-				dy = posB.y - posA.y,
-				dist2 = dx * dx + dy * dy,
-				dist = Math.sqrt(dist2),
-				rad = Math.atan2(dy, dx),
-				deg = degrees(rad);
-		return {dist: dist, rad: rad, deg: deg};
-	}
-
 	Game.prototype.initializeSubsystems = function () {
 		this.graphics.initialize();
 		this.physics.initialize();
 		this.createStatusDisplay();
-	};
-
-	Game.prototype.createStatusDisplay = function () {
-		let widget = document.getElementsByClassName("status-widget")[0];
-		this.statusDisplay = new ns.StatusWidget(widget);
-	}
-
-	Game.prototype.populateTheArena = function () {
-		console.log('populateTheArena');
-		this.createActors();
-		this.populateStatusDisplay();
-	};
-
-	Game.prototype.populateStatusDisplay = function () {
-		this.objects.actors.forEach((e, i) => {
-			this.statusDisplay.addAgentDisplay(e, i);
-		});
 	};
 
 	Game.prototype.createMap = function () {
@@ -316,20 +285,48 @@ var MAGIC = ((ns) => {
 		this.objects.map.push(wall);
 	};
 
-	Game.prototype.createActors = function () {
-		let count = 6;
+	Game.prototype.createStatusDisplay = function () {
+		let widget = document.getElementsByClassName("status-widget")[0],
+				count = Game.const.MAX_ROSTER_SLOTS;
+		this.rosterManager = new ns.RosterManager(widget, count);
+		this.rosterManager.createView();
+	}
+
+	Game.prototype.start = function () {
+		console.log('Game::start');
+		this.rosterManager.acceptSelection();
+		let roster = this.rosterManager.getRoster();
+		this.populateTheArena(roster);
+		this.render();
+	};
+
+	Game.prototype.stop = function () {
+		console.log('Game::stop');
+		// Clear data from previous game...
+		this.rosterManager.allowSelection();
+	}
+
+	Game.prototype.populateTheArena = function (roster) {
+		console.log('populateTheArena');
+		this.createActors(roster);
+		this.populateStatusDisplay();
+	};
+
+	Game.prototype.createActors = function (roster) {
+		let count = roster.length;
 		let initPosList = scatter(count);		// random positions, not too close
-		for (var i = 0; i < count; ++i) {
-			let idx = i + 1;
+		roster.forEach((type, i) => {
+		//for (var i = 0; i < count; ++i) {
+			let ord = i + 1;
 			let properties = {
-				name: `Agent${idx}`,
-				number: idx,
+				name: `${type}`,
+				number: ord,
 				color: ((360/count) % 360) * i,
 				type: 'actor/generic',
-				sourceCode: ns.samples.Navigator,
+				sourceCode: ns.samples[type],
 				pos: initPosList[i],
 				radius: Game.const.ACTOR_RADIUS,
-				hw: {
+				hw: {	// TODO: this should be a function of 'type'
 					cpu: 20,
 					energy: 20,
 					damage: 100,
@@ -337,7 +334,7 @@ var MAGIC = ((ns) => {
 				}
 			};
 			this.createActor(properties);
-		}
+		});
 	};
 
 	/**
@@ -380,6 +377,12 @@ var MAGIC = ((ns) => {
 		actor.interpreter = new ns.Interpreter(actor);
 		this.physics.addBody(actor.body);
 		this.objects.actors.push(actor);
+	};
+
+	Game.prototype.populateStatusDisplay = function () {
+		this.objects.actors.forEach((a, i) => {
+			this.rosterManager.attachAgent(a, i);
+		});
 	};
 
 	Game.prototype.createProjectile = function (shooter, pos, vec, energy) {
@@ -433,6 +436,18 @@ var MAGIC = ((ns) => {
 		//let force = Matter.Vector.create(velocity.x, velocity.y);
 		//Matter.Body.applyForce(object.body, this.getPosition(object), force);
 	};
+
+	function aimData(A, B) {
+		let posA = A.getPosition(),
+				posB = B.getPosition(),
+				dx = posB.x - posA.x,
+				dy = posB.y - posA.y,
+				dist2 = dx * dx + dy * dy,
+				dist = Math.sqrt(dist2),
+				rad = Math.atan2(dy, dx),
+				deg = degrees(rad);
+		return {dist: dist, rad: rad, deg: deg};
+	}
 
 	/**
 	 * Sets observer.sight.thing if there is anything to see at
@@ -502,7 +517,7 @@ var MAGIC = ((ns) => {
 
 		this.update();
 		this.render();
-		this.statusDisplay.updateView();
+		this.rosterManager.updateView();
 
 		if (this.remainingPlayers() <= 1) {
 			// Game Over

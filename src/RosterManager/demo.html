@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test Grid Layout</title>
+
+	<meta charset='utf-8'>
+	<link rel="stylesheet" type="text/css" href="../index.css"/>
+
+</head>
+<body>
+
+	<div class="status-widget" style="max-width: 440px;">
+	</div>
+
+	<div id="controls" style="margin-top: 24px;">
+		<button id="start-stop" onclick="doStart()">Start</button>
+	</div>
+
+	<div id="debug"></div>
+
+
+	<!-- JavaScript -->
+	<script src="../../robots/GunTurret.js"></script> 
+	<script src="../../robots/ModifiedShotBot.js"></script> 
+	<script src="../../robots/Navigator.js"></script> 
+	<script src="../../robots/WallBouncer.js"></script> 
+
+	<script src="StatusDisplay.js"></script>
+	<script>
+
+		let root = document.getElementsByClassName('status-widget')[0];
+		let rosterManager = new MAGIC.RosterManager(root, 6);
+		rosterManager.createView();
+		let debug = document.getElementById('debug');
+
+
+		function doStart() {
+			// Disable 'select' elements
+			// Replace all select boxes with the text of their current value
+			rosterManager.acceptSelection();
+			rosterManager.getRoster().forEach((a) => {
+				debug.innerHTML += `<p>${a}</p>`;
+			});
+			// [Start] --> [Stop]
+			let b = document.getElementById('start-stop');
+			b.innerText = 'Stop';
+			b.onclick = doStop;
+		}
+
+		function doStop() {
+			// Re-enable controls
+			rosterManager.allowSelection();
+			debug.innerHTML = '';
+			// [Stop] --> [Start]
+			let b = document.getElementById('start-stop');
+			b.innerText = 'Start';
+			b.onclick = doStart;
+		}
+
+
+
+	</script>
+
+</body>
+</html>

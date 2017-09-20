@@ -1,51 +1,93 @@
 
 var MAGIC = ((ns) => {
 
-	function StatusWidget (rootElement) {
+	function RosterManager (rootElement, numDisplays) {
 		this.root = rootElement;
+		this.numDisplays = numDisplays;
 		this.agentDisplays = [];
 	}
 
-	StatusWidget.botsAvailable = [
-			"(empty)",
+	/**
+	 * This shouldn't really be hard-coded, but until we have the ability 
+	 * to scan the disk for built-ins and host posted agents it'll have to do.
+	 */
+	RosterManager.EMPTY_SLOT = "";
+	RosterManager.botsAvailable = [
+			RosterManager.EMPTY_SLOT,
 			"Navigator",
-			"GunTurrent",
+			"GunTurret",
 			"ModifiedShotBot",
 			"WallBouncer",
 	];
 
-	StatusWidget.prototype.create = function () {
+	RosterManager.prototype.createView = function () {
 		for (let i = 0; i < 6; ++i) {
-			this.addAgentDisplay(null, i);
+			this.addAgentDisplay(i);
 		}
 	};
 
-	StatusWidget.prototype.addAgentDisplay = function (agent, idx) {
-		let ad = new AgentDisplayWidget(this.root, agent, idx);
-
+	RosterManager.prototype.addAgentDisplay = function (idx) {
+		let ad = new AgentDisplayWidget(this.root, idx);
 		this.agentDisplays.push(ad);
 	};
 
-	StatusWidget.prototype.updateView = function () {
+	RosterManager.prototype.attachAgent = function (agent, idx) {
+		this.agentDisplays[idx].attachAgent(agent, idx);
+	}
+
+	RosterManager.prototype.acceptSelection = function () {
+		this.agentDisplays.forEach((e) => e.acceptSelection());
+	}
+
+	RosterManager.prototype.allowSelection = function () {
+		this.agentDisplays.forEach((e) => e.allowSelection());
+	}
+
+	/**
+	 * Called when the 'Start Game' button is pressed.
+	 */
+	RosterManager.prototype.getRoster = function () {
+		let roster = [];
+		this.agentDisplays.forEach((slot) => {
+			if (slot.data !== RosterManager.EMPTY_SLOT) {
+				roster.push(slot.data);
+			}
+		});
+		return roster;
+	}
+
+	RosterManager.prototype.updateView = function () {
 		this.agentDisplays.forEach((view, index) => view.updateAgentView(index));
 	};
 
 
 
 
-	function AgentDisplayWidget (parent, agent, i) {
+	function AgentDisplayWidget (parent, i) {
 		// IRL this will be a game object; for now it's a name:
-		this.agent = agent;
-		this.data = agent.getName();
+		this.agent = null;
+		this.data = "";
 		// The <div> wrapping the selector/text:
-		this.boundElement = this.create(parent, i);
+		this.element = this.create(parent, i);
+		// What we really want here is two elements occupying the same space,
+		// with only one of them set to 'visible' at a time. Otherwise, we keep
+		// creating new selector elements that are identical to the old ones
+		// that we *hope* have been garbage collected...
+	}
+
+	AgentDisplayWidget.prototype.attachAgent = function (agent, idx) {
+		if (this.agent !== null) {
+			console.log(`DEBUG: Overwriting agent -- skipped cleanup phase?`);
+		}
+		this.agent = agent;
+		this.updateAgentView(idx);
 	}
 
 	AgentDisplayWidget.prototype.mkPortrait = function (idx) {
-		let agent = this.agent;
+		//let agent = this.agent;
 		let div = document.createElement('div');
-		div.style.margin = 0;
-		div.style.padding = 0;
+//		div.style.margin = 0;
+//		div.style.padding = 0;
 		div.setAttribute('class', 'widget-item');
 
 		let canvas = document.createElement('canvas');
@@ -53,13 +95,29 @@ var MAGIC = ((ns) => {
 		canvas.setAttribute('height', '64');
 		canvas.class = 'widget-item';
 		let ctx = canvas.getContext('2d');
-		agent.sprite.renderBodyCannon(ctx, {x:32, y:32}, 0);
+		//agent.sprite.renderBodyCannon(ctx, {x:32, y:32}, 0);
 		//drawBot(ctx, idx);
 		//drawImg(ctx);
+		let pos = {x: canvas.width/2, y: canvas.width/2};
+		this.drawDefaultPortrait(ctx, pos);
 
 		div.appendChild(canvas);
 		return div;
 	};
+
+	AgentDisplayWidget.prototype.drawDefaultPortrait = function (ctx, pos) {
+		let radius = 15,
+				stroke = '#888',
+				fill = '#AAA',
+				posX = pos.x,
+				posY = pos.y;
+		ctx.strokeStyle = stroke;
+		ctx.fillStyle = fill;
+		ctx.beginPath();
+		ctx.arc(posX, posY, radius, 0, 2 * Math.PI);
+		ctx.fill();
+		ctx.stroke();
+	}
 
 	AgentDisplayWidget.prototype.mkName = function () {
 		let div = document.createElement('div');
@@ -67,16 +125,16 @@ var MAGIC = ((ns) => {
 		let sel = this.mkSelect();
 		div.appendChild(sel);
 		//-----------------------------------------------
-		this.boundElement = div;
+		this.element = div;
 		this.change(sel.value);
 		//-----------------------------------------------
 		div.style.paddingLeft = '12px';
-		div.style.paddingTop = '3px';
+		div.style.paddingTop = '8px';
 		return div;
 	};
 
 	AgentDisplayWidget.prototype.mkStatus = function () {
-		let agent = this.agent;
+		//let agent = this.agent;
 		let div = document.createElement('div');
 		div.setAttribute('class', 'widget-item status');
 		div.style['display'] ='grid';
@@ -91,9 +149,9 @@ var MAGIC = ((ns) => {
 		health.innerHTML = 
 			`❤️ 
 			<span class="currHP">
-				${agent.getMaxHealth()}
+				0
 			</span>/<span class="maxHP">
-				${agent.getMaxHealth()}
+				0
 			</span>`;
 		div.appendChild(health);
 
@@ -101,12 +159,12 @@ var MAGIC = ((ns) => {
 		energy.style['grid-column'] = '2';
 		energy.style['grid-row'] = '1';
 		energy.innerHTML =
-		`⚡ 
-		<span class="currEnergy">
-			${agent.getMaxEnergy()}
-		</span>/<span class="maxEnergy">
-			${agent.getMaxEnergy()}
-		</span>`;
+			`⚡ 
+			<span class="currEnergy">
+				0
+			</span>/<span class="maxEnergy">
+				0
+			</span>`;
 		div.appendChild(energy);
 
 		let shields = document.createElement('div');
@@ -115,9 +173,9 @@ var MAGIC = ((ns) => {
 		shields.innerHTML =
 			`🛡️ 
 			<span class="currShields">
-				${agent.getMaxShields()}
+				0
 			</span>/<span class="maxShields">
-				${agent.getMaxShields()}
+				0
 			</span>`;
 		div.appendChild(shields);
 
@@ -125,7 +183,7 @@ var MAGIC = ((ns) => {
 		condition.style['grid-column'] = '4';
 		condition.style['grid-row'] = '1';
 		condition.innerHTML = 
-			`<span class="conditionVal">${agent.getCondition()}</span>`;
+			`<span class="conditionVal">UNKNOWN</span>`;
 		div.appendChild(condition);
 		return div;
 	};
@@ -153,7 +211,7 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.handleEvent = function (evt) {
 		switch (evt.type) {
 			case 'change':
-				this.change(this.boundElement.childNodes[0].value);
+				this.change(this.element.childNodes[0].value);
 				break;
 		}
 	};
@@ -164,7 +222,7 @@ var MAGIC = ((ns) => {
 	 * game UI.
 	 */
 	AgentDisplayWidget.prototype.change = function (val) {
-		this.boundElement.childNodes[0].value = val;
+		this.element.childNodes[0].value = val;
 		this.data = val;
 	};
 
@@ -175,8 +233,8 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.acceptSelection = function () {
 		// Replace <select> with text from <select>.value
 		// Contract: this.data must equal the final value of <select>
-		this.boundElement.innerHTML = '';
-		this.boundElement.innerHTML = this.data;
+		this.element.innerHTML = '';
+		this.element.innerHTML = this.data;
 	};
 
 	/**
@@ -184,15 +242,15 @@ var MAGIC = ((ns) => {
 	 * in the roster.
 	 */
 	AgentDisplayWidget.prototype.allowSelection = function () {
-		this.boundElement.innerHTML = '';
+		this.element.innerHTML = '';
 		let sel = this.mkSelect();
-		this.boundElement.appendChild(sel);
+		this.element.appendChild(sel);
 		this.change(sel.value);
 	}
 
 	AgentDisplayWidget.prototype.mkSelect = function () {
 		let nameSel = document.createElement('select');
-		StatusWidget.botsAvailable.forEach((nm) => {
+		RosterManager.botsAvailable.forEach((nm) => {
 			let opt = document.createElement('option');
 			opt.value = nm;
 			opt.innerText = nm;
@@ -226,7 +284,7 @@ var MAGIC = ((ns) => {
 
 
 	// EXPORTS
-	ns.StatusWidget = StatusWidget;
+	ns.RosterManager = RosterManager;
 
 	return ns;
 
