@@ -304,7 +304,7 @@ var MAGIC = ((ns) => {
 		console.log('Game::stop');
 		// Clear data from previous game...
 		this.rosterManager.allowSelection();
-	}
+	};
 
 	Game.prototype.populateTheArena = function (roster) {
 		console.log('populateTheArena');
@@ -326,15 +326,50 @@ var MAGIC = ((ns) => {
 				sourceCode: ns.samples[type],
 				pos: initPosList[i],
 				radius: Game.const.ACTOR_RADIUS,
-				hw: {	// TODO: this should be a function of 'type'
+				hw: this.selectLoadout(type),
+			};
+			this.createActor(properties);
+		});
+	};
+
+	Game.prototype.selectLoadout = function (agentType) {
+		switch (agentType) {
+			case 'GunTurret':
+				return {
+					cpu: 40,
+					energy: 40,
+					damage: 150,
+					shields: 30,
+				};
+			case 'ModifiedShotBot':
+				return {
 					cpu: 20,
 					energy: 20,
 					damage: 100,
 					shields: 30,
-				}
-			};
-			this.createActor(properties);
-		});
+				};
+			case 'Navigator':
+				return {
+					cpu: 20,
+					energy: 20,
+					damage: 100,
+					shields: 30,
+				};
+			case 'WallBouncer':
+				return {
+					cpu: 20,
+					energy: 20,
+					damage: 300,
+					shields: 30,
+				};
+			default:
+				return {
+					cpu: 20,
+					energy: 20,
+					damage: 100,
+					shields: 30,
+				};
+		}
 	};
 
 	/**
