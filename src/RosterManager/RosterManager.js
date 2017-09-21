@@ -33,15 +33,17 @@ var MAGIC = ((ns) => {
 
 	RosterManager.prototype.attachAgent = function (agent, idx) {
 		this.agentDisplays[idx].attachAgent(agent, idx);
-	}
+	};
 
 	RosterManager.prototype.acceptSelection = function () {
 		this.agentDisplays.forEach((e) => e.acceptSelection());
-	}
+	};
 
+	/* Use reset() instead
 	RosterManager.prototype.allowSelection = function () {
 		this.agentDisplays.forEach((e) => e.allowSelection());
-	}
+	};
+	*/
 
 	/**
 	 * Called when the 'Start Game' button is pressed.
@@ -54,10 +56,14 @@ var MAGIC = ((ns) => {
 			}
 		});
 		return roster;
-	}
+	};
 
 	RosterManager.prototype.updateView = function () {
 		this.agentDisplays.forEach((view, index) => view.updateAgentView(index));
+	};
+
+	RosterManager.prototype.reset = function () {
+		this.agentDisplays.forEach((view) => view.reset());
 	};
 
 
@@ -73,6 +79,11 @@ var MAGIC = ((ns) => {
 		// with only one of them set to 'visible' at a time. Otherwise, we keep
 		// creating new selector elements that are identical to the old ones
 		// that we *hope* have been garbage collected...
+	}
+
+	AgentDisplayWidget.prototype.reset = function () {
+		this.agent = null;
+		this.allowSelection();	// should reset this.data
 	}
 
 	AgentDisplayWidget.prototype.attachAgent = function (agent, idx) {
@@ -238,8 +249,8 @@ var MAGIC = ((ns) => {
 	};
 
 	/**
-	 * Called on game stop (but not pause!), to allow the selection of agents
-	 * in the roster.
+	 * Called on game reset (but not restart or pause!), to allow the 
+	 * selection of agents in the roster.
 	 */
 	AgentDisplayWidget.prototype.allowSelection = function () {
 		this.element.innerHTML = '';
@@ -262,12 +273,15 @@ var MAGIC = ((ns) => {
 
 	AgentDisplayWidget.prototype.updateAgentView = function (idx) {
 		let agent = this.agent;
+		if (agent === null) {
+			return;
+		}
 		let hp = document.getElementsByClassName('currHP')[idx];
 		hp.innerText = agent.getHealth();
-		if (agent.getHealth() < agent.getMaxHealth() / 30) {
-			let health = document.getElementsByClassName('status')[idx];
-			health.firstElementChild.style.color = 'red';
-		}
+//		if (agent.getHealth() < agent.getMaxHealth() / 30) {
+//			let health = document.getElementsByClassName('status')[idx];
+//			health.firstElementChild.style.color = 'red';
+//		}
 		let en = document.getElementsByClassName('currEnergy')[idx];
 		en.innerText = agent.getEnergy();
 		let sh = document.getElementsByClassName('currShields')[idx];

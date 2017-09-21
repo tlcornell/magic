@@ -139,7 +139,13 @@ var MAGIC = ((ns) => {
 	///////////////////////////////////////////////////////////////////////////
 	// App is for loading resources, talking to servers, interacting with UI
 
-	let App = function () {};
+	let App = function () {
+		this.resetCtl = e_('reset');
+		this.startCtl = e_('start'); 
+		this.pauseCtl = e_('pause'); 
+		// 'Pause' may be replaced by keyboard controls, 
+		// so it wouldn't be a visible UI control any more...
+	};
 
 	/**
 	 * Start this web app
@@ -157,46 +163,76 @@ var MAGIC = ((ns) => {
 
 	/**
 	 * Set up the application UI.
-	 *
-	 * Currently this is limited to just listening for [SPACE] keypresses.
-	 * Someday there may be buttons and menus and all that jazz.
 	 */
 	App.prototype.setupUI = function () {
-		// Need to use 'bind' here so that 'keyHandler' is called with 'this'
-		// equal to the app. Otherwise 'this' will be '#document' when called.
-		document.addEventListener('keydown', this.keyHandler.bind(this), true);
-		let startButton = e_('start-stop');
-		startButton.addEventListener('click', this.startAGame.bind(this), false);
+		this.resetCtl.onclick = this.reset.bind(this);
+		this.startCtl.onclick = this.start.bind(this);
+		this.pauseCtl.onclick = this.pause.bind(this);
+		this.pauseCtl.disabled = true;
 	};
 
-	/**
-	 * UI event listener, for keypress events.
-	 *
-	 * Encountered a problem here: The spacebar is by default interpreted
-	 * as a click on any focused button (and I think other input elements
-	 * as well). I never knew that! So we have to be careful that our 
-	 * keyboard interface doesn't try to colonize the other UI components.
-	 */
-	App.prototype.keyHandler = function (evt) {
-		console.log(`keyHandler (${evt.key})`);
-		switch (evt.key) {
-			case " ":
-				// preventDefault is required to prevent the spacebar also triggering
-				// a 'click' event on the start button.
-				evt.preventDefault();
-				this.game.togglePaused();
-				break;
-			default:
-				// ignore
-				break;
+	App.prototype.reset = function () {
+		console.log('App::reset');
+		this.game.clearGameWorld();
+		this.game.resetRosterManager();
+		this.game.exitGameLoop();
+		this.setPauseCtl('Pause', false);
+		this.setStartCtl('Start', true);
+	};
+
+	App.prototype.restart = function () {
+		this.game.clearGameWorld();
+		this.game.exitGameLoop();
+		this.setPauseCtl('Pause', false);
+		this.start();
+	};
+
+	App.prototype.start = function () {
+		this.game.commitRosterManager();
+		this.game.populateGameWorld();
+		this.game.bindStatusDisplays();
+		this.run();
+	};
+
+	App.prototype.run = function () {
+		this.setPauseCtl('Pause', true);
+		this.setStartCtl('Restart', true);
+		this.game.enterGameLoop();
+	};
+
+	App.prototype.pause = function () {
+		this.game.exitGameLoop();
+		this.setPauseCtl('Continue', true);
+	};
+
+	App.prototype.endGame = function () {
+		this.game.exitGameLoop();
+		this.setPauseCtl('Pause', false);
+	};
+
+	App.prototype.setStartCtl = function (label, enabled) {
+		this.startCtl.innerText = label;
+		this.startCtl.disabled = !enabled;
+		if (label === 'Start') {
+			this.startCtl.onclick = this.start.bind(this);
+		} else if (label === 'Restart') {
+			this.startCtl.onclick = this.restart.bind(this);
+		} else {
+			throw new Error(`setStartCtl: Label value (${label}) unrecognized`);
 		}
 	};
 
-	App.prototype.startAGame = function () {
-		console.log('App::startAGame');
-		this.game.start();
-	}
-
+	App.prototype.setPauseCtl = function (label, enabled) {
+		this.pauseCtl.innerText = label;
+		this.pauseCtl.disabled = !enabled;
+		if (label === 'Pause') {
+			this.pauseCtl.onclick = this.pause.bind(this);
+		} else if (label === 'Continue') {
+			this.pauseCtl.onclick = this.run.bind(this);
+		} else {
+			throw new Error(`setPauseCtl: Label value (${label}) unrecognized`);
+		}
+	};
 
 	////////////////////////////////////////////////////////////////////////////
 	// Game: Main game object.
@@ -212,7 +248,7 @@ var MAGIC = ((ns) => {
 			},
 			objects: {
 				map: [],
-				actors: [],
+				agents: [],
 				projectiles: [],
 			},
 		});
@@ -226,7 +262,7 @@ var MAGIC = ((ns) => {
 	 * of variation between different types of game.
 	 */
 	Game.const = {
-		ACTOR_RADIUS: 15,
+		AGENT_RADIUS: 15,
 		BULLET_RADIUS: 2,
 		BUMP_DAMAGE: 1,
 		MAX_ROSTER_SLOTS: 6,
@@ -244,13 +280,12 @@ var MAGIC = ((ns) => {
 		this.initializeSubsystems();
 		this.createMap();
 		this.render();
-		//this.start();
 	};
 
 	Game.prototype.initializeSubsystems = function () {
 		this.graphics.initialize();
 		this.physics.initialize();
-		this.createStatusDisplay();
+		this.createRosterManager();
 	};
 
 	Game.prototype.createMap = function () {
@@ -285,34 +320,62 @@ var MAGIC = ((ns) => {
 		this.objects.map.push(wall);
 	};
 
-	Game.prototype.createStatusDisplay = function () {
+	Game.prototype.createRosterManager = function () {
 		let widget = document.getElementsByClassName("status-widget")[0],
 				count = Game.const.MAX_ROSTER_SLOTS;
 		this.rosterManager = new ns.RosterManager(widget, count);
 		this.rosterManager.createView();
 	}
 
-	Game.prototype.start = function () {
-		console.log('Game::start');
-		this.rosterManager.acceptSelection();
+	// Control interface
+	// Methods call by the App on UI events
+	Game.prototype.populateGameWorld = function () {
 		let roster = this.rosterManager.getRoster();
 		this.populateTheArena(roster);
 		this.render();
 	};
+	Game.prototype.clearGameWorld = function () {
+		this.resetGameData();
+		this.physics.reset();
+		this.graphics.clearViewport();
+		this.createMap();
+		this.render();
+	};
+	Game.prototype.resetRosterManager = function () {
+		this.rosterManager.reset();
+	};
+	Game.prototype.commitRosterManager = function () {
+		this.rosterManager.acceptSelection();
+	};
+	Game.prototype.bindStatusDisplays = function () {
+		this.populateStatusDisplay();
+	};
+	Game.prototype.enterGameLoop = function () {
+		this.loop();
+	};
+	Game.prototype.exitGameLoop = function () {
+		if (this.requestId !== 0) {
+			window.cancelAnimationFrame(this.requestId);
+		}
+	};
 
-	Game.prototype.stop = function () {
-		console.log('Game::stop');
-		// Clear data from previous game...
-		this.rosterManager.allowSelection();
+	Game.prototype.resetGameData = function () {
+		// leave the map alone
+		this.objects.agents = [];
+		this.objects.projectiles = [];
+		this.startTime = 0;
+		this.loopCounter = 0;
+		this.requestId = 0;
+		this.flags.paused = true;
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
 		console.log('populateTheArena');
-		this.createActors(roster);
+		this.createAgents(roster);
 		this.populateStatusDisplay();
 	};
 
-	Game.prototype.createActors = function (roster) {
+	Game.prototype.createAgents = function (roster) {
 		let count = roster.length;
 		let initPosList = scatter(count);		// random positions, not too close
 		roster.forEach((type, i) => {
@@ -322,13 +385,13 @@ var MAGIC = ((ns) => {
 				name: `${type}`,
 				number: ord,
 				color: ((360/count) % 360) * i,
-				type: 'actor/generic',
+				type: 'agent/generic',
 				sourceCode: ns.samples[type],
 				pos: initPosList[i],
-				radius: Game.const.ACTOR_RADIUS,
+				radius: Game.const.AGENT_RADIUS,
 				hw: this.selectLoadout(type),
 			};
-			this.createActor(properties);
+			this.createAgent(properties);
 		});
 	};
 
@@ -375,7 +438,7 @@ var MAGIC = ((ns) => {
 	/**
 	 * Assign initial positions so no one is too close
 	 *
-	 * Divide the arena up into |actors| rows and columns, and
+	 * Divide the arena up into |agents| rows and columns, and
 	 * assign row, col pairs randomly and uniquely.
 	 */
 	function scatter(n) {
@@ -398,24 +461,24 @@ var MAGIC = ((ns) => {
 	};
 
 	/**
-	 * In this function, we create a sprite master with a generic 'actor' 
+	 * In this function, we create a sprite master with a generic 'agent' 
 	 * key. In real life, the key would be the name of a particular bot,
 	 * and would connect it to the sprite sheets for that character.
 	 */
-	Game.prototype.createActor = function (properties) {
-		let actor = new GenericActor(this, properties);
-		actor.number = properties.number;
-		actor.body = Physics.actorBody(actor, properties);
-		actor.sprite = Graphics.createSprite('actor',	properties);
-		actor.sourceCode = properties.sourceCode; 
-		ns.Compiler.compile(actor);	// --> actor.program
-		actor.interpreter = new ns.Interpreter(actor);
-		this.physics.addBody(actor.body);
-		this.objects.actors.push(actor);
+	Game.prototype.createAgent = function (properties) {
+		let agent = new GenericAgent(this, properties);
+		agent.number = properties.number;
+		agent.body = Physics.agentBody(agent, properties);
+		agent.sprite = Graphics.createSprite('agent',	properties);
+		agent.sourceCode = properties.sourceCode; 
+		ns.Compiler.compile(agent);	// --> agent.program
+		agent.interpreter = new ns.Interpreter(agent);
+		this.physics.addBody(agent.body);
+		this.objects.agents.push(agent);
 	};
 
 	Game.prototype.populateStatusDisplay = function () {
-		this.objects.actors.forEach((a, i) => {
+		this.objects.agents.forEach((a, i) => {
 			this.rosterManager.attachAgent(a, i);
 		});
 	};
@@ -434,7 +497,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.remainingPlayers = function () {
-		return this.objects.actors.filter((a) => a.isNotDead()).length;
+		return this.objects.agents.filter((a) => a.isNotDead()).length;
 	}
 
 	Game.prototype.togglePaused = function () {
@@ -495,19 +558,19 @@ var MAGIC = ((ns) => {
 		let angle = observer.sight.angle + observer.sight.offset,
 				pos = observer.getPosition(),
 				sightRay = a2v(pos, angle, Game.const.SIGHT_DISTANCE);
-		let actors = this.objects.actors;
+		let agents = this.objects.agents;
 		let candidates = [];
-		for (var i = 0; i < actors.length; ++i) {
-			let actor = actors[i];
-			if (!actor.isNotDead() || observer === actor) {
+		for (var i = 0; i < agents.length; ++i) {
+			let agent = agents[i];
+			if (!agent.isNotDead() || observer === agent) {
 				continue;
 			}
-			let debug = aimData(observer, actor),
+			let debug = aimData(observer, agent),
 					dbgWhere = a2v(pos, angle, debug.dist);
-			let C = actor.getPosition(),
-					r = Game.const.ACTOR_RADIUS;
+			let C = agent.getPosition(),
+					r = Game.const.AGENT_RADIUS;
 			if (intersectLineCircle(pos, sightRay, C, r)) {
-				candidates.push(actor);
+				candidates.push(agent);
 			}
 		}
 		if (candidates.length === 0) {
@@ -565,8 +628,8 @@ var MAGIC = ((ns) => {
 
 	Game.prototype.update = function () {
 		this.physics.update().forEach((task) => this.execute(task));
-		this.objects.actors.forEach((actor) => {
-			actor.update().forEach((task) => this.execute(task));
+		this.objects.agents.forEach((agent) => {
+			agent.update().forEach((task) => this.execute(task));
 		});
 		this.objects.projectiles.forEach((proj) => {
 			proj.update().forEach((task) => this.execute(task));
@@ -579,13 +642,13 @@ var MAGIC = ((ns) => {
 	Game.prototype.execute = function (task) {
 		//console.log("Execute game task", task);
 		switch (task.op) {
-			case 'actorDied':
-				task.actor.setState(Q_DEAD);
-				task.actor.deathCounter = 200;
-				this.physics.removeBody(task.actor);
+			case 'agentDied':
+				task.agent.setState(Q_DEAD);
+				task.agent.deathCounter = 200;
+				this.physics.removeBody(task.agent);
 				break;
-			case 'actorEliminated':
-				task.actor.setState(Q_ELIMINATED);
+			case 'agentEliminated':
+				task.agent.setState(Q_ELIMINATED);
 				// remove from render loop
 				break;
 			case 'hit':
@@ -619,11 +682,11 @@ var MAGIC = ((ns) => {
 		this.graphics.clearViewport();
 		this.objects.map.forEach((wall) => wall.render(this.graphics));
 		this.objects.projectiles.forEach((p) => p.render(this.graphics));
-		this.objects.actors.forEach((actor) => actor.render(this.graphics));
+		this.objects.agents.forEach((agent) => agent.render(this.graphics));
 	};
 
 	///////////////////////////////////////////////////////////////////////////
-	// Actors
+	// Agents
 	
 	const Q_NOT_DEAD = 3;
 	const Q_DEAD = 4;
@@ -642,7 +705,7 @@ var MAGIC = ((ns) => {
 	 * shields: Max shields (at normal drain rates)
 	 * weapon: Currently only plain bullets are supported
 	 */
-	function GenericActor(game, properties) {
+	function GenericAgent(game, properties) {
 		let a0 = randomRadian();
 		Object.assign(this, {
 			game: game,
@@ -678,19 +741,19 @@ var MAGIC = ((ns) => {
 		};
 	}
 
-	GenericActor.prototype.isNotDead = function () {
+	GenericAgent.prototype.isNotDead = function () {
 		return this.getState() === Q_NOT_DEAD;
 	};
 
-	GenericActor.prototype.isDead = function () {
+	GenericAgent.prototype.isDead = function () {
 		return this.getState() === Q_DEAD;
 	};
 
-	GenericActor.prototype.isEliminated = function () {
+	GenericAgent.prototype.isEliminated = function () {
 		return this.getState() === Q_ELIMINATED;
 	};
 
-	GenericActor.prototype.getCondition = function () {
+	GenericAgent.prototype.getCondition = function () {
 		switch (this.getState()) {
 			case Q_NOT_DEAD:
 				return 'GOOD';
@@ -702,11 +765,11 @@ var MAGIC = ((ns) => {
 		}
 	}
 
-	GenericActor.prototype.getName = function () {
+	GenericAgent.prototype.getName = function () {
 		return this.name;
 	};
 
-	GenericActor.prototype.getPosition = function () {
+	GenericAgent.prototype.getPosition = function () {
 		// Make sure pos registers are up to date
 		let p = this.game.getPosition(this);	// delegates to Game.Physics
 		if (p) {
@@ -720,53 +783,53 @@ var MAGIC = ((ns) => {
 		return this.pos;
 	};
 
-	GenericActor.prototype.getPosX = function () {
+	GenericAgent.prototype.getPosX = function () {
 		return this.getPosition().x;
 	};
 
-	GenericActor.prototype.getPosY = function () {
+	GenericAgent.prototype.getPosY = function () {
 		return this.getPosition().y;
 	};
 
 	/** 
 	* Return contents of AIM register, which are natively in radians.
 	*/
-	GenericActor.prototype.getAim = function () {
+	GenericAgent.prototype.getAim = function () {
 		return this.sight.angle;
 	};
 
-	GenericActor.prototype.getAimDegrees = function () {
+	GenericAgent.prototype.getAimDegrees = function () {
 		return degrees(this.getAim());
 	};
 
-	GenericActor.prototype.setAim = function (rad) {
+	GenericAgent.prototype.setAim = function (rad) {
 		this.sight.angle = rad;
 		this.checkSightEvents();
 	};
 
-	GenericActor.prototype.setAimDegrees = function (deg) {
+	GenericAgent.prototype.setAimDegrees = function (deg) {
 		this.setAim(radians(deg));
 	};
 
-	GenericActor.prototype.setAimVector = function (vec) {
+	GenericAgent.prototype.setAimVector = function (vec) {
 		let angle = Matter.Vector.angle(this.getPosition(), vec);
 		this.setAim(angle);
 	};
 
-	GenericActor.prototype.getLookDegrees = function () {
+	GenericAgent.prototype.getLookDegrees = function () {
 		return degrees(this.sight.offset);
 	}
 
-	GenericActor.prototype.setLook = function (rad) {
+	GenericAgent.prototype.setLook = function (rad) {
 		this.vision.offset = rad;
 		this.checkSightEvents();
 	}
 
-	GenericActor.prototype.setLookDegrees = function (deg) {
+	GenericAgent.prototype.setLookDegrees = function (deg) {
 		this.setLook(radians(deg));
 	}
 
-	GenericActor.prototype.getSightDist = function () {
+	GenericAgent.prototype.getSightDist = function () {
 		if (this.sight.dist) {
 			return this.sight.dist;
 		} else {
@@ -774,44 +837,44 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	GenericActor.prototype.getCPU = function () {
+	GenericAgent.prototype.getCPU = function () {
 		return this.cpuSpeed;
 	}
 
-	GenericActor.prototype.getBulletEnergy = function () {
+	GenericAgent.prototype.getBulletEnergy = function () {
 		return this.fire;
 	}
 
-	GenericActor.prototype.addBulletEnergy = function (e) {
+	GenericAgent.prototype.addBulletEnergy = function (e) {
 		this.fire += e;
 		this.energy -= e;
 	}
 
-	GenericActor.prototype.clearBulletEnergy = function () {
+	GenericAgent.prototype.clearBulletEnergy = function () {
 		this.fire = 0;
 	}
 
-	GenericActor.prototype.getEnergy = function () {
+	GenericAgent.prototype.getEnergy = function () {
 		return this.energy;
 	}
 
-	GenericActor.prototype.rechargeEnergy = function () {
+	GenericAgent.prototype.rechargeEnergy = function () {
 		this.energy = Math.min(this.maxEnergy, this.energy + 2);
 	}
 
-	GenericActor.prototype.getMaxEnergy = function () {
+	GenericAgent.prototype.getMaxEnergy = function () {
 		return this.maxEnergy;
 	}
 
-	GenericActor.prototype.getHealth = function () {
+	GenericAgent.prototype.getHealth = function () {
 		return this.health;
 	};
 
-	GenericActor.prototype.setHealth = function (amt) {
+	GenericAgent.prototype.setHealth = function (amt) {
 		this.health = Math.max(amt, 0);
 	}
 
-	GenericActor.prototype.removeHealth = function (amt) {
+	GenericAgent.prototype.removeHealth = function (amt) {
 		if (amt < 0) {
 			throw new Error(`removeHealth: Negative amount (${amt})`);
 		}
@@ -823,23 +886,23 @@ var MAGIC = ((ns) => {
 		// Note that setHealth floors out at zero. So it's okay even if H-amt is neg.
 	};
 
-	GenericActor.prototype.getMaxHealth = function () {
+	GenericAgent.prototype.getMaxHealth = function () {
 		return this.maxHealth;
 	};
 
-	GenericActor.prototype.getShields = function () {
+	GenericAgent.prototype.getShields = function () {
 		return this.shields;
 	}
 
-	GenericActor.prototype.getMaxShields = function () {
+	GenericAgent.prototype.getMaxShields = function () {
 		return this.maxShields;
 	}
 
-	GenericActor.prototype.getSpeedX = function () {
+	GenericAgent.prototype.getSpeedX = function () {
 		return this.drv.x;
 	};
 
-	GenericActor.prototype.setSpeedX = function (dx) {
+	GenericAgent.prototype.setSpeedX = function (dx) {
 		let diff = dx - this.drv.x;
 		// could be negative if we are lowering speed
 		this.energy -= diff;
@@ -848,11 +911,11 @@ var MAGIC = ((ns) => {
 		this.drv.x = dx;
 	}
 
-	GenericActor.prototype.getSpeedY = function () {
+	GenericAgent.prototype.getSpeedY = function () {
 		return this.drv.y;
 	};
 
-	GenericActor.prototype.setSpeedY = function (dy) {
+	GenericAgent.prototype.setSpeedY = function (dy) {
 		let diff = dy - this.drv.y;
 		// could be negative if we are lowering speed
 		this.energy -= diff;
@@ -861,7 +924,7 @@ var MAGIC = ((ns) => {
 		this.drv.y = dy;
 	};
 
-	GenericActor.prototype.driveVector = function (vec) {
+	GenericAgent.prototype.driveVector = function (vec) {
 		this.drv.x = vec.x;
 		this.drv.y = vec.y;
 		this.game.setVelocity(this, this.drv);	// delegates to Game.physics
@@ -870,19 +933,19 @@ var MAGIC = ((ns) => {
 		*/
 	};
 
-	GenericActor.prototype.getWall = function () {
+	GenericAgent.prototype.getWall = function () {
 		return this.wall;
 	}
 
-	GenericActor.prototype.getState = function () {
+	GenericAgent.prototype.getState = function () {
 		return this.state;
 	};
 
-	GenericActor.prototype.setState = function (qNew) {
+	GenericAgent.prototype.setState = function (qNew) {
 		this.state = qNew;
 	};
 
-	GenericActor.prototype.fireWeapons = function () {
+	GenericAgent.prototype.fireWeapons = function () {
 		let payload = this.getBulletEnergy(),
 				angle = this.getAim();
 		// Cap the energy payload at this agent's available energy
@@ -894,15 +957,15 @@ var MAGIC = ((ns) => {
 		// No other attacks supported at this time
 	}
 
-	GenericActor.prototype.launchProjectile = function (angle, energy) {
+	GenericAgent.prototype.launchProjectile = function (angle, energy) {
 		let norm = angle2vector(angle, 1),	// direction of shot
 				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
-				offset = Matter.Vector.mult(norm, Game.const.ACTOR_RADIUS + 1), // start outside of shooter bot
+				offset = Matter.Vector.mult(norm, Game.const.AGENT_RADIUS + 1), // start outside of shooter bot
 				pos = Matter.Vector.add(this.getPosition(), offset);
 		this.game.createProjectile(this, pos, drv, energy);
 	}
 
-	GenericActor.prototype.update = function () {
+	GenericAgent.prototype.update = function () {
 
 		let generatedTasks = [];
 
@@ -931,8 +994,8 @@ var MAGIC = ((ns) => {
 	let beNotDead = function (gameTasks) {
 		if (this.getHealth() === 0) {
 			gameTasks.push({
-				op: 'actorDied',
-				actor: this,
+				op: 'agentDied',
+				agent: this,
 			});
 			this.prog.main = beDead;
 		} else {
@@ -972,8 +1035,8 @@ var MAGIC = ((ns) => {
 	let beDead = function (gameTasks) {
 		if (--this.deathCounter === 0) {
 			gameTasks.push({
-				op: 'actorEliminated',
-				actor: this,
+				op: 'agentEliminated',
+				agent: this,
 			});
 			this.prog.main = beEliminated;
 		}
@@ -990,11 +1053,11 @@ var MAGIC = ((ns) => {
 		}
 	}
 
-	let pushThroughCollisions = function (otherActor) {
-		this.setAimVector(otherActor.getPosition());
+	let pushThroughCollisions = function (otherAgent) {
+		this.setAimVector(otherAgent.getPosition());
 	};
 
-	GenericActor.prototype.onSight = function () {
+	GenericAgent.prototype.onSight = function () {
 		let seen = this.sight.thing;
 //		console.log(this.name, "sees", seen.name);
 		let p1 = this.getPosition(),
@@ -1003,19 +1066,19 @@ var MAGIC = ((ns) => {
 		//this.game.togglePaused();
 	};
 
-	GenericActor.prototype.checkSightEvents = function () {
+	GenericAgent.prototype.checkSightEvents = function () {
 		this.game.checkSightEvents(this);
 	};
 
-	GenericActor.prototype.queueEvent = function (evt) {
+	GenericAgent.prototype.queueEvent = function (evt) {
 		this.eventQueue.push(evt);
 	};
 
-	GenericActor.prototype.render = function (gfx) {
+	GenericAgent.prototype.render = function (gfx) {
 		this.sprite.render(gfx, this);
 	};
 
-	GenericActor.prototype.handleEvent = function (evt) {
+	GenericAgent.prototype.handleEvent = function (evt) {
 //		console.log(this.name, "handleEvent", evt);
 		switch (evt.op) {
 			case 'interrupt':
@@ -1028,7 +1091,7 @@ var MAGIC = ((ns) => {
 						this.wall = 1;	// Raise wall condition, maybe triggering an interrupt
 						break;
 					default:
-						throw new Error(`Actor does not recognize event type (${evt.type})`);
+						throw new Error(`Agent does not recognize event type (${evt.type})`);
 				}
 				break;
 			case 'hit':
@@ -1036,18 +1099,18 @@ var MAGIC = ((ns) => {
 				break;
 				break;
 			case 'default':
-				throw new Error(`Actor does not recognize event operator (${evt.op})`);
+				throw new Error(`Agent does not recognize event operator (${evt.op})`);
 		}
 	};
 
-	GenericActor.prototype.environmentalDamage = function (rawDmg) {
+	GenericAgent.prototype.environmentalDamage = function (rawDmg) {
 		// Theoretically, we could have factors like shields and armor that
 		// lessen the effect of the impact. 
 		// For now, we just assess the full raw damage.
 		this.removeHealth(rawDmg);
 	}
 
-	GenericActor.prototype.projectileImpact = function (projectile) {
+	GenericAgent.prototype.projectileImpact = function (projectile) {
 		// Theoretically, we could have factors like shields and armor that
 		// lessen the effect of the impact. 
 		// For now, we just assess the full raw damage.
@@ -1135,7 +1198,7 @@ var MAGIC = ((ns) => {
 				tasks.push(createRemoveProjectileTask(this));
 				break;
 			default:
-				throw new Error(`Actor does not recognize event type (${evt.type})`);
+				throw new Error(`Agent does not recognize event type (${evt.type})`);
 		}
 	};
 
@@ -1188,8 +1251,8 @@ var MAGIC = ((ns) => {
 
 	Graphics.createSprite = function (key, properties) {
 		switch (key) {
-			case 'actor':
-				return new GenericActorSprite(properties);
+			case 'agent':
+				return new GenericAgentSprite(properties);
 			case 'bullet':
 				return new BulletSprite(properties);
 			case 'wall':
@@ -1278,16 +1341,16 @@ var MAGIC = ((ns) => {
 	};
 
 
-	function GenericActorSprite(properties) {
+	function GenericAgentSprite(properties) {
 		Object.assign(this, properties);
 	}
 
 	/**
 	 * This is tricky, because the layer(s) we draw to varies with the
-	 * state of the actor model.
+	 * state of the agent model.
 	 */
-	GenericActorSprite.prototype.render = function (gfx, model) {
-		let radius = Game.const.ACTOR_RADIUS,
+	GenericAgentSprite.prototype.render = function (gfx, model) {
+		let radius = Game.const.AGENT_RADIUS,
 				name = model.getName(),
 				pos = model.getPosition(),
 				aim = model.getAim(),
@@ -1340,7 +1403,7 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	GenericActorSprite.prototype.renderBodyCannon = function (ctx, pos, aim) {
+	GenericAgentSprite.prototype.renderBodyCannon = function (ctx, pos, aim) {
 		let radius = this.radius,
 				stroke = `hsl(${this.color}, 50%, 33%)`,
 				fill = `hsl(${this.color}, 50%, 67%)`;
@@ -1384,34 +1447,39 @@ var MAGIC = ((ns) => {
 
 	Physics.prototype.initialize = function () {
 		console.log("Physics.prototype.initialize");
-		this.matter = Matter.Engine.create();
-		this.matter.world.gravity.y = 0;
-		Matter.Events.on(this.matter, 'collisionActive', this.handleCollisions.bind(this));
-		Matter.Events.on(this.matter, 'collisionStart', this.handleCollisions.bind(this));
+		this.engine = Matter.Engine.create();
+		this.engine.world.gravity.y = 0;
+		Matter.Events.on(this.engine, 'collisionActive', this.handleCollisions.bind(this));
+		Matter.Events.on(this.engine, 'collisionStart', this.handleCollisions.bind(this));
+	};
+
+	Physics.prototype.reset = function () {
+		Matter.World.clear(this.engine.world);
+		Matter.Engine.clear(this.engine);
 	};
 
 	Physics.prototype.update = function () {
 		this.tasks = [];
-		Matter.Engine.update(this.matter, 1000/60);
+		Matter.Engine.update(this.engine, 1000/60);
 		// Okay, maybe we have some events to deal with...
 		// Event handlers registered with Matter will add tasks to 
 		// this.tasks.
 		return this.tasks;
 	};
 
-	Physics.wallSegment = function (x, y, w, h, name, actor) {
+	Physics.wallSegment = function (x, y, w, h, name, agent) {
 		let body = Matter.Bodies.rectangle(
 			x + w/2, y + h/2, w, h,
 			{	isStatic: true, label: name });
 		// Extend Matter.js body with 'controller', a back-pointer
-		body.controller = actor;
+		body.controller = agent;
 		return body;
 	};
 
-	Physics.actorBody = function (actor, properties) {
+	Physics.agentBody = function (agent, properties) {
 		let body = Matter.Bodies.circle(
 			properties.pos.x, properties.pos.y,
-			Game.const.ACTOR_RADIUS,
+			Game.const.AGENT_RADIUS,
 			// options:
 			{
 				density: 1,
@@ -1422,7 +1490,7 @@ var MAGIC = ((ns) => {
 				// restitution: defaults to 0
 			});
 		// Extend Matter.js body with 'controller', a back-pointer
-		body.controller = actor;
+		body.controller = agent;
 		return body;
 	};
 
@@ -1443,14 +1511,14 @@ var MAGIC = ((ns) => {
 	};
 
 	Physics.prototype.addBody = function (body) {
-		Matter.World.add(this.matter.world, body);
+		Matter.World.add(this.engine.world, body);
 	};
 
 	Physics.prototype.removeBody = function (object) {
 		if (object === null || object.body === null) {
 			return;
 		}
-		Matter.World.remove(this.matter.world, object.body, true);
+		Matter.World.remove(this.engine.world, object.body, true);
 		object.body = null;
 	};
 
