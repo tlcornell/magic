@@ -59,10 +59,8 @@
 }
 .conditionVal {
 	/* color is for GOOD condition */
-	border: 1px solid hsl(106, 67%, 45%);
-	background-color: hsl(106, 67%, 75%);
+	border: 1px solid;
 	border-radius: 3px;
 	padding: 2px;
-	color: hsl(106, 67%, 25%);
 	font: 10px sans-serif;
 }

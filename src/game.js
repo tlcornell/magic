@@ -3,23 +3,30 @@ var MAGIC = ((ns) => {
 	/////////////////////////////////////////////////////////////////////////
 	// Logging
 
-	ns.log = "";
+	ns.log = new EventLog();
 
-	function LOG () {
-		let line = "";
-		for (var i = 0; i < arguments.length; ++i) {
-			line += arguments[i] + ' ';
-		}
-		line += '\n';
-		ns.log += line;
-		console.log(line);
+	function EventLog () {
+		this.log = [];
 	}
+
+	EventLog.prototype.post = function (event) {
+		this.log.push(event);
+	};
+
+	EventLog.prototype.read = function (item) {
+		return this.log[item];
+	};
+
+	function LOG (event) {
+		ns.log.post(event);
+	}
+
 
 	function displayLog () {
 		let div = e_('log-div');
 		div.innerHTML = `<textarea id="log-display" rows="10" cols="80"></textarea>`;
 		let display = e_('log-display');
-		display.append(ns.log);
+		display.append(JSON.stringify(ns.log));
 		display.scrollTop = display.scrollHeight;
 		window.scrollTo(0, 0);
 	}
@@ -172,17 +179,16 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.reset = function () {
-		console.log('App::reset');
+		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
-		this.game.exitGameLoop();
 		this.setPauseCtl('Pause', false);
 		this.setStartCtl('Start', true);
 	};
 
 	App.prototype.restart = function () {
-		this.game.clearGameWorld();
 		this.game.exitGameLoop();
+		this.game.clearGameWorld();
 		this.setPauseCtl('Pause', false);
 		this.start();
 	};
@@ -243,9 +249,6 @@ var MAGIC = ((ns) => {
 			loopCounter: 0,
 			startTime: 0,
 			requestId: 0,		// returned from requestAnimationFrame
-			flags: {
-				paused: true,
-			},
 			objects: {
 				map: [],
 				agents: [],
@@ -361,12 +364,12 @@ var MAGIC = ((ns) => {
 
 	Game.prototype.resetGameData = function () {
 		// leave the map alone
+		this.objects.walls = [];
 		this.objects.agents = [];
 		this.objects.projectiles = [];
 		this.startTime = 0;
 		this.loopCounter = 0;
 		this.requestId = 0;
-		this.flags.paused = true;
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
@@ -379,10 +382,9 @@ var MAGIC = ((ns) => {
 		let count = roster.length;
 		let initPosList = scatter(count);		// random positions, not too close
 		roster.forEach((type, i) => {
-		//for (var i = 0; i < count; ++i) {
 			let ord = i + 1;
 			let properties = {
-				name: `${type}`,
+				name: `${type} #${ord}`,
 				number: ord,
 				color: ((360/count) % 360) * i,
 				type: 'agent/generic',
@@ -500,19 +502,6 @@ var MAGIC = ((ns) => {
 		return this.objects.agents.filter((a) => a.isNotDead()).length;
 	}
 
-	Game.prototype.togglePaused = function () {
-		console.log('togglePaused', 'was', this.flags.paused);
-		if (this.flags.paused) {
-			this.flags.paused = false;
-			this.loop();
-		} else {
-			this.flags.paused = true;
-			if (this.requestId !== 0) {
-				window.cancelAnimationFrame(this.requestId);
-			}
-		}
-	};
-
 	/**
 	 * Game acts as a mediator between object logic and other modules.
 	 * In this case, we don't want objects to know anything about their
@@ -611,7 +600,12 @@ var MAGIC = ((ns) => {
 				timeDisplay = e_("elapsed-time");
 		turnDisplay.innerHTML = this.loopCounter;
 		timeDisplay.innerHTML = elapsedTime.toString();
-		LOG(this.requestId, "Loop counter:", this.loopCounter, "; Elapsed time:", elapsedTime);
+		LOG({
+			type: 'timer', 
+			data: {
+				loopCounter: this.loopCounter, 
+				elapsedTime: elapsedTime,
+			},});
 
 		this.update();
 		this.render();
@@ -662,7 +656,7 @@ var MAGIC = ((ns) => {
 				// Okay, which projectile do we remove from the objects list?
 				let place = this.objects.projectiles.findIndex((p) => p === task.obj);
 				if (place === -1) {
-					LOG("Projectile not found among game objects", task.obj.name);
+					//LOG("Projectile not found among game objects", task.obj.name);
 				} else {
 					this.objects.projectiles.splice(place, 1);
 					task.obj.sprite = null;

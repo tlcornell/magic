@@ -39,12 +39,6 @@ var MAGIC = ((ns) => {
 		this.agentDisplays.forEach((e) => e.acceptSelection());
 	};
 
-	/* Use reset() instead
-	RosterManager.prototype.allowSelection = function () {
-		this.agentDisplays.forEach((e) => e.allowSelection());
-	};
-	*/
-
 	/**
 	 * Called when the 'Start Game' button is pressed.
 	 */
@@ -70,20 +64,28 @@ var MAGIC = ((ns) => {
 
 
 	function AgentDisplayWidget (parent, i) {
-		// IRL this will be a game object; for now it's a name:
 		this.agent = null;
-		this.data = "";
-		// The <div> wrapping the selector/text:
-		this.element = this.create(parent, i);
 		// What we really want here is two elements occupying the same space,
 		// with only one of them set to 'visible' at a time. Otherwise, we keep
 		// creating new selector elements that are identical to the old ones
 		// that we *hope* have been garbage collected...
+		this.portrait = null;
+		this.health = {curr: null, max: null};
+		this.energy = {curr: null, max: null};
+		this.shields = {curr: null, max: null};
+		this.condition = null;
+
+		this.data = "";
+		// The <div> wrapping the selector/text:
+		this.element = this.create(parent, i);
+
 	}
 
 	AgentDisplayWidget.prototype.reset = function () {
 		this.agent = null;
 		this.allowSelection();	// should reset this.data
+		this.resetPortrait();
+		this.resetStats();
 	}
 
 	AgentDisplayWidget.prototype.attachAgent = function (agent, idx) {
@@ -91,7 +93,7 @@ var MAGIC = ((ns) => {
 			console.log(`DEBUG: Overwriting agent -- skipped cleanup phase?`);
 		}
 		this.agent = agent;
-		this.updateAgentView(idx);
+		this.initializeAgentView(idx);
 	}
 
 	AgentDisplayWidget.prototype.mkPortrait = function (idx) {
@@ -105,23 +107,27 @@ var MAGIC = ((ns) => {
 		canvas.setAttribute('width', '64');
 		canvas.setAttribute('height', '64');
 		canvas.class = 'widget-item';
-		let ctx = canvas.getContext('2d');
-		//agent.sprite.renderBodyCannon(ctx, {x:32, y:32}, 0);
-		//drawBot(ctx, idx);
-		//drawImg(ctx);
-		let pos = {x: canvas.width/2, y: canvas.width/2};
-		this.drawDefaultPortrait(ctx, pos);
-
+		this.portrait = canvas;
+		this.drawDefaultPortrait();
 		div.appendChild(canvas);
 		return div;
 	};
 
-	AgentDisplayWidget.prototype.drawDefaultPortrait = function (ctx, pos) {
+	AgentDisplayWidget.prototype.getDrawingContext = function () {
+		return this.portrait.getContext('2d');
+	};
+
+	AgentDisplayWidget.prototype.resetPortrait = function () {
+		this.drawDefaultPortrait();
+	};
+
+	AgentDisplayWidget.prototype.drawDefaultPortrait = function () {
+		let ctx = this.getDrawingContext();
 		let radius = 15,
 				stroke = '#888',
 				fill = '#AAA',
-				posX = pos.x,
-				posY = pos.y;
+				posX = this.portrait.width/2,
+				posY = this.portrait.height/2;
 		ctx.strokeStyle = stroke;
 		ctx.fillStyle = fill;
 		ctx.beginPath();
@@ -129,6 +135,14 @@ var MAGIC = ((ns) => {
 		ctx.fill();
 		ctx.stroke();
 	}
+
+	AgentDisplayWidget.prototype.drawAgentPortrait = function () {
+		let sprite = this.agent.sprite,
+				ctx = this.getDrawingContext(),
+				cvs = this.portrait,
+				pos = {x: cvs.width/2, y: cvs.height/2};
+		sprite.renderBodyCannon(ctx, pos, 0);
+	};
 
 	AgentDisplayWidget.prototype.mkName = function () {
 		let div = document.createElement('div');
@@ -164,6 +178,8 @@ var MAGIC = ((ns) => {
 			</span>/<span class="maxHP">
 				0
 			</span>`;
+		this.health.curr = health.getElementsByClassName("currHP")[0];
+		this.health.max = health.getElementsByClassName("maxHP")[0];
 		div.appendChild(health);
 
 		let energy = document.createElement('div');
@@ -176,6 +192,8 @@ var MAGIC = ((ns) => {
 			</span>/<span class="maxEnergy">
 				0
 			</span>`;
+		this.energy.curr = energy.getElementsByClassName("currEnergy")[0];
+		this.energy.max = energy.getElementsByClassName("maxEnergy")[0];
 		div.appendChild(energy);
 
 		let shields = document.createElement('div');
@@ -188,15 +206,31 @@ var MAGIC = ((ns) => {
 			</span>/<span class="maxShields">
 				0
 			</span>`;
+		this.shields.curr = shields.getElementsByClassName("currShields")[0];
+		this.shields.max = shields.getElementsByClassName("maxShields")[0];
 		div.appendChild(shields);
 
 		let condition = document.createElement('div');
 		condition.style['grid-column'] = '4';
 		condition.style['grid-row'] = '1';
+		let cval = 'UNKNOWN';
 		condition.innerHTML = 
-			`<span class="conditionVal">UNKNOWN</span>`;
+			`<span class="conditionVal">${cval}</span>`;
+		this.condition = condition.firstElementChild;
+		this.conditionColor(cval);
 		div.appendChild(condition);
 		return div;
+	};
+
+	AgentDisplayWidget.prototype.resetStats = function () {
+		let props = ['health', 'energy', 'shields'];
+		props.forEach((prop) => {
+			this[prop].curr.innerText = '0';
+			this[prop].max.innerText = '0';
+		});
+		let cval = 'UNKNOWN'
+		this.condition.innerText = cval;
+		this.conditionColor(cval);
 	};
 
 	AgentDisplayWidget.prototype.create = function (parent, idx) {
@@ -271,27 +305,51 @@ var MAGIC = ((ns) => {
 		return nameSel;
 	}
 
-	AgentDisplayWidget.prototype.updateAgentView = function (idx) {
+	AgentDisplayWidget.prototype.updateAgentView = function () {
 		let agent = this.agent;
 		if (agent === null) {
 			return;
 		}
-		let hp = document.getElementsByClassName('currHP')[idx];
-		hp.innerText = agent.getHealth();
+		this.health.curr.innerText = agent.getHealth();
 //		if (agent.getHealth() < agent.getMaxHealth() / 30) {
 //			let health = document.getElementsByClassName('status')[idx];
 //			health.firstElementChild.style.color = 'red';
 //		}
-		let en = document.getElementsByClassName('currEnergy')[idx];
-		en.innerText = agent.getEnergy();
-		let sh = document.getElementsByClassName('currShields')[idx];
-		sh.innerText = agent.getShields();
-		let co = document.getElementsByClassName('conditionVal')[idx],
-				agtCnd = agent.getCondition();
-		co.innerText = agtCnd;
-		if (agtCnd === 'DEAD') {
-			co.style['background-color'] = '#AAA';
-			co.style['border-color'] = '#888';
+		this.energy.curr.innerText = agent.getEnergy();
+		this.shields.innerText = agent.getShields();
+		let agtCnd = agent.getCondition();
+		this.condition.innerText = agtCnd;
+		this.conditionColor(agtCnd);
+	};
+
+
+	AgentDisplayWidget.prototype.initializeAgentView = function () {
+		this.updateAgentView();	// sets curr vals, and condition
+		this.health.max.innerText = this.agent.getMaxHealth();
+		this.energy.max.innerText = this.agent.getMaxEnergy();
+		this.shields.max.innerText = this.agent.getMaxShields();
+		this.drawAgentPortrait();
+	};
+
+
+	AgentDisplayWidget.prototype.conditionColor = function (cond) {
+		let elt = this.condition;
+		switch (cond) {
+			case 'DEAD':
+				elt.style['background-color'] = '#AAA';
+				elt.style['border-color'] = '#444';
+				elt.style['color'] = '#444';
+				break;
+			case 'GOOD':
+				elt.style['background-color'] = 'hsl(106, 67%, 75%)';
+				elt.style['border-color'] = 'hsl(106, 67%, 25%)';
+				elt.style['color'] = 'hsl(106, 67%, 25%)';
+				break;
+			default:
+				elt.style['background-color'] = 'hsl(43, 47%, 75%)';
+				elt.style['border-color'] = 'hsl(43, 47%, 25%)';
+				elt.style['color'] = 'hsl(43, 47%, 25%)';
+				break;
 		}
 	};
 
