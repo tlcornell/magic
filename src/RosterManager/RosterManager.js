@@ -280,6 +280,7 @@ var MAGIC = ((ns) => {
 		// Contract: this.data must equal the final value of <select>
 		this.element.innerHTML = '';
 		this.element.innerHTML = this.data;
+		this.agent = null;
 	};
 
 	/**

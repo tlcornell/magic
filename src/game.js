@@ -10,26 +10,25 @@ var MAGIC = ((ns) => {
 	}
 
 	EventLog.prototype.post = function (event) {
-		this.log.push(event);
+		this.log.push(JSON.stringify(event));
 	};
 
 	EventLog.prototype.read = function (item) {
 		return this.log[item];
 	};
 
+	EventLog.prototype.clear = function () {
+		this.log = [];
+	}
+
+	EventLog.prototype.display = function (elt) {
+		this.log.forEach((item) => elt.append(item + '\n'));
+	};
+
 	function LOG (event) {
 		ns.log.post(event);
 	}
 
-
-	function displayLog () {
-		let div = e_('log-div');
-		div.innerHTML = `<textarea id="log-display" rows="10" cols="80"></textarea>`;
-		let display = e_('log-display');
-		display.append(JSON.stringify(ns.log));
-		display.scrollTop = display.scrollHeight;
-		window.scrollTo(0, 0);
-	}
 
 	//////////////////////////////////////////////////////////////////////
 	// Utility functions:
@@ -182,6 +181,7 @@ var MAGIC = ((ns) => {
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
+		this.clearLog();
 		this.setPauseCtl('Pause', false);
 		this.setStartCtl('Start', true);
 	};
@@ -189,6 +189,7 @@ var MAGIC = ((ns) => {
 	App.prototype.restart = function () {
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
+		this.clearLog();
 		this.setPauseCtl('Pause', false);
 		this.start();
 	};
@@ -213,7 +214,9 @@ var MAGIC = ((ns) => {
 
 	App.prototype.endGame = function () {
 		this.game.exitGameLoop();
+		//this.game.render();
 		this.setPauseCtl('Pause', false);
+		this.displayLog();
 	};
 
 	App.prototype.setStartCtl = function (label, enabled) {
@@ -239,6 +242,23 @@ var MAGIC = ((ns) => {
 			throw new Error(`setPauseCtl: Label value (${label}) unrecognized`);
 		}
 	};
+
+
+	App.prototype.displayLog = function () {
+		let div = e_('log-div');
+		div.innerHTML = `<textarea id="log-display" rows="10" cols="80"></textarea>`;
+		let display = e_('log-display');
+		ns.log.display(display);
+		//display.append(ns.log);
+		display.scrollTop = display.scrollHeight;
+		window.scrollTo(0, 0);
+	};
+
+	App.prototype.clearLog = function () {
+		ns.log.clear();
+		e_('log-div').innerHTML = '';
+	}
+
 
 	////////////////////////////////////////////////////////////////////////////
 	// Game: Main game object.
@@ -373,9 +393,8 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
-		console.log('populateTheArena');
 		this.createAgents(roster);
-		this.populateStatusDisplay();
+		//this.populateStatusDisplay();
 	};
 
 	Game.prototype.createAgents = function (roster) {
@@ -601,20 +620,19 @@ var MAGIC = ((ns) => {
 		turnDisplay.innerHTML = this.loopCounter;
 		timeDisplay.innerHTML = elapsedTime.toString();
 		LOG({
-			type: 'timer', 
-			data: {
-				loopCounter: this.loopCounter, 
-				elapsedTime: elapsedTime,
-			},});
+			type: 'frame-boundary', 
+			loopCounter: this.loopCounter, 
+			elapsedTime: elapsedTime,
+		});
 
 		this.update();
+		this.logFrameData();
 		this.render();
 		this.rosterManager.updateView();
 
 		if (this.remainingPlayers() <= 1) {
 			// Game Over
-			cancelAnimationFrame(this.requestId);
-			displayLog();
+			this.app.endGame();
 			return;
 		}
 
@@ -669,6 +687,11 @@ var MAGIC = ((ns) => {
 			default:
 				throw new Error(`Unknown task operator (${task.op})`);
 		}
+	};
+
+	Game.prototype.logFrameData = function () {
+		this.objects.projectiles.forEach((p) => p.logFrameData());
+		this.objects.agents.forEach((a) => a.logFrameData());
 	};
 
 	Game.prototype.render = function () {
@@ -1072,6 +1095,25 @@ var MAGIC = ((ns) => {
 		this.sprite.render(gfx, this);
 	};
 
+	GenericAgent.prototype.logFrameData = function () {
+		LOG({
+			type: 'agent-frame-data',
+			name: this.getName(),
+			pos: this.getPosition(),
+			sprite: {
+				radius: this.sprite.radius,
+				color: this.sprite.color,
+				aim: this.getAim(),
+			},
+			health: this.getHealth(),
+			maxHealth: this.getMaxHealth(),
+			state: this.getState(),
+			energy: this.getEnergy(),
+			shields: this.getShields(),
+			condition: this.getCondition(),
+		});
+	};
+
 	GenericAgent.prototype.handleEvent = function (evt) {
 //		console.log(this.name, "handleEvent", evt);
 		switch (evt.op) {
@@ -1122,6 +1164,9 @@ var MAGIC = ((ns) => {
 		Object.assign(this, {
 			game: game,
 			name: p.name,
+			pos: properties.pos,
+			width: properties.width,
+			height: properties.height,
 		});
 	}
 
@@ -1133,6 +1178,15 @@ var MAGIC = ((ns) => {
 		this.sprite.render(gfx);
 		// We might want to consider whether we really want to call this on 
 		// game loop renders. The walls never change, in this version.
+	};
+
+	WallObject.prototype.logFrameData = function () {
+		LOG({
+			type: 'wall-frame-data',
+			pos: this.pos,
+			width: this.width,
+			height: this.height,
+		});
 	};
 
 
@@ -1207,6 +1261,13 @@ var MAGIC = ((ns) => {
 		this.sprite.render(gfx, this);
 	};
 
+	Projectile.prototype.logFrameData = function () {
+		LOG({
+			type: 'projectile-frame-data',
+			pos: this.getPosition(),
+		});
+	};
+
 
 
 
@@ -1227,7 +1288,6 @@ var MAGIC = ((ns) => {
 	};
 
 	Graphics.prototype.initialize = function () {
-		console.log("Graphics.prototype.initialize");
 		this.surface = new LayeredCanvas(this);
 	};
 
@@ -1440,7 +1500,6 @@ var MAGIC = ((ns) => {
 	};
 
 	Physics.prototype.initialize = function () {
-		console.log("Physics.prototype.initialize");
 		this.engine = Matter.Engine.create();
 		this.engine.world.gravity.y = 0;
 		Matter.Events.on(this.engine, 'collisionActive', this.handleCollisions.bind(this));
