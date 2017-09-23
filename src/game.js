@@ -214,9 +214,11 @@ var MAGIC = ((ns) => {
 
 	App.prototype.endGame = function () {
 		this.game.exitGameLoop();
-		//this.game.render();
 		this.setPauseCtl('Pause', false);
-		this.displayLog();
+		// We need the following trivial timeout so as to get the final
+		// animation frame displayed before we go into what may be a long
+		// wait for the the log to display.
+		window.setTimeout(this.displayLog.bind(this), 10);
 	};
 
 	App.prototype.setStartCtl = function (label, enabled) {
