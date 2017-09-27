@@ -5,19 +5,17 @@ let WallBouncer = `
 
 	store 2 sys.speedx
 	store -2 sys.speedy
-	
+
 LABEL Main
-	IFZ sys.wall Main
+	add Bounce sys.wall A
+	add 1 A A
+	jump A
 LABEL Bounce
-	LT sys.X 36 A
-	IFNZ A GetOffWestWall
-	GT sys.X 764 A 
-	IFNZ A GetOffEastWall
-	LT sys.Y 36 A
-	IFNZ A GetOffNorthWall
-	GT sys.Y 604 A
-	IFNZ A GetOffSouthWall
-	JUMP Main		# should be unreachable. Unless value of wall changes on ch break?
+	jump Main
+	jump GetOffNorthWall
+	jump GetOffWestWall
+	jump GetOffSouthWall
+	jump GetOffEastWall
 
 LABEL GetOffWestWall
 	GT sys.speedX 0 A

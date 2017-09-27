@@ -687,7 +687,9 @@ var MAGIC = ((ns) => {
 					//LOG("Projectile not found among game objects", task.obj.name);
 				} else {
 					this.objects.projectiles.splice(place, 1);
+					// don't render
 					task.obj.sprite = null;
+					// don't do any physics
 					task.obj.body = null;
 				}
 				break;
@@ -1128,24 +1130,50 @@ var MAGIC = ((ns) => {
 //		console.log(this.name, "handleEvent", evt);
 		switch (evt.op) {
 			case 'interrupt':
-				switch (evt.type) {
-					case 'collision':
-						this.environmentalDamage(Game.const.BUMP_DAMAGE);
-						break;
-					case 'wall':
-						this.environmentalDamage(Game.const.WALL_DAMAGE);
-						this.wall = 1;	// Raise wall condition, maybe triggering an interrupt
-						break;
-					default:
-						throw new Error(`Agent does not recognize event type (${evt.type})`);
-				}
+				this.handleInterrupt(evt);
 				break;
 			case 'hit':
 				this.projectileImpact(evt.data.hitBy);
 				break;
-				break;
-			case 'default':
+			default:
 				throw new Error(`Agent does not recognize event operator (${evt.op})`);
+		}
+	};
+
+	GenericAgent.prototype.handleInterrupt = function (evt) {
+		switch (evt.type) {
+			case 'collision':
+				this.environmentalDamage(Game.const.BUMP_DAMAGE);
+				// TODO: Raise in-collision condition, maybe triggering an interrupt
+				// in the interpreter
+				break;
+			case 'wall':
+				this.environmentalDamage(Game.const.WALL_DAMAGE);
+				this.raiseWallCondition(evt);
+				// TODO: Maybe trigger an interrupt in the interpreter?
+				break;
+			default:
+				throw new Error(`Agent does not recognize event type (${evt.type})`);
+		}
+	};
+
+	GenericAgent.prototype.raiseWallCondition = function (evt) {
+		let name = evt.data.bumped.name;
+		switch (name) {
+			case 'NORTH':
+				this.wall = 1;
+				break;
+			case 'WEST':
+				this.wall = 2;
+				break;
+			case 'SOUTH':
+				this.wall = 3;
+				break;
+			case 'EAST':
+				this.wall = 4;
+				break;
+			default:
+				throw new Error(`raiseWallCondition: Unknown wall '${name}'`);
 		}
 	};
 
@@ -1154,7 +1182,7 @@ var MAGIC = ((ns) => {
 		// lessen the effect of the impact. 
 		// For now, we just assess the full raw damage.
 		this.removeHealth(rawDmg);
-	}
+	};
 
 	GenericAgent.prototype.projectileImpact = function (projectile) {
 		// Theoretically, we could have factors like shields and armor that
