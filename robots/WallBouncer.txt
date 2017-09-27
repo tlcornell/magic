@@ -14,23 +14,18 @@ LABEL Bounce
 	jump GetOffEastWall
 
 LABEL GetOffNorthWall
-	GT sys.speedy 0 A
-	IFNZ A Main
-	MUL sys.speedY -1 sys.speedY
-	JUMP Main
+	# make sure speedy is positive
+	abs sys.speedy sys.speedy
+	jump Main
 LABEL GetOffWestWall
-	GT sys.speedX 0 A
-	IFNZ A Main
-	MUL sys.speedX -1 sys.speedX
-	#LOG sys.speedX
-	JUMP Main
+	abs sys.speedx sys.speedx
+	jump Main
 LABEL GetOffSouthWall
-	LT sys.speedy 0 A
-	IFNZ A Main
-	MUL sys.speedY -1 sys.speedY
-	JUMP Main
+	# make sure speedy is negative
+	abs sys.speedy A
+	mul -1 A sys.speedy
+	jump Main
 LABEL GetOffEastWall
-	LT sys.speedX 0 A
-	IFNZ A Main
-	MUL sys.speedX -1 sys.speedX
-	JUMP Main
+	abs sys.speedx A
+	mul -1 A sys.speedx
+	jump Main

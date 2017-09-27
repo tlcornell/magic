@@ -24,6 +24,7 @@ var MAGIC = ((ns) => {
 	}
 
 	Interpreter.OpCode = Object.freeze({
+		abs: true,
 		add: true,
 		args: true,
 		call: true,
@@ -81,6 +82,12 @@ var MAGIC = ((ns) => {
 				brThen,
 				brElse;
 		switch (opcode) {
+			case 'abs':
+				val1 = decodeRVal(instrToks[1]);
+				dest = decodeLVal(instrToks[2]);
+				storeLVal(dest, Math.abs(val1));
+				++this.pc;
+				break;
 			case 'add':
 				dest = decodeLVal(instrToks[3]);
 				val1 = decodeRVal(instrToks[1]);
