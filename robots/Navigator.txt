@@ -1,27 +1,38 @@
 # Navigator
 
-LABEL PreMain
-	GT sys.Y 320 A
-	IFNZ A MaybeNorth MaybeSouth
-LABEL MaybeNorth
-	LT sys.X sys.Y A
-	IFNZ A StartWest StartNorth
-LABEL StartWest
-	STORE -3 sys.speedX
-	JUMP Main
-LABEL StartNorth
-	STORE -3 sys.speedY
-	JUMP Main
-LABEL MaybeSouth
-	GT sys.X sys.Y A
-	IFNZ A StartEast StartSouth
-LABEL StartEast
-	STORE 3 sys.speedX
-	JUMP Main
-LABEl StartSouth
-	STORE 3 sys.speedY
-	JUMP Main
+##########################################################3
+# Find the closest wall
+#
+# 1. NW->SE line: y = 640x/800
+#
+	mul 640 sys.x A
+	div A 800 A
+	lt sys.y A NorE
+#
+# 2. NE -> SW line: y = -640x/800 + 640
+#
+	mul -640 sys.x A
+	div A 800 A
+	add A 640 A
+	lt sys.y A NorW
 
+	ifnz NorE GoNorthOrEast
+	ifnz NorW GoWest GoSouth
+LABEL GoNorthOrEast
+	ifnz NorW GoNorth GoEast
+
+LABEL GoNorth
+	store -3 sys.speedy
+	jump Main
+LABEL GoWest
+	store -3 sys.speedx
+	jump Main
+LABEL GoSouth
+	store 3 sys.speedy
+	jump Main
+LABEL GoEast
+	store 3 sys.speedx
+	jump Main
 
 
 LABEL Main

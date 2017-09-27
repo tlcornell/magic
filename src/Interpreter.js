@@ -28,6 +28,7 @@ var MAGIC = ((ns) => {
 		add: true,
 		args: true,
 		call: true,
+		div: true,
 		gt: true,
 		ifnz: true,
 		ifz: true,
@@ -127,6 +128,13 @@ var MAGIC = ((ns) => {
 				frame.return = this.pc + 1;
 				this.pc = func;
 				break;
+			case 'div':
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				dest = decodeLVal(instrToks[3]);
+				storeLVal(dest, val1 / val2);
+				++this.pc;
+				break;
 			case 'gt':
 				dest = decodeLVal(instrToks[3]);
 				val1 = decodeRVal(instrToks[1]);
@@ -175,9 +183,11 @@ var MAGIC = ((ns) => {
 				this.step();
 				break;
 			case 'log':
+				let logmsg = "LOG: ";
 				instrToks.slice(1).forEach((t) => {
-					console.log(decodeRVal(t));
+					logmsg += `${decodeRVal(t)} `;
 				});
+				console.log(logmsg);
 				++this.pc;
 				this.step();
 				break;
