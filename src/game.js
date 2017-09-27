@@ -276,6 +276,9 @@ var MAGIC = ((ns) => {
 				agents: [],
 				projectiles: [],
 			},
+			flags: {
+				soloMode: false,
+			},
 		});
 		this.rosterManager = null; 
 		this.graphics = new Graphics(this);
@@ -376,6 +379,9 @@ var MAGIC = ((ns) => {
 		this.populateStatusDisplay();
 	};
 	Game.prototype.enterGameLoop = function () {
+		if (this.objects.agents.length === 1) {
+			this.flags.soloMode = true;
+		}
 		this.loop();
 	};
 	Game.prototype.exitGameLoop = function () {
@@ -392,11 +398,11 @@ var MAGIC = ((ns) => {
 		this.startTime = 0;
 		this.loopCounter = 0;
 		this.requestId = 0;
+		this.flags.soloMode = false;
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
 		this.createAgents(roster);
-		//this.populateStatusDisplay();
 	};
 
 	Game.prototype.createAgents = function (roster) {
@@ -632,8 +638,10 @@ var MAGIC = ((ns) => {
 		this.render();
 		this.rosterManager.updateView();
 
-		if (this.remainingPlayers() <= 1) {
-			// Game Over
+		let gameOver = 
+			(this.flags.soloMode && this.remainingPlayers() === 0) ||
+			(!this.flags.soloMode && this.remainingPlayers() <= 1);
+		if (gameOver) {
 			this.app.endGame();
 			return;
 		}
