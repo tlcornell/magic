@@ -178,6 +178,7 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.reset = function () {
+		e_('show-log').checked = false;
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
@@ -247,8 +248,11 @@ var MAGIC = ((ns) => {
 
 
 	App.prototype.displayLog = function () {
+		if (!e_('show-log').checked) {
+			return;
+		}
 		let div = e_('log-div');
-		div.innerHTML = `<textarea id="log-display" rows="10" cols="80"></textarea>`;
+		div.innerHTML = `<textarea id="log-display" rows="10" wrap="off" style="width: 90%;"></textarea>`;
 		let display = e_('log-display');
 		ns.log.display(display);
 		//display.append(ns.log);
