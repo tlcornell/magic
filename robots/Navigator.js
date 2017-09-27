@@ -41,13 +41,13 @@ LABEL GoEast
 LABEL Main
 	IFZ sys.wall CheckMovement
 LABEL Bounce
-	LT sys.X 36 A
+	LT sys.X 40 A
 	IFNZ A GetOffWestWall
-	GT sys.X 764 A 
+	GT sys.X 760 A 
 	IFNZ A GetOffEastWall
-	LT sys.Y 36 A
+	LT sys.Y 40 A
 	IFNZ A GetOffNorthWall
-	GT sys.Y 604 A
+	GT sys.Y 600 A
 	IFNZ A GetOffSouthWall
 	JUMP CheckRange		# should be unreachable. Unless value of wall changes on ch break?
 

@@ -1,5 +1,14 @@
 var MAGIC = ((ns) => {
 
+	/*
+	ns.RandomEngine = Random.engines.mt19937().autoSeed();
+	ns.Real01 = Random.real(0, 1);
+	ns.random = function () {
+		return ns.Real01(ns.RandomEngine);
+	}
+	*/
+	ns.random = Math.random;
+
 	/////////////////////////////////////////////////////////////////////////
 	// Logging
 
@@ -49,7 +58,7 @@ var MAGIC = ((ns) => {
 			temp = null;
 
 		for (i = array.length - 1; i > 0; i -= 1) {
-			j = Math.floor(Math.random() * (i + 1));
+			j = Math.floor(ns.random() * (i + 1));
 			temp = array[i];
 			array[i] = array[j];
 			array[j] = temp;
@@ -87,7 +96,7 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * Return the normal vector from 'pos' at 'angle'.
+	 * Return the vector from 'pos' at 'angle' with size 'length'.
 	 * Angle in radians.
 	 */
 	function a2v(pos, angle, length) {
@@ -96,20 +105,27 @@ var MAGIC = ((ns) => {
 		return Matter.Vector.create(x, y);
 	}
 
+	function vector2angle(x, y) {
+		let size2 = x * x + y * y,
+				size = Math.sqrt(size2),
+				angle = Math.atan2(dy, dx);
+		return {r: size, th: angle};
+	}
+
 	function randomInt(lo, hi) {
-		let rand = Math.floor(Math.random() * (hi - lo + 1));
+		let rand = Math.floor(ns.random() * (hi - lo + 1));
 		rand += lo;
 		return rand;
 	}
 
 	function randomFloat(lo, hi) {
-		let rand = Math.random() * (hi - lo);
+		let rand = ns.random() * (hi - lo);
 		rand += lo;
 		return rand;
 	}
 
 	function randomRadian() {
-		return Math.random() * 2 * Math.PI;
+		return ns.random() * 2 * Math.PI;
 	}
 
 	/**
@@ -308,7 +324,6 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.init = function () {
-		console.log('Game::init');
 		this.initializeSubsystems();
 		this.createMap();
 		this.render();
@@ -548,9 +563,9 @@ var MAGIC = ((ns) => {
 	/**
 	 * See getPosition, above.
 	 */
-	Game.prototype.setVelocity = function (object, velocity) {
+	Game.prototype.setBodyVelocity = function (object) {
 		//let realV = Matter.Vector.mult(velocity, Game.const.CHRONONS_PER_FRAME);
-		return Matter.Body.setVelocity(object.body, velocity);
+		return Matter.Body.setVelocity(object.body, object.drv);
 		//let force = Matter.Vector.create(velocity.x, velocity.y);
 		//Matter.Body.applyForce(object.body, this.getPosition(object), force);
 	};
@@ -769,8 +784,6 @@ var MAGIC = ((ns) => {
 		});
 		this.prog = {
 			main: beNotDead,
-			onWall: bounceOffWall,
-			onBump: pushThroughCollisions,
 		};
 	}
 
@@ -931,19 +944,24 @@ var MAGIC = ((ns) => {
 		return this.maxShields;
 	}
 
+
+	////////////////////////////////////////////////////////////////////////
+	// Course Control
+	//
+	// There are two ways to control movement: using vectors (dx,dy), 
+	// or using polar-style coordinates (radius, azimuth) (here called (r, th)).
+	// 
+	// The primitive control data is conveyed to the physics system via the
+	// 'drv' property (drv:{x,y}), for "drive".
+	// So all API calls ultimately boil down to setting drv.x and drv.y.
+	// 
+
 	GenericAgent.prototype.getSpeedX = function () {
 		return this.drv.x;
 	};
 
 	GenericAgent.prototype.setSpeedX = function (dx) {
-		let dx0 = this.drv.x,
-				diff = dx - dx0,
-				cost = Math.abs(diff);
-		// could be negative if we are lowering speed
-		this.energy -= cost;
-		// in which case we actually just gained energy
-		this.energy = Math.min(this.maxEnergy, this.energy);
-		this.drv.x = dx;
+		this.setVelocity(dx, this.drv.y);
 	}
 
 	GenericAgent.prototype.getSpeedY = function () {
@@ -951,24 +969,45 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.setSpeedY = function (dy) {
-		let dy0 = this.drv.y,
-				diff = dy - dy0,
-				cost = Math.abs(diff);
-		// could be negative if we are lowering speed
+		this.setVelocity(this.drv.x, dy);
+	};
+
+	/**
+	 * This is the core method that all other API calls should reduce to.
+	 * That will assure that energy costs are assessed uniformly.
+	 */
+	GenericAgent.prototype.setVelocity = function (dx, dy) {
+		let dx0 = this.drv.x,
+				xcost = Math.abs(dx - dx0),
+				dy0 = this.drv.y,
+				ycost = Math.abs(dy - dy0),
+				cost = xcost + ycost;
 		this.energy -= cost;
-		// in which case we actually just gained energy
 		this.energy = Math.min(this.maxEnergy, this.energy);
+		this.drv.x = dx;
 		this.drv.y = dy;
 	};
 
-	GenericAgent.prototype.driveVector = function (vec) {
-		this.drv.x = vec.x;
-		this.drv.y = vec.y;
-		this.game.setVelocity(this, this.drv);	// delegates to Game.physics
-		/*
-		Matter.Body.setVelocity(this.body, this.drv);
-		*/
+	/**
+	 * Return {r, th}, where th (the azimuth) is in degrees, converted 
+	 * from radians. So this is meant for clients, not internal use,
+	 * which should maingain all angles in radians.
+	 */
+	GenericAgent.prototype.getHeading = function () {
+		let hdg = vector2angle(this.drv.x, this.drv.y),
+				deg = degrees(hdg.th);
+		return {r: hdg.r, th: deg};
 	};
+
+	GenericAgent.prototype.setHeading = function (r, th) {
+		let vec = angle2vector(th, r);
+		this.setVelocity(vec.x, vec.y);
+	};
+
+	//
+	// End of course control
+	//////////////////////////////////////////////////////////////////////////
+
 
 	GenericAgent.prototype.getWall = function () {
 		return this.wall;
@@ -1064,7 +1103,7 @@ var MAGIC = ((ns) => {
 			//this.fireWeapons();
 			
 			if (this.getEnergy() > 0) {
-				this.driveVector(this.drv);
+				this.game.setBodyVelocity(this);
 			}
 		}
 	};
@@ -1081,18 +1120,6 @@ var MAGIC = ((ns) => {
 
 	let beEliminated = function (gameTasks) {
 	}
-
-	let bounceOffWall = function (whichWall) {
-		if (whichWall === 'NORTH' || whichWall === 'SOUTH') {
-			this.driveVector({x: this.drv.x, y: -1 * this.drv.y});
-		} else {
-			this.driveVector({x: -1 * this.drv.x, y: this.drv.y});
-		}
-	}
-
-	let pushThroughCollisions = function (otherAgent) {
-		this.setAimVector(otherAgent.getPosition());
-	};
 
 	GenericAgent.prototype.onSight = function () {
 		let seen = this.sight.thing;
@@ -1272,7 +1299,7 @@ var MAGIC = ((ns) => {
 		let gameTasks = [];
 		this.eventQueue.forEach((evt) => this.handleEvent(evt, gameTasks));
 		this.eventQueue = [];
-		this.game.setVelocity(this, this.drv);
+		this.game.setBodyVelocity(this);
 		//Matter.Body.setVelocity(this.body, this.drv);
 		return gameTasks;	// we don't generate tasks yet...
 	};

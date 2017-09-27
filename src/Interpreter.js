@@ -28,6 +28,7 @@ var MAGIC = ((ns) => {
 		add: true,
 		args: true,
 		call: true,
+		cos: true,
 		div: true,
 		gt: true,
 		ifnz: true,
@@ -39,17 +40,23 @@ var MAGIC = ((ns) => {
 		mul: true,
 		or: true,	
 		return: true,
+		sin: true,
 		store: true,
+		store2: true,
+		sub: true,
 		sync: true,
 	});
 
 	Interpreter.HWRegister = Object.freeze({
 		aim: true,
 		fire: true,
+		heading: true,
 		look: true,
+		random: true,
 		range: true,
 		speedx: true,
 		speedy: true,
+		velocity: true,
 		wall: true,
 		x: true,
 		y: true,
@@ -74,7 +81,7 @@ var MAGIC = ((ns) => {
 			ERROR(this.pc, 0, `PC does not match instr loc: ${this.pc}/${rawInstr.location}`);
 		}
 
-//		console.log("step:", rawInstr);
+		//console.log("step:", rawInstr);
 
 		var dest,
 				val1,
@@ -99,6 +106,7 @@ var MAGIC = ((ns) => {
 			case 'args':
 				let argframe = pushNewFrame(this.framestack);
 				instrToks.slice(1).forEach((x) => argframe.args.push(x));
+				// Check that next instruction is indeed a CALL
 				let next = this.pc + 1;
 				rawInstr = this.program.instructions[next];
 				instrToks = rawInstr.tokens;
@@ -127,6 +135,18 @@ var MAGIC = ((ns) => {
 				}
 				frame.return = this.pc + 1;
 				this.pc = func;
+				break;
+			case 'cos':
+				val1 = decodeRVal(instrToks[1]);
+				if (instrToks.length > 3) {
+					val2 = decodeRVal(instrToks[2]);
+					dest = decodeLVal(instrToks[3]);
+				} else {
+					val2 = 1;
+					dest = decodeLVal(instrToks[2]);
+				}
+				storeLVal(dest, Math.cos(val1) * val2);
+				++this.pc;
 				break;
 			case 'div':
 				val1 = decodeRVal(instrToks[1]);
@@ -222,10 +242,36 @@ var MAGIC = ((ns) => {
 				}
 				this.pc = frame.return;
 				break;
+			case 'sin':
+				val1 = decodeRVal(instrToks[1]);
+				if (instrToks.length > 3) {
+					val2 = decodeRVal(instrToks[2]);
+					dest = decodeLVal(instrToks[3]);
+				} else {
+					val2 = 1;
+					dest = decodeLVal(instrToks[2]);
+				}
+				storeLVal(dest, Math.sin(val1) * val2);
+				++this.pc;
+				break;
 			case 'store':
 				dest = decodeLVal(instrToks[2]);
 				val1 = decodeRVal(instrToks[1]);
 				storeLVal(dest, val1);
+				++this.pc;
+				break;
+			case 'store2':
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				dest = decodeLVal(instrToks[3]);
+				storeObject(dest, val1, val2);
+				++this.pc;
+				break;
+			case 'sub':
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				dest = decodeLVal(instrToks[3]);
+				storeLVal(dest, val1 - val2);
 				++this.pc;
 				break;
 			case 'sync':
@@ -245,6 +291,17 @@ var MAGIC = ((ns) => {
 			return framestack[framestack.length - 1];
 		}
 
+		/**
+		 * Used mainly to access the caller's frame from within a function body,
+		 * for decoding arguments.
+		 */
+		function antetop(framestack) {
+			if (framestack.length < 2) {
+				return null;
+			}
+			return framestack[framestack.length - 2];
+		}
+
 		function pushNewFrame(framestack) {
 			let frame = {
 				args: [{}],		// arg.0 is reserved
@@ -254,7 +311,10 @@ var MAGIC = ((ns) => {
 			return frame;
 		}
 
-		function decodeRVal(token) {
+		function decodeRVal(token, context) {
+			if (!context) {
+				context = top(self.framestack);
+			}
 			if (token.type === 'NUMBER') {
 				return token.value;
 			}
@@ -262,8 +322,6 @@ var MAGIC = ((ns) => {
 				return token.value;
 			}
 			if (token.type === 'IDENTIFIER') {
-				let framePtr = self.framestack.length - 1,
-						frame = self.framestack[framePtr];
 				let parts = token.value.split('.');
 				if (parts[0] === 'sys') {
 					// Load hardware register
@@ -283,24 +341,24 @@ var MAGIC = ((ns) => {
 					if (isNaN(i)) {
 						ERROR(self.pc, 0, `Args index is not a number: ${parts[1]}`);
 					}
-					if (i >= frame.args.length) {
+					if (i >= context.args.length) {
 						ERROR(self.pc, 0, `Args index out of bounds: ${i}`);
 					}
-					let argi = frame.args[i];
+					let argi = context.args[i];
 					// Decode it (it's still a raw token)
-					return decodeRVal(argi);
+					return decodeRVal(argi, antetop(self.framestack));
 				} else if (self.program.labels.hasOwnProperty(parts[0])) {
 					// Return the program location for this label
 					return self.program.labels[parts[0]];
 				} else {
 					// Must be a local
 					let name = parts[0];
-					if (!frame.locals.hasOwnProperty(name)) {
+					if (!context.locals.hasOwnProperty(name)) {
 						ERROR(self.pc, 0, `Attempt to load unknown local (${name})`);
 					}
 					// Someday we may want to decode the local value
 					// Also someday there might be locals with more than one part
-					return frame.locals[name];
+					return context.locals[name];
 				}
 			}
 		}
@@ -356,6 +414,24 @@ var MAGIC = ((ns) => {
 			}
 		}
 
+		function storeObject(lval, v1, v2) {
+			// lval of the form {container: C, key: K}
+			// lval.container should === self.bot in all cases (aka 'sys')
+			// lval.key should be atomic ('velocity' or 'heading')
+			switch (lval.key) {
+				case 'velocity':
+					// v1 -> dx, v2 -> dy
+					self.bot.setVelocity(v1, v2);
+					break;
+				case 'heading':
+					// v1 -> r, v2 -> th
+					self.bot.setHeading(v1, v2);
+					break;
+				default:
+					ERROR(self.pc, 0, `Attempt to store to unrecognized hardware register (${lval.key})`);
+			}
+		}
+
 		function getFromHardware(agent, reg) {
 			reg = reg.toLowerCase();
 			switch (reg) {
@@ -365,6 +441,10 @@ var MAGIC = ((ns) => {
 					return 0;
 				case 'look':
 					return self.bot.getLookDegrees();
+				case 'random':
+					return ns.random();
+					//return Matter.Common.random(0,1);
+					//return Math.random();
 				case 'range':
 					return self.bot.getSightDist();
 				case 'speedx':
@@ -485,12 +565,25 @@ var MAGIC = ((ns) => {
 		}
 
 		function scanNumber() {
-			let start = self.pos;
+			let start = self.pos,
+			    hasPoint = false;
 			if (peek() === '-') {
 				++self.pos;
 			}
-			while (!atEnd() && isdigit(peek())) {
-				++self.pos;
+			while (!atEnd()) {
+				if (peek() === '.') {
+					if (hasPoint) {
+						ERROR(self.line, self.char, `Extra decimal point in number`);
+					} else {
+						hasPoint = true;
+						++self.pos;
+					}
+				}
+				if (isdigit(peek())) {
+					++self.pos;
+				} else {
+					break;
+				}
 			}
 			// atEnd || !isdigit -- better be whitespace!
 			let str = self.source.substr(start, self.pos - start),
