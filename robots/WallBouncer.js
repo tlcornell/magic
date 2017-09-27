@@ -1,8 +1,11 @@
 var MAGIC = ((ns) => {
 
-let wallBouncer = `
+let WallBouncer = `
 # WallBouncer
 
+	store 2 sys.speedx
+	store -2 sys.speedy
+	
 LABEL Main
 	IFZ sys.wall Main
 LABEL Bounce
@@ -41,7 +44,7 @@ LABEL GetOffSouthWall
 
 	// EXPORTS
 	ns.samples = ns.samples || {};
-	ns.samples.WallBouncer = wallBouncer;
+	ns.samples.WallBouncer = WallBouncer;
 
 	return ns;
 

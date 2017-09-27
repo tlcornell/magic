@@ -1,5 +1,8 @@
 # WallBouncer
 
+	store 2 sys.speedx
+	store -2 sys.speedy
+	
 LABEL Main
 	IFZ sys.wall Main
 LABEL Bounce
