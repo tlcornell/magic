@@ -128,6 +128,14 @@ var MAGIC = ((ns) => {
 		return ns.random() * 2 * Math.PI;
 	}
 
+	function round(num) {
+		if (num >= 0) {
+			return Math.floor(num);
+		} else {
+			return Math.ceil(num);
+		}
+	}
+
 	/**
 	 * URL: https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
 	 * E: Start of ray vector
@@ -977,15 +985,18 @@ var MAGIC = ((ns) => {
 	 * That will assure that energy costs are assessed uniformly.
 	 */
 	GenericAgent.prototype.setVelocity = function (dx, dy) {
+		let dx1 = round(dx),
+				dy1 = round(dy);
 		let dx0 = this.drv.x,
-				xcost = Math.abs(dx - dx0),
+				xcost = Math.abs(dx1 - dx0),
 				dy0 = this.drv.y,
-				ycost = Math.abs(dy - dy0),
+				ycost = Math.abs(dy1 - dy0),
 				cost = xcost + ycost;
 		this.energy -= cost;
 		this.energy = Math.min(this.maxEnergy, this.energy);
-		this.drv.x = dx;
-		this.drv.y = dy;
+		this.drv.x = dx1;
+		this.drv.y = dy1;
+		console.log('setVelocity', dx1, dy1, cost);
 	};
 
 	/**
