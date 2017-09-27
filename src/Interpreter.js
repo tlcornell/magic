@@ -547,7 +547,7 @@ var MAGIC = ((ns) => {
 		function createInstruction(num, instr, map) {
 			//console.log(num, instr);
 			if (instr[0].value === 'label') {
-				map[instr[1].value] = num;
+				map[instr[1].value] = num + 1;	// label maps to following instruction
 			}
 			return {location: num, tokens: instr};
 		}

@@ -932,9 +932,11 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.setSpeedX = function (dx) {
-		let diff = dx - this.drv.x;
+		let dx0 = this.drv.x,
+				diff = dx - dx0,
+				cost = Math.abs(diff);
 		// could be negative if we are lowering speed
-		this.energy -= diff;
+		this.energy -= cost;
 		// in which case we actually just gained energy
 		this.energy = Math.min(this.maxEnergy, this.energy);
 		this.drv.x = dx;
@@ -945,9 +947,11 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.setSpeedY = function (dy) {
-		let diff = dy - this.drv.y;
+		let dy0 = this.drv.y,
+				diff = dy - dy0,
+				cost = Math.abs(diff);
 		// could be negative if we are lowering speed
-		this.energy -= diff;
+		this.energy -= cost;
 		// in which case we actually just gained energy
 		this.energy = Math.min(this.maxEnergy, this.energy);
 		this.drv.y = dy;
