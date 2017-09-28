@@ -1,4 +1,7 @@
 # WallBouncer
+#
+# Basically a clay pigeon, with no weapons.
+#
 
 	mul sys.random 360 RandomDirection
 	store2 3 RandomDirection sys.heading
@@ -14,19 +17,19 @@ LABEL Bounce
 	jump GetOffEastWall
 
 LABEL GetOffNorthWall
-	# make sure speedy is positive
-	abs sys.speedy sys.speedy
+	# make sure velocity_dy is positive
+	abs sys.velocity_dy sys.velocity_dy
 	jump Main
 LABEL GetOffWestWall
-	abs sys.speedx sys.speedx
+	abs sys.velocity_dx sys.velocity_dx
 	jump Main
 LABEL GetOffSouthWall
-	# make sure speedy is negative
-	abs sys.speedy A
-	mul -1 A sys.speedy
+	# make sure velocity_dy is negative
+	abs sys.velocity_dy A
+	mul -1 A sys.velocity_dy
 	jump Main
 LABEL GetOffEastWall
-	abs sys.speedx A
-	mul -1 A sys.speedx
+	abs sys.velocity_dx A
+	mul -1 A sys.velocity_dx
 	jump Main
 

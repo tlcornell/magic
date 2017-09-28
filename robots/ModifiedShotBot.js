@@ -3,43 +3,35 @@ var MAGIC = ((ns) => {
 let ModifiedShotBot = `
 # ModifiedShotBot
 
-LABEL PreMain
-	STORE 2 sys.speedx
-	STORE 2 sys.speedy
-LABEL Main
-	IFZ sys.wall CheckRange
-LABEL Bounce
-	LT sys.X 36 A
-	IFNZ A GetOffWestWall
-	GT sys.X 764 A 
-	IFNZ A GetOffEastWall
-	LT sys.Y 36 A
-	IFNZ A GetOffNorthWall
-	GT sys.Y 604 A
-	IFNZ A GetOffSouthWall
-	JUMP CheckRange		# should be unreachable. Unless value of wall changes on ch break?
+	mul sys.random 360 RandomDirection
+	store2 4 RandomDirection sys.heading
 
-LABEL GetOffWestWall
-	GT sys.speedX 0 A
-	IFNZ A CheckRange
-	MUL sys.speedX -1 sys.speedX
-	#LOG sys.speedX
-	JUMP CheckRange
-LABEL GetOffEastWall
-	LT sys.speedX 0 A
-	IFNZ A CheckRange
-	MUL sys.speedX -1 sys.speedX
-	JUMP CheckRange
+LABEL Main
+	add Bounce sys.wall A
+	jump A
+LABEL Bounce
+	jump CheckRange
+	jump GetOffNorthWall
+	jump GetOffWestWall
+	jump GetOffSouthWall
+	jump GetOffEastWall
+
 LABEL GetOffNorthWall
-	GT sys.speedy 0 A
-	IFNZ A CheckRange
-	MUL sys.speedY -1 sys.speedY
-	JUMP CheckRange
+	# make sure velocity_dy is positive
+	abs sys.velocity_dy sys.velocity_dy
+	jump CheckRange
+LABEL GetOffWestWall
+	abs sys.velocity_dx sys.velocity_dx
+	jump CheckRange
 LABEL GetOffSouthWall
-	LT sys.speedy 0 A
-	IFNZ A CheckRange
-	MUL sys.speedY -1 sys.speedY
-	JUMP CheckRange
+	# make sure velocity_dy is negative
+	abs sys.velocity_dy A
+	mul -1 A sys.velocity_dy
+	jump CheckRange
+LABEL GetOffEastWall
+	abs sys.velocity_dx A
+	mul -1 A sys.velocity_dx
+	jump CheckRange
 
 
 LABEL CheckRange

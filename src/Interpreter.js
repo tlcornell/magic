@@ -54,8 +54,8 @@ var MAGIC = ((ns) => {
 		look: true,
 		random: true,
 		range: true,
-		speedx: true,
-		speedy: true,
+		velocity_dx: true,
+		velocity_dy: true,
 		velocity: true,
 		wall: true,
 		x: true,
@@ -403,10 +403,10 @@ var MAGIC = ((ns) => {
 					self.bot.fireWeapons();
 					//self.bot.launchProjectile(self.bot.getAim(), x);
 					break;
-				case 'speedx':
+				case 'velocity_dx':
 					self.bot.setSpeedX(x);
 					break;
-				case 'speedy':
+				case 'velocity_dy':
 					self.bot.setSpeedY(x);
 					break;
 				default:
@@ -447,9 +447,9 @@ var MAGIC = ((ns) => {
 					//return Math.random();
 				case 'range':
 					return self.bot.getSightDist();
-				case 'speedx':
+				case 'velocity_dx':
 					return self.bot.getSpeedX();
-				case 'speedy':
+				case 'velocity_dy':
 					return self.bot.getSpeedY();
 				case 'wall':
 					//console.log("getFromHardware:", self.bot.getWall());
