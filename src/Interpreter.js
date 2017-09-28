@@ -4,8 +4,8 @@
 
 var MAGIC = ((ns) => {
 
-	function ERROR (line, char, msg) {
-		console.log(`[${line}.${char}] ERROR ${msg}`);
+	function ERROR (file, line, char, msg) {
+		console.log(`[${file}:${line}.${char}] ERROR ${msg}`);
 		throw new Error(msg);
 	}
 
@@ -36,7 +36,6 @@ var MAGIC = ((ns) => {
 		ifnz: true,
 		ifz: true,
 		jump: true,
-		label: true,
 		log: true,
 		lt: true,
 		lte: true,
@@ -65,13 +64,17 @@ var MAGIC = ((ns) => {
 		y: true,
 	});
 
+	Interpreter.prototype.error = function (msg) {
+		ERROR(this.bot.getName(), this.pc, 0, msg);
+	};
+
 	Interpreter.prototype.step = function () {
 
 		// Any events to handle?
 
 		// Okay, execute the instruction at this.pc
 		if (this.pc > this.program.length) {
-			ERROR(this.pc, 0, `Foops, out of rope! (${this.pc})`);
+			this.error(`Foops, out of rope! (${this.pc})`);
 		}
 
 		let self = this;
@@ -81,7 +84,7 @@ var MAGIC = ((ns) => {
 				opcode = instrToks[0].value;
 		// sanity check:
 		if (this.pc !== rawInstr.location) {
-			ERROR(this.pc, 0, `PC does not match instr loc: ${this.pc}/${rawInstr.location}`);
+			this.error(`PC does not match instr loc: ${this.pc}/${rawInstr.location}`);
 		}
 
 		//console.log("step:", rawInstr);
@@ -115,7 +118,7 @@ var MAGIC = ((ns) => {
 				instrToks = rawInstr.tokens;
 				opcode = instrToks[0].value;
 				if (opcode !== 'call') {
-					ERROR(this.pc, 0, "ARGS instruction must be followed by CALL");
+					this.error("ARGS instruction must be followed by CALL");
 				}
 				rawInstr.hasFrame = true;
 				// The call will actually execute next step
@@ -256,7 +259,7 @@ var MAGIC = ((ns) => {
 					storeLVal(frame.retval, decodeRVal(instrToks[1]));
 				}
 				if (isNaN(frame.return) || frame.return < 0) {
-					ERROR(this.pc, 0, `Bad return address: ${frame.return}`);
+					this.error(`Bad return address: ${frame.return}`);
 				}
 				this.pc = frame.return;
 				break;
@@ -299,7 +302,7 @@ var MAGIC = ((ns) => {
 				console.log("------------------------------------------");
 				console.log(rawInstr);
 				console.log(this.framestack);
-				ERROR(this.pc, 0, `Unhandled opcode '${opcode}'`);
+				this.error(`Unhandled opcode '${opcode}'`);
 		}
 
 		function top(framestack) {
@@ -350,17 +353,17 @@ var MAGIC = ((ns) => {
 					// Fetch contents of global register
 					// Eventually we should consider recursively decoding that
 					if (!self.globals.hasOwnProperty(parts[1])) {
-						ERROR(self.pc, 0, `Attempt to load undefined global (${parts[1]})`);
+						self.error(`Attempt to load undefined global (${parts[1]})`);
 					}
 					return self.globals[parts[1]];
 				} else if (parts[0] === 'args') {
 					// Fetch a token from the args list
 					let i = parseInt(parts[1]);
 					if (isNaN(i)) {
-						ERROR(self.pc, 0, `Args index is not a number: ${parts[1]}`);
+						self.error(`Args index is not a number: ${parts[1]}`);
 					}
 					if (i >= context.args.length) {
-						ERROR(self.pc, 0, `Args index out of bounds: ${i}`);
+						self.error(`Args index out of bounds: ${i}`);
 					}
 					let argi = context.args[i];
 					// Decode it (it's still a raw token)
@@ -372,7 +375,7 @@ var MAGIC = ((ns) => {
 					// Must be a local
 					let name = parts[0];
 					if (!context.locals.hasOwnProperty(name)) {
-						ERROR(self.pc, 0, `Attempt to load unknown local (${name})`);
+						self.error(`Attempt to load unknown local (${name})`);
 					}
 					// Someday we may want to decode the local value
 					// Also someday there might be locals with more than one part
@@ -392,7 +395,7 @@ var MAGIC = ((ns) => {
 			if (parts[0] === 'sys') {
 				let reg = parts[1].toLowerCase();
 				if (!Interpreter.HWRegister.hasOwnProperty(reg)) {
-					ERROR(self.pc, 0, `Unrecognized hardware register (${reg})`);
+					self.error(`Unrecognized hardware register (${reg})`);
 				}
 				decoded = {container: self.bot, key: reg};
 			} else if (parts[0] === 'user') {
@@ -428,7 +431,7 @@ var MAGIC = ((ns) => {
 					self.bot.setSpeedY(x);
 					break;
 				default:
-					ERROR(self.pc, 0, `Attempt to store to unrecognized hardware register (${lval.key})`);
+					self.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
 			}
 		}
 
@@ -446,7 +449,7 @@ var MAGIC = ((ns) => {
 					self.bot.setHeading(v1, v2);
 					break;
 				default:
-					ERROR(self.pc, 0, `Attempt to store to unrecognized hardware register (${lval.key})`);
+					self.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
 			}
 		}
 
@@ -478,7 +481,7 @@ var MAGIC = ((ns) => {
 					return self.bot.getPosY();
 				default:
 					// Unreachable?
-					ERROR(self.pc, 0, `getFromHardware: Bad register (${reg})`);
+					self.error(`getFromHardware: Bad register (${reg})`);
 			}
 		}
 
@@ -488,8 +491,9 @@ var MAGIC = ((ns) => {
 	////////////////////////////////////////////////////////////////////////////
 	// Scanner
 
-	function Scanner (source) {
+	function Scanner (source, filename) {
 
+		this.file = filename;
 		this.line = 1;
 		this.char = 0;
 
@@ -498,9 +502,26 @@ var MAGIC = ((ns) => {
 
 	}
 
+	Scanner.prototype.error = function (msg) {
+		ERROR(this.file, this.line, this.char, msg);
+	};
+
 	Scanner.prototype.scanToken = function () {
 
 		var self = this;
+
+		function advance(n) {
+			let howFar = n ? n : 1;
+			for (let i = 0; i < howFar; ++i) {
+				if (peek() === '\n') {
+					++self.line;
+					self.char = 0;
+				} else {
+					++self.char;
+				}
+				++self.pos;
+			}
+		}
 
 		function atEnd() {
 			return self.pos >= self.source.length;
@@ -517,14 +538,12 @@ var MAGIC = ((ns) => {
 			if (peek() !== '#') {
 				return;
 			}
-			++self.pos;	// consume '#'
+			advance();	// consume '#'
 			while (!atEnd() && peek() !== '\n') {
-				++self.pos;
+				advance();
 			}
 			// atEnd() || peek() === \n
-			++self.pos; 	// consume \n, or EOF, but that shouldn't matter
-			++self.line;
-			self.char = 0;
+			advance(); 	// consume \n, or EOF, but that shouldn't matter
 			// pos points past newline, and maybe past EOF
 		}
 
@@ -532,11 +551,9 @@ var MAGIC = ((ns) => {
 			while (!atEnd()) {
 				switch (peek()) {
 					case '\n':
-						++self.line;
-						self.char = 0;
 					case ' ':
 					case '\t':
-						++self.pos;
+						advance();
 						break;
 					case '#':
 						skipComment();
@@ -547,10 +564,15 @@ var MAGIC = ((ns) => {
 			}
 		}
 
-		function createToken(type, value) {
+		function createToken(type, value, start) {
 			return {
 				type: type,
 				value: value,
+				debug: {
+					file: self.file,
+					line: self.line,
+					char: start,
+				}
 			}
 		}
 
@@ -584,21 +606,22 @@ var MAGIC = ((ns) => {
 
 		function scanNumber() {
 			let start = self.pos,
+					chStart = self.char,
 			    hasPoint = false;
 			if (peek() === '-') {
-				++self.pos;
+				advance();
 			}
 			while (!atEnd()) {
 				if (peek() === '.') {
 					if (hasPoint) {
-						ERROR(self.line, self.char, `Extra decimal point in number`);
+						self.error(`Extra decimal point in number`);
 					} else {
 						hasPoint = true;
-						++self.pos;
+						advance();
 					}
 				}
 				if (isdigit(peek())) {
-					++self.pos;
+					advance();
 				} else {
 					break;
 				}
@@ -612,34 +635,35 @@ var MAGIC = ((ns) => {
 				val = parseInt(str);
 			}
 			if (isNaN(val)) {
-				ERROR(self.line, self.char, `scanNumber failed (${str})`);
+				self.error(`scanNumber failed (${str})`);
 			}
-			return createToken('NUMBER', val);
+			return createToken('NUMBER', val, chStart);
 		}
 
 		function scanString() {
-			let start = self.pos;
-			++self.pos;
+			let start = self.pos,
+					chStart = self.char;
+			advance();
 			while (!atEnd() && peek() !== '"') {
 				let ch = peek();
 				if (ch === '\\') {
-					self.pos += 2;
+					advance(2);
 				} else {
-					++self.pos;
+					advance();
 				}
 			}
 			if (peek() !== '"') {
-				ERROR(self.line, self.char, `Looks like the file ended in the middle of a string`);
+				self.error(`Looks like the file ended in the middle of a string`);
 			}
 			let str = self.source.substr(start + 1, self.pos - start - 1);
-			++self.pos;
-			return createToken('STRING', str);
+			advance();
+			return createToken('STRING', str, chStart);
 		}
 
 		function scanSymbol() {
 			let start = self.pos;
 			while (!atEnd() && isidchar(peek())) {
-				++self.pos;
+				advance();
 			}
 			let str = self.source.substr(start, self.pos - start);
 			return str;
@@ -652,7 +676,7 @@ var MAGIC = ((ns) => {
 
 		skipSpace();
 		if (atEnd()) {
-			return createToken('EOF', -1);
+			return createToken('EOF', -1, this.char);
 		}
 		let ch = peek();
 		while (!atEnd() && !isspace(ch)) {
@@ -660,16 +684,24 @@ var MAGIC = ((ns) => {
 				return scanNumber();
 			} else if (ch === '"') {
 				return scanString();
+			} else if (ch === ':') {
+				advance();
+				return createToken(':', ':', this.char - 1);
+			} else if (ch === '=') {
+				advance();
+				return createToken('=', '=', this.char - 1);
 			} else {
+				let start = this.pos,
+						chStart = this.char;
 				let sym = scanSymbol();
 				let symL = sym.toLowerCase();
 				if (isopcode(symL)) {
-					return createToken('OPCODE', symL);
+					return createToken('OPCODE', symL, chStart);
 				} else if (sym.length) {
-					return createToken('IDENTIFIER', sym);	
+					return createToken('IDENTIFIER', sym, chStart);	
 					// storage or address, we'll narrow it down later
 				} else {
-					ERROR(self.line, self.char, `Unrecognized token`);
+					this.error(`Unrecognized token '${sym}'`);
 				}
 			}
 		}
@@ -677,49 +709,312 @@ var MAGIC = ((ns) => {
 
 	Scanner.prototype.scanProgram = function () {
 
-		function createInstruction(num, instr, map) {
-			//console.log(num, instr);
-			if (instr[0].value === 'label') {
-				map[instr[1].value] = num + 1;	// label maps to following instruction
-			}
-			return {location: num, tokens: instr};
-		}
+		let tokens = [];
 
-		let instruction = [],
-				counter = 0,
-				labelMap = {},
-				instructions = [];
 		while (true) {
 			let token = this.scanToken();
+			tokens.push(token);
 			if (token.type === 'EOF') {
 				break;
 			}
-			if (token.type === 'OPCODE') {
-				if (instruction.length) {
-					instructions.push(createInstruction(counter, instruction, labelMap));
-					++counter;
-					instruction = [];
-				}
-			}
-			instruction.push(token);
-		}
-		if (instruction.length) {
-			instructions.push(createInstruction(counter, instruction, labelMap));
 		}
 
-		return {instructions: instructions, labels: labelMap};
+		return tokens;
 	}
 
 	////////////////////////////////////////////////////////////////////////////
 	// Compiler
 
-	let Compiler = {};
+	function Compiler () {
+		this.tokenStream = [];
+		this.tokenIndex = 0;
+		this.instructionCounter = 0;
+		this.currentInstruction = this.createInstruction();
+		this.instructions = [];
+		this.labelMap = {};
+	};
 
-	Compiler.compile = function (actor) {
-		let source = actor.sourceCode,
-				scanner = new Scanner(source);
-		actor.program = scanner.scanProgram();
+	Compiler.prototype.createInstruction = function () {
+		return {
+			opcode: '',
+			args: [],
+			destination: '',
+			debug: {
+				address: this.instructionCounter, 
+				labels: [],
+				file: '',
+				line: 0,
+				char: 0,
+			},
+		};
 	}
+
+	Compiler.prototype.error = function (msg) {
+		let t = this.peek();
+		if (!t) {
+			throw new Error("Attempt to report syntax error after end of file");
+		}
+		let f = t.debug.file,
+		    l = t.debug.line,
+		    c = t.debug.char;
+		ERROR(f, l, c, msg);
+	};
+
+
+	Compiler.prototype.compile = function (actor) {
+		let source = actor.sourceCode,
+				scanner = new Scanner(source, actor.getName());
+		console.log("Scanning...");
+		this.tokenStream = scanner.scanProgram();
+		console.log("Compiling...");
+		this.recognizeProgram();
+		// will throw exception on compilation failure
+		console.log("Done!");
+		actor.program = {
+			instructions: this.instructions,
+			labels: this.labelMap,
+		};
+	};
+
+
+	/**
+	 * Look ahead i tokens (defaults to 0).
+	 * Does not consume the token you are looking at.
+	 */
+	Compiler.prototype.peek = function (i) {
+		let offset = i ? i : 0,
+				index = this.tokenIndex + offset;
+		if (index >= this.tokenStream.length) {
+			return null;
+		}
+		return this.tokenStream[index];
+	}
+
+	/**
+	 * Consume n tokens (default = 1)
+	 */
+	Compiler.prototype.advance = function (n) {
+		let howFar = n ? n : 1;
+		this.tokenIndex += howFar;
+	}
+
+	Compiler.prototype.atEnd = function () {
+		if (this.tokenIndex >= this.tokenStream.length) {
+			return true;
+		}
+		if (this.peek().type === 'EOF') {
+			return true;
+		}
+		return false;
+	};
+
+	Compiler.prototype.appendProgram = function (instruction) {
+		this.instructions.push(instruction);
+		++this.instructionCounter;			// really this should always == program.length, no?
+	};
+
+	Compiler.prototype.updateLabelMap = function (lbldecl) {
+		let lbl = lbldecl.label,
+		    addr = lbldecl.address;
+		if (this.labelMap.hasOwnProperty(lbldecl.label)) {
+			let otherAddr = this.labelMap[lbl];
+			this.error(`Label ${lbl} already defined at address ${otherAddr}`);
+		}
+		this.labelMap[lbl] = addr;
+	};
+
+	/**
+	 * Recognize a program, starting from the current token stream position.
+	 */
+	Compiler.prototype.recognizeProgram = function () {
+		var result;
+		while (!this.atEnd()) {
+			if ((result = this.recognizeLabelDecl()).some) {
+				this.updateLabelMap(result.value);
+			} else if ((result = this.recognizeStatement()).some) {
+				this.appendProgram(result.value);
+				this.currentInstruction = this.createInstruction();
+			} else {
+				this.error("recognizeProgram: Expected <label-decl> or <statement>");
+			}
+		}
+	};
+
+	Compiler.prototype.recognizeLabelDecl = function () {
+		// <label-decl> ::= <identifier> ':'
+		let t1 = this.peek(),
+				t2 = this.peek(1);
+		if (t1.type !== 'IDENTIFIER') {
+			return {some: false};
+		}
+		if (t2.type !== ':') {
+			return {some: false};
+		}
+		// Consume those tokens
+		this.advance(2);
+		// Take action
+		this.currentInstruction.debug.labels.push(t1.value);
+		// Return mapping
+		return {
+			some: true, 
+			value: {
+				label: t1.value, 
+				address: this.instructionCounter,
+			},
+		};
+	};
+
+	Compiler.prototype.recognizeStatement = function () {
+		var result;
+		if ((result = this.recognizeAssignment()).some) {
+			return result;
+		} else if ((result = this.recognizeOperation(true)).some) {
+			return result;
+		} else {
+			return {some: false};
+		}
+	}
+
+	Compiler.prototype.recognizeAssignment = function () {
+		let t1 = this.peek(),
+		    t2 = this.peek(1);
+		if (t2 && t2.type !== '=') {
+			return {some: false};
+		}
+		// This is the leading edge of an instruction, so set instruction
+		// debug data from this token.
+		let inst = this.currentInstruction,
+				dbg = inst.debug;
+		dbg.file = t1.debug.file;
+		dbg.line = t1.debug.line;
+		dbg.char = t1.debug.char;
+
+		this.advance(2);	// consume the tokens
+
+		// We're committed to this rule now!
+		inst.destination = t1.value;
+
+		if ((result = this.recognizeRVal()).some) {
+			this.currentInstruction.opcode = 'store';
+			this.currentInstruction.args.push(result.value);
+			return {some: true, value: this.currentInstruction};
+		} else if ((result = this.recognizeOperation(false)).some) {
+			return result;
+		}
+
+		this.error("Invalid assignment right hand side");
+	}
+
+	Compiler.prototype.recognizeRVal = function () {
+		// This may be called in a loop, so running out of tokens
+		// is a real possibility.
+		if (this.atEnd()) {
+			return {some: false};
+		}
+		let t1 = this.peek();
+		if (t1.type === 'NUMBER' || t1.type === 'STRING') {
+			this.advance();
+			return {some: true, value: t1};
+		}
+		if (t1.type === 'IDENTIFIER') {
+			let t2 = this.peek(1);
+			if (t2 && (t2.type === ':' || t2.type === '=')) {
+				return {some: false};
+			}	else {
+				this.advance();
+				return {some: true, value: t1};
+			}	
+		}
+		return {some: false};
+	}
+
+	Compiler.prototype.recognizeOperation = function (isLeadingEdge) {
+		// <operation> ::= <operator> <rval>...
+		let inst = this.currentInstruction;
+		var result;
+
+		// OPCODE token
+		// Pass isLeadingEdge to tell recognizer if it's responsible for debug data
+		if ((result = this.recognizeOpcode(isLeadingEdge)).some) {
+			inst.opcode = result.value;
+		} else {
+			return {some: false};
+		}
+
+		// Sequence of <rval>
+		// Ending in either a <label-decl> or <assignment> or <opcode>
+		/*
+		while (!this.atEnd()) {
+
+			if (this.argsEnd()) {
+				break;
+			}
+
+			let t1 = this.peek();
+			this.currentInstruction.args.push(t1);
+
+			this.advance();
+		}
+		*/
+		while ((result = this.recognizeRVal()).some) {
+			this.currentInstruction.args.push(result.value);
+		}
+
+		return {some: true, value: this.currentInstruction};
+
+	};
+
+	Compiler.prototype.argsEnd = function () {
+		if (this.atEnd()) {
+			return true;
+		}
+		let t1 = this.peek();
+		if (t1.type === 'OPCODE') {
+			return true;
+		} else if (t1.type === 'IDENTIFIER') {
+			// rval, or part of the next instruction?
+			let t2 = this.peek(1);
+			if (t2 && (t2.type === ':' || t2.type === '=')) {
+				return true;
+			}
+		} 
+		return false;
+	}
+
+	Compiler.prototype.recognizeAssignmentPrefix = function () {
+		// <assignment> ::= <lval> '='
+		let t1 = this.peek(),
+		    t2 = this.peek(1);
+		if (t2 && t2.type !== '=') {
+			return {some: false};
+		}
+		// This is the leading edge of an instruction, so set instruction
+		// debug data from this token.
+		let dbg = this.currentInstruction.debug;
+		dbg.file = t1.debug.file;
+		dbg.line = t1.debug.line;
+		dbg.char = t1.debug.char;
+
+		this.advance(2);	// consume the tokens
+
+		return {some: true, value: t1.value};
+	};
+
+	Compiler.prototype.recognizeOpcode = function (isLeadingEdge) {
+		let t = this.peek();
+		if (!t || t.type !== 'OPCODE') {
+			return {some: false};
+		}
+		if (isLeadingEdge) {
+			// No one has set instruction debug data yet
+			let dbg = this.currentInstruction.debug;
+			dbg.file = t.debug.file;
+			dbg.line = t.debug.line;
+			dbg.char = t.debug.char;
+		}
+		this.advance();
+		return {some: true, value: t.value};
+	};
 
 	////////////////////////////////////////////////////////////////////////////
 	// Testing
@@ -730,50 +1025,38 @@ var MAGIC = ((ns) => {
 
 # Translated to MAGIC/VML by Tom Cornell
 
-LABEL Main
-	GT sys.range 0 A
-	IFNZ A CallFireSub CallRotateSub
-LABEL CallRotateSub
-	ARGS -5
-	CALL RotateSub 	# no return value to store
-	JUMP IfEnd
-LABEL CallFireSub
-	ARGS 20
-	CALL FireSub 	# no return value to store
-LABEL IfEnd
-	JUMP Main
+Main:
+	A = gt sys.range 0
+	ifnz A CallFireSub CallRotateSub
+CallRotateSub:
+	call RotateSub -5 
+	jump IfEnd
+CallFireSub:
+	call FireSub 20
+IfEnd:
+	jump Main
 
-LABEL FireSub
-	STORE args.1 sys.fire
-	RETURN
+FireSub:
+	sys.fire = args.1
+	return
 
-LABEL RotateSub
-	ADD sys.aim args.1 sys.aim
-	RETURN
+RotateSub:
+	sys.aim = add sys.aim args.1
+	return
 	`;
 
-/*
+/**/
 	let testBot = {
 		sourceCode: shotBot,
-		// Hardware Registers:
-		aim: 0,
-		fire: 0,
-		range: 111,
+		getName: function () { return "testBot"; }
 	};
 
-	testBot.isActive = function () {
-		return true;
-	}
+	let compiler = new Compiler();
+	compiler.compile(testBot);
+	testBot.program.instructions.forEach((i) => console.log(JSON.stringify(i, null, 2)));
+	console.log(testBot.program.labels);
 
-	Compiler.compile(testBot);
-	testBot.program.instructions.forEach((i) => console.log(i));
-	console.log("map", testBot.program.labels);
-
-	let interp = new Interpreter(testBot);
-	while (true) {
-		interp.step();		
-	}
-*/
+/**/
 
 	// EXPORTS
 	ns.Interpreter = Interpreter;
