@@ -573,8 +573,8 @@ var MAGIC = ((ns) => {
 	 */
 	Game.prototype.setBodyVelocity = function (object) {
 		//let realV = Matter.Vector.mult(velocity, Game.const.CHRONONS_PER_FRAME);
-		return Matter.Body.setVelocity(object.body, object.drv);
-		//let force = Matter.Vector.create(velocity.x, velocity.y);
+		Matter.Body.setVelocity(object.body, object.drv);
+		//let force = Matter.Vector.create(object.drv.x, object.drv.y);
 		//Matter.Body.applyForce(object.body, this.getPosition(object), force);
 	};
 
@@ -985,18 +985,15 @@ var MAGIC = ((ns) => {
 	 * That will assure that energy costs are assessed uniformly.
 	 */
 	GenericAgent.prototype.setVelocity = function (dx, dy) {
-		let dx1 = round(dx),
-				dy1 = round(dy);
 		let dx0 = this.drv.x,
-				xcost = Math.abs(dx1 - dx0),
+				xcost = Math.abs(dx - dx0),
 				dy0 = this.drv.y,
-				ycost = Math.abs(dy1 - dy0),
+				ycost = Math.abs(dy - dy0),
 				cost = xcost + ycost;
 		this.energy -= cost;
 		this.energy = Math.min(this.maxEnergy, this.energy);
-		this.drv.x = dx1;
-		this.drv.y = dy1;
-		console.log('setVelocity', dx1, dy1, cost);
+		this.drv.x = dx;
+		this.drv.y = dy;
 	};
 
 	/**
@@ -1580,6 +1577,8 @@ var MAGIC = ((ns) => {
 	Physics = function (theGame) {
 		Object.assign(this, {
 			game: theGame,
+			tasks: [],
+			engine: null,
 		});
 	};
 
@@ -1596,6 +1595,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Physics.prototype.update = function () {
+		// Clear the task list
 		this.tasks = [];
 		Matter.Engine.update(this.engine, 1000/60);
 		// Okay, maybe we have some events to deal with...
@@ -1761,6 +1761,7 @@ var MAGIC = ((ns) => {
 
 	// EXPORTS
 	ns.App = App;
+	ns.round = round;
 
 	return ns;
 

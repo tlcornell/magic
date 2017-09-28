@@ -316,7 +316,7 @@ var MAGIC = ((ns) => {
 //			let health = document.getElementsByClassName('status')[idx];
 //			health.firstElementChild.style.color = 'red';
 //		}
-		this.energy.curr.innerText = agent.getEnergy();
+		this.energy.curr.innerText = ns.round(agent.getEnergy());
 		this.shields.innerText = agent.getShields();
 		let agtCnd = agent.getCondition();
 		this.condition.innerText = agtCnd;
