@@ -2,6 +2,9 @@ var MAGIC = ((ns) => {
 
 let ModifiedShotBot = `
 # ModifiedShotBot
+#
+# A wall bouncer that actually tries to shoot at things
+#
 
 	mul sys.random 360 RandomDirection
 	store2 4 RandomDirection sys.heading

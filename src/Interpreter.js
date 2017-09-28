@@ -31,12 +31,15 @@ var MAGIC = ((ns) => {
 		cos: true,
 		div: true,
 		gt: true,
+		gte: true,
+		if: true,			// equiv ifnz
 		ifnz: true,
 		ifz: true,
 		jump: true,
 		label: true,
 		log: true,
 		lt: true,
+		lte: true,
 		mul: true,
 		or: true,	
 		return: true,
@@ -162,6 +165,14 @@ var MAGIC = ((ns) => {
 				storeLVal(dest, (val1 > val2) ? 1 : 0);
 				++this.pc;
 				break;
+			case 'gte':
+				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				storeLVal(dest, (val1 >= val2) ? 1 : 0);
+				++this.pc;
+				break;
+			case 'if':
 			case 'ifnz':
 				cond = decodeRVal(instrToks[1]);
 				brThen = decodeRVal(instrToks[2]);
@@ -216,6 +227,13 @@ var MAGIC = ((ns) => {
 				val1 = decodeRVal(instrToks[1]);
 				val2 = decodeRVal(instrToks[2]);
 				storeLVal(dest, (val1 < val2) ? 1 : 0);
+				++this.pc;
+				break;
+			case 'lte':
+				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(instrToks[1]);
+				val2 = decodeRVal(instrToks[2]);
+				storeLVal(dest, (val1 <= val2) ? 1 : 0);
 				++this.pc;
 				break;
 			case 'mul':

@@ -2,6 +2,9 @@ var MAGIC = ((ns) => {
 
 let WallBouncer = `
 # WallBouncer
+#
+# Basically a clay pigeon, with no weapons.
+#
 
 	mul sys.random 360 RandomDirection
 	store2 3 RandomDirection sys.heading
