@@ -989,7 +989,7 @@ var MAGIC = ((ns) => {
 				xcost = Math.abs(dx - dx0),
 				dy0 = this.drv.y,
 				ycost = Math.abs(dy - dy0),
-				cost = xcost + ycost;
+				cost = Math.round(xcost + ycost);
 		this.energy -= cost;
 		this.energy = Math.min(this.maxEnergy, this.energy);
 		this.drv.x = dx;
