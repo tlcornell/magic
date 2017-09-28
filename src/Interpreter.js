@@ -586,8 +586,13 @@ var MAGIC = ((ns) => {
 				}
 			}
 			// atEnd || !isdigit -- better be whitespace!
-			let str = self.source.substr(start, self.pos - start),
-					val = parseInt(str);
+			let str = self.source.substr(start, self.pos - start);
+			var val;
+			if (hasPoint) {
+				val = parseFloat(str);
+			} else {
+				val = parseInt(str);
+			}
 			if (isNaN(val)) {
 				ERROR(self.line, self.char, `scanNumber failed (${str})`);
 			}
