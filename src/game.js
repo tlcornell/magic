@@ -527,7 +527,8 @@ var MAGIC = ((ns) => {
 		agent.body = Physics.agentBody(agent, properties);
 		agent.sprite = Graphics.createSprite('agent',	properties);
 		agent.sourceCode = properties.sourceCode; 
-		ns.Compiler.compile(agent);	// --> agent.program
+		let compiler = new ns.Compiler();
+		compiler.compile(agent);	// --> agent.program
 		agent.interpreter = new ns.Interpreter(agent);
 		this.physics.addBody(agent.body);
 		this.objects.agents.push(agent);

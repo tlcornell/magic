@@ -53,219 +53,186 @@ var MAGIC = ((ns) => {
 
 		let self = this;
 
-		let rawInstr = this.program.instructions[this.pc],
-				instrToks = rawInstr.tokens,
-				opcode = instrToks[0].value;
+		let instruction = this.program.instructions[this.pc],
+				opcode = instruction.opcode;
 		// sanity check:
-		if (this.pc !== rawInstr.location) {
-			this.error(`PC does not match instr loc: ${this.pc}/${rawInstr.location}`);
+		if (this.pc !== instruction.debug.address) {
+			this.error(`PC does not match instr addr: ${this.pc}/${instruction.debug.address}`);
 		}
 
-		//console.log("step:", rawInstr);
+		//console.log("step:", instruction);
 
-		var dest,
-				val1,
+		let args = instruction.args,
+				dest = decodeLVal(instruction.store);
+		var val1,
 				val2,
 				cond,
 				brThen,
-				brElse;
+				brElse,
+				frame;
 		switch (opcode) {
 			case 'abs':
-				val1 = decodeRVal(instrToks[1]);
-				dest = decodeLVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
 				storeLVal(dest, Math.abs(val1));
 				++this.pc;
 				break;
 			case 'add':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, val1 + val2);
 				++this.pc;
 				break;
-			case 'args':
-				let argframe = pushNewFrame(this.framestack);
-				instrToks.slice(1).forEach((x) => argframe.args.push(x));
-				// Check that next instruction is indeed a CALL
-				let next = this.pc + 1;
-				rawInstr = this.program.instructions[next];
-				instrToks = rawInstr.tokens;
-				opcode = instrToks[0].value;
-				if (opcode !== 'call') {
-					this.error("ARGS instruction must be followed by CALL");
-				}
-				rawInstr.hasFrame = true;
-				// The call will actually execute next step
-				++this.pc;
-				this.step();
-				break;
 			case 'call':
-				// Do we need to create a new frame?
-				var frame;
-				if (!rawInstr.hasFrame) {
-					frame = pushNewFrame(this.framestack);
-				} else {
-					frame = top(this.framestack);
-				}
-				let func = decodeRVal(instrToks[1]);
-				if (instrToks.length === 3) {
-					frame.retval = decodeLVal(instrToks[2]);
+				frame = pushNewFrame(this.framestack);
+				args.slice(1).forEach((x) => frame.args.push(x));	// REVIEW: shallow copy of args
+				let funcAddr = decodeRVal(args[0]);
+				if (dest) {
+					frame.retval = dest;
 				} else {
 					frame.retval = null;
 				}
 				frame.return = this.pc + 1;
-				this.pc = func;
+				this.pc = funcAddr;
 				break;
 			case 'cos':
-				val1 = decodeRVal(instrToks[1]);
-				if (instrToks.length > 3) {
-					val2 = decodeRVal(instrToks[2]);
-					dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(args[0]);
+				if (args.length > 1) {
+					val2 = decodeRVal(args[1]);
 				} else {
 					val2 = 1;
-					dest = decodeLVal(instrToks[2]);
 				}
 				storeLVal(dest, Math.cos(val1) * val2);
 				++this.pc;
 				break;
 			case 'div':
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
-				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, val1 / val2);
 				++this.pc;
 				break;
 			case 'gt':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, (val1 > val2) ? 1 : 0);
 				++this.pc;
 				break;
 			case 'gte':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, (val1 >= val2) ? 1 : 0);
 				++this.pc;
 				break;
 			case 'if':
 			case 'ifnz':
-				cond = decodeRVal(instrToks[1]);
-				brThen = decodeRVal(instrToks[2]);
+				cond = decodeRVal(args[0]);
+				brThen = decodeRVal(args[1]);
 				brElse = null;
 				// There may or may not be an else branch
-				if (instrToks.length === 4) {
-					brElse = decodeRVal(instrToks[3]);
+				if (args.length === 3) {
+					brElse = decodeRVal(args[2]);
 				}
 				if (cond) {
 					this.pc = brThen;
-				} else if (brElse !== null) {
+				} else if (brElse) {
 					this.pc = brElse;
 				} else {
 					++this.pc;
 				}
 				break;
 			case 'ifz':
-				cond = decodeRVal(instrToks[1]);
-				brThen = decodeRVal(instrToks[2]);
+				cond = decodeRVal(args[0]);
+				brThen = decodeRVal(args[1]);
 				brElse = null;
 				// There may or may not be an else branch
-				if (instrToks.length === 4) {
-					brElse = decodeRVal(instrToks[3]);
+				if (args.length === 3) {
+					brElse = decodeRVal(args[2]);
 				}
-				//console.log("ifz", instrToks[1], cond);
 				if (!cond) {
 					this.pc = brThen;
-				} else if (brElse !== null) {
+				} else if (brElse) {
 					this.pc = brElse;
 				} else {
 					++this.pc;
 				}
 				break;
 			case 'jump':
-				this.pc = decodeRVal(instrToks[1]);
-				break;
-			case 'label':
-				++this.pc;
-				this.step();
+				let addr = decodeRVal(args[0]);
+				if (isNaN(addr) 
+					|| addr < 0 
+					|| addr >= this.program.instructions.length) {
+					this.error(`Bad jump address: ${addr}`);
+				}
+				this.pc = addr;
 				break;
 			case 'log':
 				let logmsg = "LOG: ";
-				instrToks.slice(1).forEach((t) => {
-					logmsg += `${decodeRVal(t)} `;
+				args.forEach((arg) => {
+					logmsg += `${decodeRVal(arg)} `;
 				});
 				console.log(logmsg);
 				++this.pc;
-				this.step();
+				this.step();	// log is a free instruction, so do one more
 				break;
 			case 'lt':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, (val1 < val2) ? 1 : 0);
 				++this.pc;
 				break;
 			case 'lte':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, (val1 <= val2) ? 1 : 0);
 				++this.pc;
 				break;
 			case 'mul':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, val1 * val2);
 				++this.pc;
 				break;
 			case 'or':
-				dest = decodeLVal(instrToks[3]);
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, val1 || val2);
 				++this.pc;
 				break;
 			case 'return':
 				frame = top(this.framestack);
-				if (instrToks.length > 1) {
-					storeLVal(frame.retval, decodeRVal(instrToks[1]));
+				if (args.length > 0 && frame.retval) {
+					storeLVal(frame.retval, decodeRVal(args[0]));
 				}
-				if (isNaN(frame.return) || frame.return < 0) {
+				if (isNaN(frame.return) 
+					|| frame.return < 0 
+					|| frame.return >= this.program.instructions.length) {
 					this.error(`Bad return address: ${frame.return}`);
 				}
 				this.pc = frame.return;
 				break;
 			case 'sin':
-				val1 = decodeRVal(instrToks[1]);
-				if (instrToks.length > 3) {
-					val2 = decodeRVal(instrToks[2]);
-					dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(args[0]);
+				if (args.length > 1) {
+					val2 = decodeRVal(args[1]);
 				} else {
 					val2 = 1;
-					dest = decodeLVal(instrToks[2]);
 				}
 				storeLVal(dest, Math.sin(val1) * val2);
 				++this.pc;
 				break;
 			case 'store':
-				dest = decodeLVal(instrToks[2]);
-				val1 = decodeRVal(instrToks[1]);
+				val1 = decodeRVal(args[0]);
 				storeLVal(dest, val1);
 				++this.pc;
 				break;
 			case 'store2':
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
-				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeObject(dest, val1, val2);
 				++this.pc;
 				break;
 			case 'sub':
-				val1 = decodeRVal(instrToks[1]);
-				val2 = decodeRVal(instrToks[2]);
-				dest = decodeLVal(instrToks[3]);
+				val1 = decodeRVal(args[0]);
+				val2 = decodeRVal(args[1]);
 				storeLVal(dest, val1 - val2);
 				++this.pc;
 				break;
@@ -274,7 +241,7 @@ var MAGIC = ((ns) => {
 				break;
 			default:
 				console.log("------------------------------------------");
-				console.log(rawInstr);
+				console.log(instruction);
 				console.log(this.framestack);
 				this.error(`Unhandled opcode '${opcode}'`);
 		}
@@ -362,12 +329,11 @@ var MAGIC = ((ns) => {
 		 * In general, an LValue will look like:
 		 * { container: ..., key: ... }
 		 */
-		function decodeLVal(token) {
-			//console.log("decodeLVal", token);
-			let parts = token.value.split('.');
+		function decodeLVal(storagePath) {
+			let parts = storagePath.split('.');
 			var decoded;
 			if (parts[0] === 'sys') {
-				let reg = parts[1].toLowerCase();
+				let reg = parts[1];
 				if (!Interpreter.HWRegister.hasOwnProperty(reg)) {
 					self.error(`Unrecognized hardware register (${reg})`);
 				}
@@ -375,8 +341,7 @@ var MAGIC = ((ns) => {
 			} else if (parts[0] === 'user') {
 				decoded = {container: self.globals, key: parts[1]};
 			} else {
-				let framePtr = self.framestack.length - 1,
-						frame = self.framestack[framePtr];
+				let frame = top(self.framestack);
 				decoded = {container: frame.locals, key: parts[0]};
 			}
 			//console.log(decoded);
@@ -428,7 +393,6 @@ var MAGIC = ((ns) => {
 		}
 
 		function getFromHardware(agent, reg) {
-			reg = reg.toLowerCase();
 			switch (reg) {
 				case 'aim':
 					return self.bot.getAimDegrees();
@@ -437,9 +401,7 @@ var MAGIC = ((ns) => {
 				case 'look':
 					return self.bot.getLookDegrees();
 				case 'random':
-					return ns.random();
-					//return Matter.Common.random(0,1);
-					//return Math.random();
+					return Math.random();
 				case 'range':
 					return self.bot.getSightDist();
 				case 'velocity_dx':

@@ -85,22 +85,22 @@ GetOffEastWall:
 
 CheckMovement:
 # Are we close enough to a wall to go into wall-hugging mode?
-	A = lte sys.Y 40 
+	A = lte sys.y 40 
 	ifnz A HugNorthWall
-	A = lte sys.X 40 
+	A = lte sys.x 40 
 	ifnz A HugWestWall
-	A = gte sys.Y 600 
+	A = gte sys.y 600 
 	ifnz A HugSouthWall
-	A = gte sys.X 760 
+	A = gte sys.x 760 
 	ifnz A HugEastWall
 	jump CheckRange 
 
 HugWestWall:
 HugEastWall:
 	sys.velocity_dx = 0 
-	A = gt sys.Y 590 
+	A = gt sys.y 590 
 	ifnz A HeadNorth
-	A = lt sys.Y 50 
+	A = lt sys.y 50 
 	ifnz A HeadSouth
 	ifnz sys.velocity_dy CheckRange
 	sys.velocity_dy = 3 
@@ -108,9 +108,9 @@ HugEastWall:
 HugNorthWall:
 HugSouthWall:
 	sys.velocity_dy = 0 
-	A = gt sys.X 750 
+	A = gt sys.x 750 
 	ifnz A HeadWest
-	A = lt sys.X 50 
+	A = lt sys.x 50 
 	ifnz A HeadEast
 	ifnz sys.velocity_dx CheckRange
 	sys.velocity_dx = 3 
