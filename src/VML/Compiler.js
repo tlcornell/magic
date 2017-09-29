@@ -1,36 +1,13 @@
 var MAGIC = ((ns) => {
 
+	// Imports
+	let OpCode = ns.OpCode;
+
 	function ERROR (file, line, char, msg) {
 		logmsg = `[${file}:${line}.${char}] ERROR ${msg}`;
 		console.log(logmsg);
 		throw new Error(logmsg);
 	}
-
-	const OpCode = Object.freeze({
-		abs: true,
-		add: true,
-		//args: true,
-		call: true,
-		cos: true,
-		div: true,
-		gt: true,
-		gte: true,
-		if: true,			// equiv ifnz
-		ifnz: true,
-		ifz: true,
-		jump: true,
-		log: true,
-		lt: true,
-		lte: true,
-		mul: true,
-		or: true,	
-		return: true,
-		sin: true,
-		store: true,
-		store2: true,
-		sub: true,
-		sync: true,
-	});
 
 	////////////////////////////////////////////////////////////////////////////
 	// Scanner
@@ -328,8 +305,6 @@ var MAGIC = ((ns) => {
 		this.recognizeProgram();
 		// will throw exception on compilation failure
 		console.log("Done!");
-//		this.instructions.forEach((i) => console.log(JSON.stringify(i, null, 2)));
-//		console.log(this.labelMap);
 		return {instructions: this.instructions, labels: this.labelMap};
 	}
 
@@ -389,6 +364,9 @@ var MAGIC = ((ns) => {
 			if ((result = this.recognizeLabelDecl()).some) {
 				this.updateLabelMap(result.value);
 			} else if ((result = this.recognizeStatement()).some) {
+				if (!checkArgs(result.value)) {
+					this.error(`Wrong number of arguments in instruction: ${JSON.stringify(result.value,null,2)}`);
+				}
 				this.appendProgram(result.value);
 				this.currentInstruction = this.createInstruction();
 			} else {
@@ -498,21 +476,6 @@ var MAGIC = ((ns) => {
 			return {some: false};
 		}
 
-		// Sequence of <rval>
-		// Ending in either a <label-decl> or <assignment> or <opcode>
-		/*
-		while (!this.atEnd()) {
-
-			if (this.argsEnd()) {
-				break;
-			}
-
-			let t1 = this.peek();
-			this.currentInstruction.args.push(t1);
-
-			this.advance();
-		}
-		*/
 		while ((result = this.recognizeRVal()).some) {
 			this.currentInstruction.args.push(result.value);
 		}
@@ -572,6 +535,36 @@ var MAGIC = ((ns) => {
 		this.advance();
 		return {some: true, value: t.value};
 	};
+
+
+	function checkArgs(instruction) {
+		let opcode = instruction.opcode,
+				req = OpCode[opcode].args,
+				opt = OpCode[opcode].opt,
+				iargs = instruction.args;
+		if (iargs.length < req.length) {
+			// too few arguments
+			console.log("too few arguments");
+			return false;
+		} else if (iargs.length <= req.length + opt.length) {
+			return true;
+		}
+		// We have some extra args 
+		// The only way this is good is if there's an 'ARGS...' varargs slot
+		// in opt
+		for (let i = 0; i < opt.length; ++i) {
+			if (opt[i].type === 'ANY...') {
+				// Always room for more arguments
+				return true;
+			}
+		}
+		// Ran out of optional argument slots before we ran out of instruction
+		// args -- too many args
+		console.log("too many args", iargs.length, req.length + opt.length);
+		return false;
+	}
+
+
 
 	////////////////////////////////////////////////////////////////////////////
 	// Testing
