@@ -62,12 +62,19 @@
 
 			let input = document.getElementById("source");
 			let source = input.value;
-
-			let compiler = new MAGIC.Compiler();
-			let program = compiler.testCompile(source, "source");
-
 			let display = document.getElementById("display");
 			display.value = "";
+
+			let compiler = new MAGIC.Compiler();
+			var program;
+			try {
+				program = compiler.testCompile(source, "source");
+			} 
+			catch (e) {
+				display.value = e.message;
+				return;
+			}
+
 			program.instructions.forEach((i) => {
 				display.value += JSON.stringify(i, null, 2);
 				display.value += "\n";

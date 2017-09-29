@@ -1,14 +1,15 @@
 var MAGIC = ((ns) => {
 
 	function ERROR (file, line, char, msg) {
-		console.log(`[${file}:${line}.${char}] ERROR ${msg}`);
-		throw new Error(msg);
+		logmsg = `[${file}:${line}.${char}] ERROR ${msg}`;
+		console.log(logmsg);
+		throw new Error(logmsg);
 	}
 
 	const OpCode = Object.freeze({
 		abs: true,
 		add: true,
-		args: true,
+		//args: true,
 		call: true,
 		cos: true,
 		div: true,
@@ -281,7 +282,7 @@ var MAGIC = ((ns) => {
 		return {
 			opcode: '',
 			args: [],
-			destination: '',
+			store: '',
 			debug: {
 				address: this.instructionCounter, 
 				labels: [],
@@ -448,7 +449,7 @@ var MAGIC = ((ns) => {
 		this.advance(2);	// consume the tokens
 
 		// We're committed to this rule now!
-		inst.destination = t1.value;
+		inst.store = t1.value;
 
 		if ((result = this.recognizeRVal()).some) {
 			this.currentInstruction.opcode = 'store';
