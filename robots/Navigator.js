@@ -3,6 +3,8 @@ var MAGIC = ((ns) => {
 let Navigator = `
 # Navigator
 
+	debug
+	
 ##########################################################3
 # Find the closest wall
 #

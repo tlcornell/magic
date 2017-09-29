@@ -5,6 +5,7 @@ var MAGIC = ((ns) => {
 		add: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		call: {args: [{type: 'ADDRESS'}], opt:[{type: 'ANY...'}]},
 		cos: {args: [{type: 'NUMBER'}], opt: [{type: 'NUMBER'}]},
+		debug: {args: [], opt: []},
 		div: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		gt: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		gte: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},

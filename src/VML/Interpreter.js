@@ -20,6 +20,8 @@ var MAGIC = ((ns) => {
 			}],
 			bot: agent,
 			globals: {},
+			doTrace: false,
+			trace: [],
 		});
 	}
 
@@ -61,6 +63,21 @@ var MAGIC = ((ns) => {
 		}
 
 		//console.log("step:", instruction);
+		if (this.doTrace) {
+			let name = this.bot.getName(),
+					line = instruction.debug.line;
+			let traceRecord = `[${name}.${line}] `;
+			if (instruction.store) {
+				traceRecord += `${instruction.store} = `;
+			}
+			if (instruction.opcode != 'store') {
+				traceRecord += `${instruction.opcode} `;
+			}
+			instruction.args.forEach((arg) => {
+				traceRecord += `${arg.value} `;
+			});
+			this.trace.push(traceRecord);
+		}
 
 		let args = instruction.args,
 				dest = decodeLVal(instruction.store);
@@ -103,6 +120,12 @@ var MAGIC = ((ns) => {
 				}
 				storeLVal(dest, Math.cos(val1) * val2);
 				++this.pc;
+				break;
+			case 'debug':
+				console.log(`Turning tracing on for ${this.bot.getName()}`);
+				this.doTrace = true;
+				++this.pc;
+				this.step();
 				break;
 			case 'div':
 				val1 = decodeRVal(args[0]);

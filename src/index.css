@@ -29,7 +29,18 @@
 	margin-top: 20px;
 }
 
-#controls {
+#trace-container {
+	float: left;
+	height: 95%;
+	margin-left: 24px;
+}
+
+#trace-display {
+	wrap: "off";
+	height: 90%;
+}
+
+.clearBoth {
 	clear: both;
 }
 

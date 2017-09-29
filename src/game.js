@@ -240,6 +240,14 @@ var MAGIC = ((ns) => {
 	App.prototype.endGame = function () {
 		this.game.exitGameLoop();
 		this.setPauseCtl('Pause', false);
+		if (ns.TRACE_ON) {
+			this.game.objects.agents.forEach((agent) => {
+				if (agent.interpreter.doTrace) {
+					this.displayTrace(agent);
+				}
+			});
+		} else {
+		}
 		// We need the following trivial timeout so as to get the final
 		// animation frame displayed before we go into what may be a long
 		// wait for the the log to display.
@@ -287,6 +295,18 @@ var MAGIC = ((ns) => {
 	App.prototype.clearLog = function () {
 		ns.log.clear();
 		e_('log-div').innerHTML = '';
+	}
+
+	App.prototype.displayTrace = function (agent) {
+		let div = e_('trace-container');
+		div.innerHTML = `<textarea id="trace-display" rows="40" cols="72"></textarea>`;
+		let display = e_('trace-display');
+		let trace = "";
+		agent.interpreter.trace.forEach((line) => {
+			//console.log(line);
+			trace += line + "\n";
+		});
+		display.value = trace;
 	}
 
 
@@ -1763,6 +1783,7 @@ var MAGIC = ((ns) => {
 	// EXPORTS
 	ns.App = App;
 	ns.round = round;
+	ns.TRACE_ON = false;
 
 	return ns;
 
@@ -1774,6 +1795,7 @@ var MAGIC = ((ns) => {
 */
 window.onload = () => {
 	window.scrollTo(0, 0);
+	MAGIC.TRACE_ON = true;
 	let magic_app = new MAGIC.App();
 	magic_app.init();
 };
