@@ -41,7 +41,7 @@ GoSouth:
 	jump CheckWall
 GoEast:
 	sys.velocity_dx = 3 
-	sys.velocity_dx = call SeekingWall 750 sys.x
+	sys.velocity_dx = call SeekingWall 760 sys.x
 	jump CheckWall
 
 SeekingWall:

@@ -285,12 +285,9 @@ var MAGIC = ((ns) => {
 	Compiler.prototype.compile = function (actor) {
 		let source = actor.sourceCode,
 				scanner = new Scanner(source, actor.getName());
-		console.log("Scanning...");
 		this.tokenStream = scanner.scanProgram();
-		console.log("Compiling...");
 		this.recognizeProgram();
 		// will throw exception on compilation failure
-		console.log("Done!");
 		actor.program = {
 			instructions: this.instructions,
 			labels: this.labelMap,
