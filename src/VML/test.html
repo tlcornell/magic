@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+	<title>Test Page for MAGIC/VML</title>
+	<meta charset="utf-8">
+
+	<style>
+		html, body {
+			height: 100%;
+		}
+		#input {
+			float: left;
+			width: 40%;
+			height: 95%;
+		}
+		#controls{
+			float: left;
+			height: 95%;
+			padding-top: 32px;
+			margin-right: 48px;
+		}
+		#output {
+			float:left;
+			width: 40%;
+			height: 95%;
+		}
+		textarea {
+			width: 90%;
+			height: 80%;
+		}
+		.clear {
+			clear: both;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<div id="input">
+		<h1>Source Code Input</h1>
+		<textarea id="source"></textarea>
+	</div>
+
+	<div id="controls">
+		<button id="doCompile" onclick="doCompile()"> -- Compile --> </button>
+	</div>
+
+	<div id="output">
+		<h1>Compiled Output</h1>
+		<textarea id="display"></textarea>
+	</div>
+
+	<div class="clear"></div>
+
+	<script src="./Compiler.js"></script> 
+	<script>
+
+		function doCompile() {
+
+			let input = document.getElementById("source");
+			let source = input.value;
+
+			let compiler = new MAGIC.Compiler();
+			let program = compiler.testCompile(source, "source");
+
+			let display = document.getElementById("display");
+			display.value = "";
+			program.instructions.forEach((i) => {
+				display.value += JSON.stringify(i, null, 2);
+				display.value += "\n";
+			});
+			display.value += "----------------------------------------------\n";
+			display.value += JSON.stringify(program.labels, null, 2);
+
+		}
+
+		window.onload = () => {
+			let input = document.getElementById("source");
+			input.value = MAGIC.samples.ShotBot;
+		};
+
+
+
+	</script>
+
+</body>
+
+</html>
