@@ -6,14 +6,14 @@ let GunTurret = `
 # For debugging the vision system
 #
 
-LABEL Main
-	GT sys.range 0 A
-	IFNZ A DoFire
-	ADD 7 sys.aim sys.aim
-	JUMP Main
-LABEL DoFire
-	STORE 50 sys.fire
-	JUMP Main
+Main:
+	A = gt sys.range 0
+	ifnz A DoFire
+	sys.aim = add 7 sys.aim 
+	jump Main
+DoFire:
+	sys.fire = 50 
+	jump Main
 `;
 
 	// EXPORTS

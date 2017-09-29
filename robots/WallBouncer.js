@@ -6,34 +6,34 @@ let WallBouncer = `
 # Basically a clay pigeon, with no weapons.
 #
 
-	mul sys.random 360 RandomDirection
-	store2 3 RandomDirection sys.heading
+	RandomDirection = mul sys.random 360 
+	sys.heading = store2 3 RandomDirection 
 
-LABEL Main
-	add Bounce sys.wall A
+Main:
+	A = add Bounce sys.wall 
 	jump A
-LABEL Bounce
+Bounce:
 	jump Main
 	jump GetOffNorthWall
 	jump GetOffWestWall
 	jump GetOffSouthWall
 	jump GetOffEastWall
 
-LABEL GetOffNorthWall
+GetOffNorthWall:
 	# make sure velocity_dy is positive
-	abs sys.velocity_dy sys.velocity_dy
+	sys.velocity_dy = abs sys.velocity_dy 
 	jump Main
-LABEL GetOffWestWall
-	abs sys.velocity_dx sys.velocity_dx
+GetOffWestWall:
+	sys.velocity_dx = abs sys.velocity_dx 
 	jump Main
-LABEL GetOffSouthWall
+GetOffSouthWall:
 	# make sure velocity_dy is negative
-	abs sys.velocity_dy A
-	mul -1 A sys.velocity_dy
+	A = abs sys.velocity_dy 
+	sys.velocity_dy = mul -1 A 
 	jump Main
-LABEL GetOffEastWall
-	abs sys.velocity_dx A
-	mul -1 A sys.velocity_dx
+GetOffEastWall:
+	A = abs sys.velocity_dx 
+	sys.velocity_dx = mul -1 A 
 	jump Main
 
 `;

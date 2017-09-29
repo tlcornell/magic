@@ -8,145 +8,141 @@ let Navigator = `
 #
 # 1. NW->SE line: y = 4x/5  (640/800 = 4/5)
 #
-	mul 4 sys.x A
-	div A 5 A
-	lt sys.y A NorE
+	A = mul 4 sys.x 
+	A = div A 5 
+	NorE = lt sys.y A 
 #
 # 2. NE -> SW line: y = -4x/5 + 640
 #
-	mul -1 A B
-	add B 640 B
-	lt sys.y B NorW
+	B = mul -1 A 
+	B = add B 640 
+	NorW = lt sys.y B 
 
 	ifnz NorE GoNorthOrEast
 	# !NorE => !N and !E
 	# !N and (N or W) => W
 	# !N and !E and !W => S
 	ifnz NorW GoWest GoSouth
-LABEL GoNorthOrEast
+GoNorthOrEast:
 	ifnz NorW GoNorth GoEast
 
 # Set red zone to (arena edge +/- wall thickness +/- radius +/- 25)
 # 0 + 20 + 15 + 25 = 60
 # 640 - 20 - 15 - 25 = 580
 # 800 - 20 - 15 - 25 = 740
-LABEL GoNorth
-	store -3 sys.velocity_dy
-	args sys.y 40 
-	call SeekingWall sys.velocity_dy
+GoNorth:
+	sys.velocity_dy = -3 
+	sys.velocity_dy = call SeekingWall sys.y 40 
 	jump CheckWall
-LABEL GoWest
-	store -3 sys.velocity_dx
-	args sys.x 40
-	call SeekingWall sys.velocity_dx
+GoWest:
+	sys.velocity_dx = -3 
+	sys.velocity_dx = call SeekingWall sys.x 40
 	jump CheckWall
-LABEL GoSouth
-	store 3 sys.velocity_dy
-	args 600 sys.y
-	call SeekingWall sys.velocity_dy
+GoSouth:
+	sys.velocity_dy = 3 
+	sys.velocity_dy = call SeekingWall 600 sys.y
 	jump CheckWall
-LABEL GoEast
-	store 3 sys.velocity_dx
-	args 750 sys.x
-	call SeekingWall sys.velocity_dx
+GoEast:
+	sys.velocity_dx = 3 
+	sys.velocity_dx = call SeekingWall 750 sys.x
 	jump CheckWall
 
-LABEL SeekingWall
-LABEL SeekLoop
-	lt args.1 args.2 inRedZone
+SeekingWall:
+SeekLoop:
+	inRedZone = lt args.1 args.2 
 	ifz inRedZone SeekLoop
 	return 0
 	
 
-LABEL CheckWall
-	add sys.wall Bounce JumpTableOffset
+CheckWall:
+	JumpTableOffset = add sys.wall Bounce 
 	jump JumpTableOffset
-LABEL Bounce
+Bounce:
 	jump CheckMovement
 	jump GetOffNorthWall
 	jump GetOffWestWall
 	jump GetOffSouthWall
 	jump GetOffEastWall
 
-LABEL GetOffNorthWall
-	GT sys.velocity_dy 0 courseCorrected
-	IFNZ courseCorrected HugNorthWall
+GetOffNorthWall:
+	courseCorrected = gt sys.velocity_dy 0 
+	ifnz courseCorrected HugNorthWall
 	# Otherwise move S slowly until the wall sensor shuts off
-	STORE 1 sys.velocity_dy
-	JUMP CheckRange							# do something useful while waiting to move
-LABEL GetOffWestWall
-	GT sys.velocity_dx 0 courseCorrected 	# Already heading out of danger
-	IFNZ courseCorrected HugWestWall
-	STORE 1 sys.velocity_dx
-	JUMP CheckRange
-LABEL GetOffSouthWall
-	LT sys.velocity_dy 0 A
-	IFNZ A HugSouthWall
-	STORE -1 sys.velocity_dy
-	JUMP CheckRange
-LABEL GetOffEastWall
-	LT sys.velocity_dx 0 A
-	IFNZ A HugEastWall
-	STORE -1 sys.velocity_dx
-	JUMP CheckRange
+	sys.velocity_dy = 1 
+	jump CheckRange							# do something useful while waiting to move
+GetOffWestWall:
+	courseCorrected = gt sys.velocity_dx 0  	# Already heading out of danger
+	ifnz courseCorrected HugWestWall
+	sys.velocity_dx = 1 
+	jump CheckRange
+GetOffSouthWall:
+	A = lt sys.velocity_dy 0 
+	ifnz A HugSouthWall
+	sys.velocity_dy = -1 
+	jump CheckRange
+GetOffEastWall:
+	A = lt sys.velocity_dx 0 
+	ifnz A HugEastWall
+	sys.velocity_dx = -1 
+	jump CheckRange
 
-LABEL CheckMovement
+CheckMovement:
 # Are we close enough to a wall to go into wall-hugging mode?
-	LTE sys.Y 40 A
-	IFNZ A HugNorthWall
-	LTE sys.X 40 A
-	IFNZ A HugWestWall
-	GTE sys.Y 600 A
-	IFNZ A HugSouthWall
-	GTE sys.X 760 A
-	IFNZ A HugEastWall
-	JUMP CheckRange 
+	A = lte sys.Y 40 
+	ifnz A HugNorthWall
+	A = lte sys.X 40 
+	ifnz A HugWestWall
+	A = gte sys.Y 600 
+	ifnz A HugSouthWall
+	A = gte sys.X 760 
+	ifnz A HugEastWall
+	jump CheckRange 
 
-LABEL HugWestWall
-LABEL HugEastWall
-	STORE 0 sys.velocity_dx
-	GT sys.Y 590 A
-	IFNZ A HeadNorth
-	LT sys.Y 50 A
-	IFNZ A HeadSouth
-	IFNZ sys.velocity_dy CheckRange
-	STORE 3 sys.velocity_dy
-	JUMP CheckRange
-LABEL HugNorthWall
-LABEl HugSouthWall
-	STORE 0 sys.velocity_dy
-	GT sys.X 750 A
-	IFNZ A HeadWest
-	LT sys.X 50 A
-	IFNZ A HeadEast
-	IFNZ sys.velocity_dx CheckRange
-	STORE 3 sys.velocity_dx
-	JUMP CheckRange
+HugWestWall:
+HugEastWall:
+	sys.velocity_dx = 0 
+	A = gt sys.Y 590 
+	ifnz A HeadNorth
+	A = lt sys.Y 50 
+	ifnz A HeadSouth
+	ifnz sys.velocity_dy CheckRange
+	sys.velocity_dy = 3 
+	jump CheckRange
+HugNorthWall:
+HugSouthWall:
+	sys.velocity_dy = 0 
+	A = gt sys.X 750 
+	ifnz A HeadWest
+	A = lt sys.X 50 
+	ifnz A HeadEast
+	ifnz sys.velocity_dx CheckRange
+	sys.velocity_dx = 3 
+	jump CheckRange
 
-LABEL HeadSouth
-	STORE 3 sys.velocity_dy
-	JUMP CheckRange
-LABEL HeadNorth
-	STORE -3 sys.velocity_dy
-	JUMP CheckRange
-LABEL HeadEast
-	STORE 3 sys.velocity_dx
-	JUMP CheckRange
-LABEL HeadWest
-	STORE -3 sys.velocity_dx
-	JUMP CheckRange
+HeadSouth:
+	sys.velocity_dy = 3 
+	jump CheckRange
+HeadNorth:
+	sys.velocity_dy = -3 
+	jump CheckRange
+HeadEast:
+	sys.velocity_dx = 3 
+	jump CheckRange
+HeadWest:
+	sys.velocity_dx = -3 
+	jump CheckRange
 
-LABEL CheckRange
-	GT sys.range 0 A
-	IFNZ A DoFire DoRotate
+CheckRange:
+	A = gt sys.range 0 
+	ifnz A DoFire DoRotate
 
-LABEL DoFire
-	STORE 10 sys.fire
-	JUMP CheckWall
+DoFire:
+	sys.fire = 10 
+	jump CheckWall
 
-LABEL DoRotate
-	ADD sys.aim 7 sys.aim
-	JUMP CheckWall
+DoRotate:
+	sys.aim = add sys.aim 7 
+	jump CheckWall
 `;
 
 	// EXPORTS

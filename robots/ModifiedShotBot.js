@@ -6,48 +6,48 @@ let ModifiedShotBot = `
 # A wall bouncer that actually tries to shoot at things
 #
 
-	mul sys.random 360 RandomDirection
-	store2 4 RandomDirection sys.heading
+	RandomDirection = mul sys.random 360 
+	sys.heading = store2 4 RandomDirection 
 
-LABEL Main
-	add Bounce sys.wall A
+Main:
+	A = add Bounce sys.wall 
 	jump A
-LABEL Bounce
+Bounce:
 	jump CheckRange
 	jump GetOffNorthWall
 	jump GetOffWestWall
 	jump GetOffSouthWall
 	jump GetOffEastWall
 
-LABEL GetOffNorthWall
+GetOffNorthWall:
 	# make sure velocity_dy is positive
-	abs sys.velocity_dy sys.velocity_dy
+	sys.velocity_dy = abs sys.velocity_dy 
 	jump CheckRange
-LABEL GetOffWestWall
-	abs sys.velocity_dx sys.velocity_dx
+GetOffWestWall:
+	sys.velocity_dx = abs sys.velocity_dx 
 	jump CheckRange
-LABEL GetOffSouthWall
+GetOffSouthWall:
 	# make sure velocity_dy is negative
-	abs sys.velocity_dy A
-	mul -1 A sys.velocity_dy
+	A = abs sys.velocity_dy 
+	sys.velocity_dy = mul -1 A 
 	jump CheckRange
-LABEL GetOffEastWall
-	abs sys.velocity_dx A
-	mul -1 A sys.velocity_dx
+GetOffEastWall:
+	A = abs sys.velocity_dx 
+	sys.velocity_dx = mul -1 A 
 	jump CheckRange
 
 
-LABEL CheckRange
-	GT sys.range 0 A
-	IFNZ A DoFire DoRotate
+CheckRange:
+	A = gt sys.range 0 
+	ifnz A DoFire DoRotate
 
-LABEL DoFire
-	STORE 20 sys.fire
-	JUMP Main
+DoFire:
+	sys.fire = 20 
+	jump Main
 
-LABEL DoRotate
-	ADD sys.aim 7 sys.aim
-	JUMP Main
+DoRotate:
+	sys.aim = add sys.aim 7 
+	jump Main
 `;
 
 	// EXPORTS
