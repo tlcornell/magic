@@ -175,6 +175,7 @@ var MAGIC = ((ns) => {
 		this.pauseCtl = e_('pause'); 
 		// 'Pause' may be replaced by keyboard controls, 
 		// so it wouldn't be a visible UI control any more...
+		this.game = null;
 	};
 
 	/**
@@ -456,6 +457,9 @@ var MAGIC = ((ns) => {
 		let count = roster.length;
 		let initPosList = scatter(count);		// random positions, not too close
 		roster.forEach((type, i) => {
+			// This is what we want to get to:
+			//this.agentFactory.createAgent(type);
+			//
 			let ord = i + 1;
 			let properties = {
 				name: `${type} #${ord}`,

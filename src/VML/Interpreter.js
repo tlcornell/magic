@@ -46,14 +46,193 @@ var MAGIC = ((ns) => {
 
 	Interpreter.prototype.step = function () {
 
+		let top = (framestack) => {
+			if (framestack.length === 0) {
+				return null;
+			}
+			return framestack[framestack.length - 1];
+		};
+
+		/**
+		 * Used mainly to access the caller's frame from within a function body,
+		 * for decoding arguments.
+		 */
+		let antetop = (framestack) => {
+			if (framestack.length < 2) {
+				return null;
+			}
+			return framestack[framestack.length - 2];
+		};
+
+		let pushNewFrame = (framestack) => {
+			let frame = {
+				args: [{}],		// arg.0 is reserved
+				locals: {},
+			};
+			framestack.push(frame);
+			return frame;
+		};
+
+		let rval = (token, context) => {
+			if (!context) {
+				context = top(this.framestack);
+			}
+			//console.log("rval", token, context);
+			if (token.type === 'NUMBER') {
+				return token.value;
+			}
+			if (token.type === 'STRING') {
+				return token.value;
+			}
+			if (token.type === 'IDENTIFIER') {
+				let parts = token.value.split('.');
+				if (parts[0] === 'sys') {
+					// Load hardware register
+					let reg = parts[1];
+					return getFromHardware(this.bot, reg);
+					//return this.bot[reg];
+				} else if (parts[0] === 'user') {
+					// Fetch contents of global register
+					// Eventually we should consider recursively decoding that
+					if (!this.globals.hasOwnProperty(parts[1])) {
+						this.error(`Attempt to load undefined global (${parts[1]})`);
+					}
+					return this.globals[parts[1]];
+				} else if (parts[0] === 'args') {
+					// Fetch a token from the args list
+					let i = parseInt(parts[1]);
+					if (isNaN(i)) {
+						this.error(`Args index is not a number: ${parts[1]}`);
+					}
+					--i;	// args in VML is 1-based; the args array in JS is 0-based
+					if (i >= context.args.length) {
+						this.error(`Args index out of bounds: ${i}`);
+					}
+					let argi = context.args[i];
+					// Decode it (it's still a raw token)
+					return rval(argi, antetop(this.framestack));
+				} else if (this.program.labels.hasOwnProperty(parts[0])) {
+					// Return the program location for this label
+					return this.program.labels[parts[0]];
+				} else {
+					// Must be a local
+					let name = parts[0];
+					if (!context.locals.hasOwnProperty(name)) {
+						this.error(`Attempt to load unknown local (${name})`);
+					}
+					// Someday we may want to decode the local value
+					// Also someday there might be locals with more than one part
+					return context.locals[name];
+				}
+			}
+		};
+
+		/**
+		 * In general, an LValue will look like:
+		 * { container: ..., key: ... }
+		 */
+		let decodeLVal = (storagePath) => {
+			let parts = storagePath.split('.');
+			var decoded;
+			if (parts[0] === 'sys') {
+				let reg = parts[1];
+				if (!Interpreter.HWRegister.hasOwnProperty(reg)) {
+					this.error(`Unrecognized hardware register (${reg})`);
+				}
+				decoded = {container: this.bot, key: reg};
+			} else if (parts[0] === 'user') {
+				decoded = {container: this.globals, key: parts[1]};
+			} else {
+				let frame = top(this.framestack);
+				decoded = {container: frame.locals, key: parts[0]};
+			}
+			//console.log(decoded);
+			return decoded;
+		};
+
+		let storeLVal = (lval, x) => {
+			if (lval.container !== this.bot) {
+				lval.container[lval.key] = x;
+				return;
+			}
+			// Store to hardware registers:
+			switch (lval.key) {
+				case 'aim':
+					this.bot.setAimDegrees(x);
+					break;
+				case 'fire':
+					this.bot.addBulletEnergy(x);
+					this.bot.fireWeapons();
+					//this.bot.launchProjectile(this.bot.getAim(), x);
+					break;
+				case 'velocity_dx':
+					this.bot.setSpeedX(x);
+					break;
+				case 'velocity_dy':
+					this.bot.setSpeedY(x);
+					break;
+				default:
+					this.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
+			}
+		};
+
+		let storeObject = (lval, v1, v2) => {
+			// lval of the form {container: C, key: K}
+			// lval.container should === this.bot in all cases (aka 'sys')
+			// lval.key should be atomic ('velocity' or 'heading')
+			switch (lval.key) {
+				case 'velocity':
+					// v1 -> dx, v2 -> dy
+					this.bot.setVelocity(v1, v2);
+					break;
+				case 'heading':
+					// v1 -> r, v2 -> th
+					this.bot.setHeading(v1, v2);
+					break;
+				default:
+					this.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
+			}
+		};
+
+		let getFromHardware = (agent, reg) => {
+			switch (reg) {
+				case 'aim':
+					return this.bot.getAimDegrees();
+				case 'fire':
+					return 0;
+				case 'look':
+					return this.bot.getLookDegrees();
+				case 'random':
+					return Math.random();
+				case 'range':
+					return this.bot.getSightDist();
+				case 'velocity_dx':
+					return this.bot.getSpeedX();
+				case 'velocity_dy':
+					return this.bot.getSpeedY();
+				case 'wall':
+					//console.log("getFromHardware:", this.bot.getWall());
+					return this.bot.getWall();
+				case 'x':
+					return this.bot.getPosX();
+				case 'y':
+					return this.bot.getPosY();
+				default:
+					// Unreachable?
+					this.error(`getFromHardware: Bad register (${reg})`);
+			}
+		};
+
+		//
+		//---------------------- Mainline -----------------------------------
+		//
+
 		// Any events to handle?
 
 		// Okay, execute the instruction at this.pc
 		if (this.pc > this.program.length) {
 			this.error(`Foops, out of rope! (${this.pc})`);
 		}
-
-		let self = this;
 
 		let instruction = this.program.instructions[this.pc],
 				opcode = instruction.opcode;
@@ -79,47 +258,58 @@ var MAGIC = ((ns) => {
 			this.trace.push(traceRecord);
 		}
 
+		let unaryOp = (op, arg, dest) => {
+			storeLVal(dest, op(arg));
+			++this.pc;
+		}
+
+		let binOp = (op, arg1, arg2, dest) => {
+			storeLVal(dest, op(arg1, arg2));
+			++this.pc;
+		}
+
+		let doCall = (addr, args, dest) => {
+			let frame = pushNewFrame(this.framestack);
+			frame.args = args.slice(1);	// REVIEW: args is a slice, a shallow copy of instruction args
+			frame.retval = dest ? dest : null;
+			frame.return = this.pc + 1;
+			if (isNaN(addr) 
+				|| addr < 0 
+				|| addr >= this.program.instructions.length) {
+				this.error(`Bad jump address: ${addr}`);
+			}
+			this.pc = addr;
+		};
+
+		let doConditional = (cond, brThen, brElse) => {
+			if (cond) {
+				this.pc = brThen;
+			} else if (brElse) {	// REVIEW: what if the else addr is actually zero?
+				this.pc = brElse;
+			} else {
+				++this.pc;
+			}
+		};
+
 		let args = instruction.args,
-				dest = decodeLVal(instruction.store);
-		var val1,
+				dest = decodeLVal(instruction.store),
+		    val1,
 				val2,
-				cond,
-				brThen,
-				brElse,
-				frame;
+				scale,
+				brElse;
 		switch (opcode) {
 			case 'abs':
-				val1 = decodeRVal(args[0]);
-				storeLVal(dest, Math.abs(val1));
-				++this.pc;
+				unaryOp(Math.abs, rval(args[0]), dest);
 				break;
 			case 'add':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, val1 + val2);
-				++this.pc;
+				binOp((a,b)=>a+b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'call':
-				frame = pushNewFrame(this.framestack);
-				args.slice(1).forEach((x) => frame.args.push(x));	// REVIEW: shallow copy of args
-				let funcAddr = decodeRVal(args[0]);
-				if (dest) {
-					frame.retval = dest;
-				} else {
-					frame.retval = null;
-				}
-				frame.return = this.pc + 1;
-				this.pc = funcAddr;
+				doCall(rval(args[0]), args/*.slice(1)*/, dest);
 				break;
 			case 'cos':
-				val1 = decodeRVal(args[0]);
-				if (args.length > 1) {
-					val2 = decodeRVal(args[1]);
-				} else {
-					val2 = 1;
-				}
-				storeLVal(dest, Math.cos(val1) * val2);
-				++this.pc;
+				scale = (args.length > 1) ? rval(args[1]) : 1;
+				binOp((a,b)=>Math.cos(a)*b, rval(args[0]), scale, dest);
 				break;
 			case 'debug':
 				console.log(`Turning tracing on for ${this.bot.getName()}`);
@@ -128,58 +318,25 @@ var MAGIC = ((ns) => {
 				this.step();
 				break;
 			case 'div':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, val1 / val2);
-				++this.pc;
+				binOp((a,b)=>a/b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'gt':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, (val1 > val2) ? 1 : 0);
-				++this.pc;
+				binOp((a,b)=>(a>b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'gte':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, (val1 >= val2) ? 1 : 0);
-				++this.pc;
+				binOp((a,b)=>(a>=b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'if':
 			case 'ifnz':
-				cond = decodeRVal(args[0]);
-				brThen = decodeRVal(args[1]);
-				brElse = null;
-				// There may or may not be an else branch
-				if (args.length === 3) {
-					brElse = decodeRVal(args[2]);
-				}
-				if (cond) {
-					this.pc = brThen;
-				} else if (brElse) {
-					this.pc = brElse;
-				} else {
-					++this.pc;
-				}
+				brElse = (args.length === 3) ? rval(args[2]) : null;
+				doConditional(rval(args[0]), rval(args[1]), brElse);
 				break;
 			case 'ifz':
-				cond = decodeRVal(args[0]);
-				brThen = decodeRVal(args[1]);
-				brElse = null;
-				// There may or may not be an else branch
-				if (args.length === 3) {
-					brElse = decodeRVal(args[2]);
-				}
-				if (!cond) {
-					this.pc = brThen;
-				} else if (brElse) {
-					this.pc = brElse;
-				} else {
-					++this.pc;
-				}
+				brElse = (args.length === 3) ? rval(args[2]) : null;
+				doConditional(!rval(args[0]), rval(args[1]), brElse);
 				break;
 			case 'jump':
-				let addr = decodeRVal(args[0]);
+				let addr = rval(args[0]);
 				if (isNaN(addr) 
 					|| addr < 0 
 					|| addr >= this.program.instructions.length) {
@@ -190,40 +347,28 @@ var MAGIC = ((ns) => {
 			case 'log':
 				let logmsg = "LOG: ";
 				args.forEach((arg) => {
-					logmsg += `${decodeRVal(arg)} `;
+					logmsg += `${rval(arg)} `;
 				});
 				console.log(logmsg);
 				++this.pc;
 				this.step();	// log is a free instruction, so do one more
 				break;
 			case 'lt':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, (val1 < val2) ? 1 : 0);
-				++this.pc;
+				binOp((a,b) => (a<b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'lte':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, (val1 <= val2) ? 1 : 0);
-				++this.pc;
+				binOp((a,b) => (a<=b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'mul':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, val1 * val2);
-				++this.pc;
+				binOp((a,b)=>a*b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'or':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, val1 || val2);
-				++this.pc;
+				binOp((a,b)=>a||b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'return':
-				frame = top(this.framestack);
+				let frame = top(this.framestack);
 				if (args.length > 0 && frame.retval) {
-					storeLVal(frame.retval, decodeRVal(args[0]));
+					storeLVal(frame.retval, rval(args[0]));
 				}
 				if (isNaN(frame.return) 
 					|| frame.return < 0 
@@ -233,31 +378,20 @@ var MAGIC = ((ns) => {
 				this.pc = frame.return;
 				break;
 			case 'sin':
-				val1 = decodeRVal(args[0]);
-				if (args.length > 1) {
-					val2 = decodeRVal(args[1]);
-				} else {
-					val2 = 1;
-				}
-				storeLVal(dest, Math.sin(val1) * val2);
-				++this.pc;
+				scale = (args.length > 1) ? rval(args[1]) : 1;
+				binOp((a,b) => Math.sin(a) * b, rval(args[0]), scale, dest);
 				break;
 			case 'store':
-				val1 = decodeRVal(args[0]);
-				storeLVal(dest, val1);
-				++this.pc;
+				unaryOp((a)=>a, rval(args[0]), dest);
 				break;
 			case 'store2':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
+				val1 = rval(args[0]);
+				val2 = rval(args[1]);
 				storeObject(dest, val1, val2);
 				++this.pc;
 				break;
 			case 'sub':
-				val1 = decodeRVal(args[0]);
-				val2 = decodeRVal(args[1]);
-				storeLVal(dest, val1 - val2);
-				++this.pc;
+				binOp((a,b)=>a-b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'sync':
 				this.syncFlag = true;
@@ -267,181 +401,6 @@ var MAGIC = ((ns) => {
 				console.log(instruction);
 				console.log(this.framestack);
 				this.error(`Unhandled opcode '${opcode}'`);
-		}
-
-		function top(framestack) {
-			if (framestack.length === 0) {
-				return null;
-			}
-			return framestack[framestack.length - 1];
-		}
-
-		/**
-		 * Used mainly to access the caller's frame from within a function body,
-		 * for decoding arguments.
-		 */
-		function antetop(framestack) {
-			if (framestack.length < 2) {
-				return null;
-			}
-			return framestack[framestack.length - 2];
-		}
-
-		function pushNewFrame(framestack) {
-			let frame = {
-				args: [{}],		// arg.0 is reserved
-				locals: {},
-			};
-			framestack.push(frame);
-			return frame;
-		}
-
-		function decodeRVal(token, context) {
-			if (!context) {
-				context = top(self.framestack);
-			}
-			if (token.type === 'NUMBER') {
-				return token.value;
-			}
-			if (token.type === 'STRING') {
-				return token.value;
-			}
-			if (token.type === 'IDENTIFIER') {
-				let parts = token.value.split('.');
-				if (parts[0] === 'sys') {
-					// Load hardware register
-					let reg = parts[1];
-					return getFromHardware(self.bot, reg);
-					//return self.bot[reg];
-				} else if (parts[0] === 'user') {
-					// Fetch contents of global register
-					// Eventually we should consider recursively decoding that
-					if (!self.globals.hasOwnProperty(parts[1])) {
-						self.error(`Attempt to load undefined global (${parts[1]})`);
-					}
-					return self.globals[parts[1]];
-				} else if (parts[0] === 'args') {
-					// Fetch a token from the args list
-					let i = parseInt(parts[1]);
-					if (isNaN(i)) {
-						self.error(`Args index is not a number: ${parts[1]}`);
-					}
-					if (i >= context.args.length) {
-						self.error(`Args index out of bounds: ${i}`);
-					}
-					let argi = context.args[i];
-					// Decode it (it's still a raw token)
-					return decodeRVal(argi, antetop(self.framestack));
-				} else if (self.program.labels.hasOwnProperty(parts[0])) {
-					// Return the program location for this label
-					return self.program.labels[parts[0]];
-				} else {
-					// Must be a local
-					let name = parts[0];
-					if (!context.locals.hasOwnProperty(name)) {
-						self.error(`Attempt to load unknown local (${name})`);
-					}
-					// Someday we may want to decode the local value
-					// Also someday there might be locals with more than one part
-					return context.locals[name];
-				}
-			}
-		}
-
-		/**
-		 * In general, an LValue will look like:
-		 * { container: ..., key: ... }
-		 */
-		function decodeLVal(storagePath) {
-			let parts = storagePath.split('.');
-			var decoded;
-			if (parts[0] === 'sys') {
-				let reg = parts[1];
-				if (!Interpreter.HWRegister.hasOwnProperty(reg)) {
-					self.error(`Unrecognized hardware register (${reg})`);
-				}
-				decoded = {container: self.bot, key: reg};
-			} else if (parts[0] === 'user') {
-				decoded = {container: self.globals, key: parts[1]};
-			} else {
-				let frame = top(self.framestack);
-				decoded = {container: frame.locals, key: parts[0]};
-			}
-			//console.log(decoded);
-			return decoded;
-		}
-
-		function storeLVal(lval, x) {
-			if (lval.container !== self.bot) {
-				lval.container[lval.key] = x;
-				return;
-			}
-			// Store to hardware registers:
-			switch (lval.key) {
-				case 'aim':
-					self.bot.setAimDegrees(x);
-					break;
-				case 'fire':
-					self.bot.addBulletEnergy(x);
-					self.bot.fireWeapons();
-					//self.bot.launchProjectile(self.bot.getAim(), x);
-					break;
-				case 'velocity_dx':
-					self.bot.setSpeedX(x);
-					break;
-				case 'velocity_dy':
-					self.bot.setSpeedY(x);
-					break;
-				default:
-					self.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
-			}
-		}
-
-		function storeObject(lval, v1, v2) {
-			// lval of the form {container: C, key: K}
-			// lval.container should === self.bot in all cases (aka 'sys')
-			// lval.key should be atomic ('velocity' or 'heading')
-			switch (lval.key) {
-				case 'velocity':
-					// v1 -> dx, v2 -> dy
-					self.bot.setVelocity(v1, v2);
-					break;
-				case 'heading':
-					// v1 -> r, v2 -> th
-					self.bot.setHeading(v1, v2);
-					break;
-				default:
-					self.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
-			}
-		}
-
-		function getFromHardware(agent, reg) {
-			switch (reg) {
-				case 'aim':
-					return self.bot.getAimDegrees();
-				case 'fire':
-					return 0;
-				case 'look':
-					return self.bot.getLookDegrees();
-				case 'random':
-					return Math.random();
-				case 'range':
-					return self.bot.getSightDist();
-				case 'velocity_dx':
-					return self.bot.getSpeedX();
-				case 'velocity_dy':
-					return self.bot.getSpeedY();
-				case 'wall':
-					//console.log("getFromHardware:", self.bot.getWall());
-					return self.bot.getWall();
-				case 'x':
-					return self.bot.getPosX();
-				case 'y':
-					return self.bot.getPosY();
-				default:
-					// Unreachable?
-					self.error(`getFromHardware: Bad register (${reg})`);
-			}
 		}
 
 	};
