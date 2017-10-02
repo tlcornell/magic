@@ -357,8 +357,8 @@ var MAGIC = ((ns) => {
 	Game.prototype.initializeSubsystems = function () {
 		this.graphics.initialize();
 		this.physics.initialize();
-		this.agentFactory.initialize();
-		this.createRosterManager();
+		this.agentFactory.initialize(this.createRosterManager);
+		//this.createRosterManager();
 	};
 
 	Game.prototype.createMap = function () {

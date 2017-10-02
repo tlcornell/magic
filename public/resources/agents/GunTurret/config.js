@@ -1,6 +1,6 @@
 {
-	"mainSprite": "sprite.png",
-	"script": "script.txt",
+	"sprites": ["sprite.png"],
+	"script": "GunTurret.txt",
 	"loadout": {
 		"cpu": 40,
 		"energy": 40,

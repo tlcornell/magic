@@ -38,32 +38,57 @@ var MAGIC = ((ns) => {
 		this.agentKits = {};
 	}
 
-	AgentFactory.prototype.initialize = function () {
+	AgentFactory.prototype.initialize = function (continuation) {
 		console.log('Initializing AgentFactory...');
-		this.loadAgentKits();
+		this.loadAgentKits(continuation);
 	}
 
-	AgentFactory.prototype.loadAgentKits = function () {
+	AgentFactory.prototype.loadAgentKits = function (continuation) {
 
 		let serverUrl = 'http://localhost:3000';
 
-		let downloadKitsFromConfigs = (cfgList) => {
-			console.log(this.agentKits);
+		let downloadKitsFromConfigs = () => {
+			let done = () => {
+				console.log(this.agentKits);
+				continuation();
+			};
+			let queue = Object.keys(this.agentKits),
+					remaining = queue.length;
+			queue.forEach((kitName) => {
+				let kit = this.agentKits[kitName],
+						script = kit.config.script,
+						url = `${serverUrl}/resources/agents/${kitName}/${script}`,
+						req = new XMLHttpRequest();
+				req.open('GET', url);
+				req.onerror = () => {
+					throw new Error(`Attempt to get script failed (${url})`);
+				};
+				req.onload = () => {
+					kit.script = req.responseText;
+					if (--remaining === 0) {
+						done();
+					}
+				};
+				req.send();
+			});
 		};
 
+		/**
+		 * Get the kit names and their paths from the server.
+		 * Then get their config files.
+		 * Then pass control to downloadKitsFromConfigs, to pull down all
+		 * the stuff mentioned in the kit config.
+		 */
 		let getKitsFromList = () => {
 			let dirList = JSON.parse(xreq.responseText);
-			console.log('dirList', dirList);
 			let kitNames = dirList.map(
 				(agentDir) => agentDir.substr(agentDir.lastIndexOf('/') + 1));
-			console.log("kitNames", kitNames);
 			let cfgList = dirList.map((agtDir) => `${agtDir}/config.js`);
 			let count = cfgList.length;
 			zipForEach(kitNames, cfgList, (kitName, cfgPath) => {
 				var cfgreq = new XMLHttpRequest();
 				cfgreq.open('GET', `${serverUrl}${cfgPath}`);
 				cfgreq.onload = () => {
-					console.log(this);
 					this.agentKits[kitName] = {
 						config: JSON.parse(cfgreq.responseText),
 					};
