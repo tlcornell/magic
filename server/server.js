@@ -17,6 +17,11 @@ var npm = path.join(__dirname, '../node_modules');
 app.use(express.static(public));
 app.use(express.static(npm));
 
+app.use((req, res, next) => {
+	console.log('Origin (if specified):', req.get('Origin'));
+	next();
+});
+
 //
 // Routes for Game-Internal APIs
 //
@@ -108,7 +113,7 @@ function traverse (dir, done) {
 					results.push(entry);
 					if (!--pending) done(null, results);
 				}
-				
+
 			});
 		});
 

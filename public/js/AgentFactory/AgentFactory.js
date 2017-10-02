@@ -9,21 +9,9 @@
 var MAGIC = ((ns) => {
 
 	// IMPORTS
-	let Game = ns.Game;
-
-	Array.prototype.zip = Array.prototype.zip || function zip(l2) {
-		let l1 = this,
-				n1 = l1.length,
-				n2 = l2.length;
-		if (n1 !== n2) {
-			throw new Error("zip: lists not of equal lengths");
-		}
-		let result = [];
-		for (let i = 0; i < n1; ++i) {
-			result.push( [ l1[i], l2[i] ] );
-		}
-		return result;
-	}
+	let Game = ns.Game,
+			GenericAgent = ns.GenericAgent,
+			Interpreter = ns.Interpreter;
 
 	function zipForEach(l1, l2, f) {
 		for (let i = 0; i < l1.length; ++i) {
@@ -39,7 +27,6 @@ var MAGIC = ((ns) => {
 	}
 
 	AgentFactory.prototype.initialize = function (continuation) {
-		console.log('Initializing AgentFactory...');
 		this.loadAgentKits(continuation);
 	}
 
@@ -48,12 +35,11 @@ var MAGIC = ((ns) => {
 		let serverUrl = 'http://localhost:3000';
 
 		let downloadKitsFromConfigs = () => {
-			let done = () => {
-				console.log(this.agentKits);
-				continuation();
-			};
 			let queue = Object.keys(this.agentKits),
 					remaining = queue.length;
+			let done = () => {
+				continuation(queue);
+			};
 			queue.forEach((kitName) => {
 				let kit = this.agentKits[kitName],
 						script = kit.config.script,
@@ -119,19 +105,24 @@ var MAGIC = ((ns) => {
 	}
 
 	AgentFactory.prototype.createAgent = function (agentType) {
+		let kit = this.agentKits[agentType];
 		this.howManyOfEach[agentType] = this.howManyOfEach[agentType] || 0;
-		let typeCount = ++this.howManyOfEach[agentType];
+		let typeCount = ++this.howManyOfEach[agentType],
+				id = this.counter++,
+				name = typeCount > 1 ? `${agentType} #${typeCount}` : `${agentType}`;
 		let properties = {
-			name: `${type} #${typeCount}`,
-			number: this.counter++,						// per-game unique ID
-			type: 'agent/generic',						// there's no non-generic agent, so redundant
-			sourceCode: ns.samples[type],
-			hw: this.selectLoadout(type),
-			//pos: initPosList[i],
-			color: ((360/count) % 360) * i,
-			radius: Game.const.AGENT_RADIUS,
+			name: name,
+			number: id,									// per-game unique ID
+			type: 'agent/generic',			// there's no non-generic agent, so redundant
+			hw: kit.config.loadout,
 		};
+		let agent = new GenericAgent(properties);
+		agent.sourceCode = kit.script; 
+		let compiler = new ns.Compiler();
+		compiler.compile(agent);	// --> agent.program
+		agent.interpreter = new ns.Interpreter(agent);
 
+		return agent;
 	}
 
 	// EXPORTS

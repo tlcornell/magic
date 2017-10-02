@@ -2,163 +2,13 @@ var MAGIC = ((ns) => {
 
 	// IMPORTS
 	// --------
-	let AgentFactory = ns.AgentFactory;
-
-	/////////////////////////////////////////////////////////////////////////
-	// Logging
-
-	ns.log = new EventLog();
-
-	function EventLog () {
-		this.log = [];
-	}
-
-	EventLog.prototype.post = function (event) {
-		this.log.push(JSON.stringify(event));
-	};
-
-	EventLog.prototype.read = function (item) {
-		return this.log[item];
-	};
-
-	EventLog.prototype.clear = function () {
-		this.log = [];
-	}
-
-	EventLog.prototype.display = function (elt) {
-		this.log.forEach((item) => elt.append(item + '\n'));
-	};
-
-	function LOG (event) {
-		ns.log.post(event);
-	}
-
-
-	//////////////////////////////////////////////////////////////////////
-	// Utility functions:
-
-	/** 
-	 * Short alias for getElementById
-	 */
-	function e_ (id) {
-		return document.getElementById(id);
-	}
-
-	/**
-	* Randomly shuffle an array in-place.
-	*/
-	function shuffle (array) {
-		let i = 0, 
-			j = 0, 
-			temp = null;
-
-		for (i = array.length - 1; i > 0; i -= 1) {
-			j = Math.floor(Math.random() * (i + 1));
-			temp = array[i];
-			array[i] = array[j];
-			array[j] = temp;
-		}
-	}
-
-	function normDegrees(degrees) {
-			degrees %= 360;
-			if (degrees < 0) {
-				degrees += 360;
-			}
-		  return degrees;
-	}
-
-	// Converts from degrees to radians.
-	// Result should fall in [0, 2pi).
-	function radians(degrees) {
-	  return normDegrees(degrees) * Math.PI / 180;
-	}
-
-	// Converts from radians to degrees.
-	// Result guaranteed to be in [0, 360).
-	function degrees(radians) {
-		let d = radians * 180 / Math.PI;
-	  return normDegrees(d);
-	}
-
-	// This assumes that we are starting from 0,0,
-	// so don't forget to Vector.add an offset.
-	// Angle in radians!
-	function angle2vector(angle, distance) {
-		let x = Math.cos(angle) * distance,
-				y = Math.sin(angle) * distance;
-		return Matter.Vector.create(x, y);
-	}
-
-	/**
-	 * Return the vector from 'pos' at 'angle' with size 'length'.
-	 * Angle in radians.
-	 */
-	function a2v(pos, angle, length) {
-		let x = Math.cos(angle) * length + pos.x,
-		    y = Math.sin(angle) * length + pos.y;
-		return Matter.Vector.create(x, y);
-	}
-
-	function vector2angle(x, y) {
-		let size2 = x * x + y * y,
-				size = Math.sqrt(size2),
-				angle = Math.atan2(dy, dx);
-		return {r: size, th: angle};
-	}
-
-	function randomInt(lo, hi) {
-		let rand = Math.floor(Math.random() * (hi - lo + 1));
-		rand += lo;
-		return rand;
-	}
-
-	function randomFloat(lo, hi) {
-		let rand = Math.random() * (hi - lo);
-		rand += lo;
-		return rand;
-	}
-
-	function randomRadian() {
-		return Math.random() * 2 * Math.PI;
-	}
-
-	function round(num) {
-		if (num >= 0) {
-			return Math.floor(num);
-		} else {
-			return Math.ceil(num);
-		}
-	}
-
-	/**
-	 * URL: https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
-	 * E: Start of ray vector
-	 * L: End of ray vector
-	 * C: Center of circle
-	 * r: Radius of circle
-	 */
-	function intersectLineCircle(E, L, C, r) {
-		let d = Matter.Vector.sub(L, E),
-				f = Matter.Vector.sub(E, C),
-				a = Matter.Vector.dot(d, d),
-				b = 2 * Matter.Vector.dot(f, d),
-				c = Matter.Vector.dot(f, f) - (r * r),
-				discriminant = (b * b) - (4 * a * c);
-		if (discriminant < 0) {
-			return false;
-		}
-		discriminant = Math.sqrt(discriminant);
-		let t1 = (-b - discriminant) / (2 * a),
-				t2 = (-b + discriminant) / (2 * a);
-		if (t1 >= 0 && t1 <= 1) {
-			return true;
-		}
-		if (t2 >= 0 && t2 <= 1) {
-			return true;
-		}
-		return false;
-	}
+	let AgentFactory = ns.AgentFactory,
+			GenericAgent = ns.GenericAgent;
+	let e_ = ns.e_,
+			a2v = ns.a2v,
+			degrees = ns.degrees,
+			intersectLineCircle = ns.intersectLineCircle;
+	let LOG = ns.LOG;
 
 
 	///////////////////////////////////////////////////////////////////////////
@@ -335,7 +185,7 @@ var MAGIC = ((ns) => {
 	 * of variation between different types of game.
 	 */
 	Game.const = {
-		AGENT_RADIUS: 15,
+		AGENT_RADIUS: GenericAgent.const.AGENT_RADIUS,
 		BULLET_RADIUS: 2,
 		BUMP_DAMAGE: 1,
 		MAX_ROSTER_SLOTS: 6,
@@ -357,8 +207,8 @@ var MAGIC = ((ns) => {
 	Game.prototype.initializeSubsystems = function () {
 		this.graphics.initialize();
 		this.physics.initialize();
-		this.agentFactory.initialize(this.createRosterManager);
-		//this.createRosterManager();
+		this.agentFactory.initialize(this.createRosterManager.bind(this));
+		// Async function -- Pass createRosterManager as a continuation
 	};
 
 	Game.prototype.createMap = function () {
@@ -393,10 +243,10 @@ var MAGIC = ((ns) => {
 		this.objects.map.push(wall);
 	};
 
-	Game.prototype.createRosterManager = function () {
+	Game.prototype.createRosterManager = function (kitList) {
 		let widget = document.getElementsByClassName("status-widget")[0],
 				count = Game.const.MAX_ROSTER_SLOTS;
-		this.rosterManager = new ns.RosterManager(widget, count);
+		this.rosterManager = new ns.RosterManager(widget, count, kitList);
 		this.rosterManager.createView();
 	}
 
@@ -451,65 +301,24 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.createAgents = function (roster) {
+		console.log(roster);
 		let count = roster.length;
 		let initPosList = scatter(count);		// random positions, not too close
 		roster.forEach((type, i) => {
-			// This is what we want to get to:
-			//this.agentFactory.createAgent(type);
-			//
-			let ord = i + 1;
-			let properties = {
-				name: `${type} #${ord}`,
-				number: ord,
-				color: ((360/count) % 360) * i,
-				type: 'agent/generic',
-				sourceCode: ns.samples[type],
-				pos: initPosList[i],
+			let agent = this.agentFactory.createAgent(type);
+			agent.game = this;
+			agent.pos = initPosList[i];
+			agent.body = Physics.agentBody(agent);
+			// Generic "sprite" properties, until we get proper sprite support
+			let spriteProperties = {
+				pos: agent.pos,
+				color: ((360/count) % 360) * agent.number,
 				radius: Game.const.AGENT_RADIUS,
-				hw: this.selectLoadout(type),
 			};
-			this.createAgent(properties);
+			agent.sprite = Graphics.createSprite('agent',	spriteProperties);
+			this.physics.addBody(agent.body);
+			this.objects.agents.push(agent);
 		});
-	};
-
-	Game.prototype.selectLoadout = function (agentType) {
-		switch (agentType) {
-			case 'GunTurret':
-				return {
-					cpu: 40,
-					energy: 40,
-					damage: 150,
-					shields: 30,
-				};
-			case 'ModifiedShotBot':
-				return {
-					cpu: 20,
-					energy: 20,
-					damage: 100,
-					shields: 30,
-				};
-			case 'Navigator':
-				return {
-					cpu: 20,
-					energy: 20,
-					damage: 100,
-					shields: 30,
-				};
-			case 'WallBouncer':
-				return {
-					cpu: 20,
-					energy: 20,
-					damage: 300,
-					shields: 30,
-				};
-			default:
-				return {
-					cpu: 20,
-					energy: 20,
-					damage: 100,
-					shields: 30,
-				};
-		}
 	};
 
 	/**
@@ -521,8 +330,8 @@ var MAGIC = ((ns) => {
 	function scatter(n) {
 		let rows = Array.from(Array(n).keys());
 		let cols = rows.slice();
-		shuffle(rows);
-		shuffle(cols);
+		Matter.Common.shuffle(rows);
+		Matter.Common.shuffle(cols);
 		let cw2 = Math.floor(Game.const.arena.width/(2*n)),
 				rh2 = Math.floor(Game.const.arena.height/(2*n)),
 				cw = 2 * cw2,
@@ -535,24 +344,6 @@ var MAGIC = ((ns) => {
 			});
 		}
 		return scatteredCoords;
-	};
-
-	/**
-	 * In this function, we create a sprite master with a generic 'agent' 
-	 * key. In real life, the key would be the name of a particular bot,
-	 * and would connect it to the sprite sheets for that character.
-	 */
-	Game.prototype.createAgent = function (properties) {
-		let agent = new GenericAgent(this, properties);
-		agent.number = properties.number;
-		agent.body = Physics.agentBody(agent, properties);
-		agent.sprite = Graphics.createSprite('agent',	properties);
-		agent.sourceCode = properties.sourceCode; 
-		let compiler = new ns.Compiler();
-		compiler.compile(agent);	// --> agent.program
-		agent.interpreter = new ns.Interpreter(agent);
-		this.physics.addBody(agent.body);
-		this.objects.agents.push(agent);
 	};
 
 	Game.prototype.populateStatusDisplay = function () {
@@ -714,12 +505,11 @@ var MAGIC = ((ns) => {
 		//console.log("Execute game task", task);
 		switch (task.op) {
 			case 'agentDied':
-				task.agent.setState(Q_DEAD);
-				task.agent.deathCounter = 200;
+				task.agent.onAgentDied();
 				this.physics.removeBody(task.agent);
 				break;
 			case 'agentEliminated':
-				task.agent.setState(Q_ELIMINATED);
+				task.agent.onAgentEliminated();
 				// remove from render loop
 				break;
 			case 'hit':
@@ -762,501 +552,6 @@ var MAGIC = ((ns) => {
 		this.objects.projectiles.forEach((p) => p.render(this.graphics));
 		this.objects.agents.forEach((agent) => agent.render(this.graphics));
 	};
-
-	///////////////////////////////////////////////////////////////////////////
-	// Agents
-	
-	const Q_NOT_DEAD = 3;
-	const Q_DEAD = 4;
-	const Q_ELIMINATED = 5;
-
-	/**
-	 * Properties assignable from outside include:
-	 *
-	 * name: robot identifier
-	 * pos: initial position
-	 * -- Hardware/Loadout --
-	 * cpu: CPU speed bought from the hardware store
-	 * energy: Max energy
-	 * health: Sustainable damage
-	 * -- Not Yet Supported --
-	 * shields: Max shields (at normal drain rates)
-	 * weapon: Currently only plain bullets are supported
-	 */
-	function GenericAgent(game, properties) {
-		let a0 = randomRadian();
-		Object.assign(this, {
-			game: game,
-			name: properties.name,
-			eventQueue: [],
-			state: Q_NOT_DEAD,
-			// "Hardware Registers"
-			pos: properties.pos,
-			cpuSpeed: properties.hw.cpu,
-			energy: properties.hw.energy,
-			maxEnergy: properties.hw.energy,
-			fire: 0,
-			health: properties.hw.damage,
-			maxHealth: properties.hw.damage,
-			shields: properties.hw.shields,
-			maxShields: properties.hw.shields,
-			drv: {
-				x: 0,
-				y: 0,
-			},
-			sight: {
-				angle: 0,
-				offset: 0,
-				thing: null,
-				dist: 0,
-			},
-			wall: 0,
-		});
-		this.prog = {
-			main: beNotDead,
-		};
-	}
-
-	GenericAgent.prototype.isNotDead = function () {
-		return this.getState() === Q_NOT_DEAD;
-	};
-
-	GenericAgent.prototype.isDead = function () {
-		return this.getState() === Q_DEAD;
-	};
-
-	GenericAgent.prototype.isEliminated = function () {
-		return this.getState() === Q_ELIMINATED;
-	};
-
-	GenericAgent.prototype.getCondition = function () {
-		switch (this.getState()) {
-			case Q_NOT_DEAD:
-				return 'GOOD';
-			case Q_DEAD:
-			case Q_ELIMINATED:
-				return 'DEAD';
-			default:
-				return 'UNKNOWN';
-		}
-	}
-
-	GenericAgent.prototype.getName = function () {
-		return this.name;
-	};
-
-	GenericAgent.prototype.getPosition = function () {
-		// Make sure pos registers are up to date
-		let p = this.game.getPosition(this);	// delegates to Game.Physics
-		if (p) {
-			this.pos.x = p.x;
-			this.pos.y = p.y;
-			/*
-			this.pos.x = this.body.position.x;
-			this.pos.y = this.body.position.y;
-			*/
-		}
-		return this.pos;
-	};
-
-	GenericAgent.prototype.getPosX = function () {
-		return this.getPosition().x;
-	};
-
-	GenericAgent.prototype.getPosY = function () {
-		return this.getPosition().y;
-	};
-
-	/** 
-	* Return contents of AIM register, which are natively in radians.
-	*/
-	GenericAgent.prototype.getAim = function () {
-		return this.sight.angle;
-	};
-
-	GenericAgent.prototype.getAimDegrees = function () {
-		return degrees(this.getAim());
-	};
-
-	GenericAgent.prototype.setAim = function (rad) {
-		this.sight.angle = rad;
-		this.checkSightEvents();
-	};
-
-	GenericAgent.prototype.setAimDegrees = function (deg) {
-		this.setAim(radians(deg));
-	};
-
-	GenericAgent.prototype.setAimVector = function (vec) {
-		let angle = Matter.Vector.angle(this.getPosition(), vec);
-		this.setAim(angle);
-	};
-
-	GenericAgent.prototype.getLookDegrees = function () {
-		return degrees(this.sight.offset);
-	}
-
-	GenericAgent.prototype.setLook = function (rad) {
-		this.vision.offset = rad;
-		this.checkSightEvents();
-	}
-
-	GenericAgent.prototype.setLookDegrees = function (deg) {
-		this.setLook(radians(deg));
-	}
-
-	GenericAgent.prototype.getSightDist = function () {
-		if (this.sight.dist) {
-			return this.sight.dist;
-		} else {
-			return 0;
-		}
-	};
-
-	GenericAgent.prototype.getCPU = function () {
-		return this.cpuSpeed;
-	}
-
-	GenericAgent.prototype.getBulletEnergy = function () {
-		return this.fire;
-	}
-
-	GenericAgent.prototype.addBulletEnergy = function (e) {
-		this.fire += e;
-		this.energy -= e;
-	}
-
-	GenericAgent.prototype.clearBulletEnergy = function () {
-		this.fire = 0;
-	}
-
-	GenericAgent.prototype.getEnergy = function () {
-		return this.energy;
-	}
-
-	GenericAgent.prototype.rechargeEnergy = function () {
-		this.energy = Math.min(this.maxEnergy, this.energy + 2);
-	}
-
-	GenericAgent.prototype.getMaxEnergy = function () {
-		return this.maxEnergy;
-	}
-
-	GenericAgent.prototype.getHealth = function () {
-		return this.health;
-	};
-
-	GenericAgent.prototype.setHealth = function (amt) {
-		this.health = Math.max(amt, 0);
-	}
-
-	GenericAgent.prototype.removeHealth = function (amt) {
-		if (amt < 0) {
-			throw new Error(`removeHealth: Negative amount (${amt})`);
-		}
-		let H = this.getHealth();
-		if (H === 0) {
-			return;
-		}
-		this.setHealth(H - amt);
-		// Note that setHealth floors out at zero. So it's okay even if H-amt is neg.
-	};
-
-	GenericAgent.prototype.getMaxHealth = function () {
-		return this.maxHealth;
-	};
-
-	GenericAgent.prototype.getShields = function () {
-		return this.shields;
-	}
-
-	GenericAgent.prototype.getMaxShields = function () {
-		return this.maxShields;
-	}
-
-
-	////////////////////////////////////////////////////////////////////////
-	// Course Control
-	//
-	// There are two ways to control movement: using vectors (dx,dy), 
-	// or using polar-style coordinates (radius, azimuth) (here called (r, th)).
-	// 
-	// The primitive control data is conveyed to the physics system via the
-	// 'drv' property (drv:{x,y}), for "drive".
-	// So all API calls ultimately boil down to setting drv.x and drv.y.
-	// 
-
-	GenericAgent.prototype.getSpeedX = function () {
-		return this.drv.x;
-	};
-
-	GenericAgent.prototype.setSpeedX = function (dx) {
-		this.setVelocity(dx, this.drv.y);
-	}
-
-	GenericAgent.prototype.getSpeedY = function () {
-		return this.drv.y;
-	};
-
-	GenericAgent.prototype.setSpeedY = function (dy) {
-		this.setVelocity(this.drv.x, dy);
-	};
-
-	/**
-	 * This is the core method that all other API calls should reduce to.
-	 * That will assure that energy costs are assessed uniformly.
-	 */
-	GenericAgent.prototype.setVelocity = function (dx, dy) {
-		let dx0 = this.drv.x,
-				xcost = Math.abs(dx - dx0),
-				dy0 = this.drv.y,
-				ycost = Math.abs(dy - dy0),
-				cost = Math.round(xcost + ycost);
-		this.energy -= cost;
-		this.energy = Math.min(this.maxEnergy, this.energy);
-		this.drv.x = dx;
-		this.drv.y = dy;
-	};
-
-	/**
-	 * Return {r, th}, where th (the azimuth) is in degrees, converted 
-	 * from radians. So this is meant for clients, not internal use,
-	 * which should maingain all angles in radians.
-	 */
-	GenericAgent.prototype.getHeading = function () {
-		let hdg = vector2angle(this.drv.x, this.drv.y),
-				deg = degrees(hdg.th);
-		return {r: hdg.r, th: deg};
-	};
-
-	GenericAgent.prototype.setHeading = function (r, th) {
-		let vec = angle2vector(th, r);
-		this.setVelocity(vec.x, vec.y);
-	};
-
-	//
-	// End of course control
-	//////////////////////////////////////////////////////////////////////////
-
-
-	GenericAgent.prototype.getWall = function () {
-		return this.wall;
-	}
-
-	GenericAgent.prototype.getState = function () {
-		return this.state;
-	};
-
-	GenericAgent.prototype.setState = function (qNew) {
-		this.state = qNew;
-	};
-
-	GenericAgent.prototype.fireWeapons = function () {
-		let payload = this.getBulletEnergy(),
-				angle = this.getAim();
-		// Cap the energy payload at this agent's available energy
-		//payload = Math.min(this.getEnergy(), payload);
-		if (payload > 0) {
-			this.launchProjectile(angle, payload);
-			this.clearBulletEnergy();
-		}
-		// No other attacks supported at this time
-	}
-
-	GenericAgent.prototype.launchProjectile = function (angle, energy) {
-		let norm = angle2vector(angle, 1),	// direction of shot
-				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
-				offset = Matter.Vector.mult(norm, Game.const.AGENT_RADIUS + 1), // start outside of shooter bot
-				pos = Matter.Vector.add(this.getPosition(), offset);
-		this.game.createProjectile(this, pos, drv, energy);
-	}
-
-	GenericAgent.prototype.update = function () {
-
-		let generatedTasks = [];
-
-		// Handle event notifications (event queue) for "external" events 
-		// coming in from the Game object.
-		// Right now there's no prioritization; it's just a flat list
-		this.wall = 0;
-		this.sight.dist = 0;
-		this.sight.thing = null;
-		this.eventQueue.forEach((evt) => this.handleEvent(evt));
-		this.eventQueue = [];
-		// Trigger events if warranted (e.g., we just died)
-		// We might add some generated tasks here.
-
-		this.prog.main.call(this, generatedTasks);
-
-		return generatedTasks;
-
-	};
-
-	/**
-	 * This is the main agent state, where we run an interpreter over
-	 * the agent control program. This wrapper handles tasks that must
-	 * be executed before and after the actual interpreter cycle.
-	 */
-	let beNotDead = function (gameTasks) {
-		if (this.getHealth() === 0) {
-			gameTasks.push({
-				op: 'agentDied',
-				agent: this,
-			});
-			this.prog.main = beDead;
-		} else {
-
-			this.rechargeEnergy();
-			// Even without interrupts, we need to do this in case a bot
-			// has moved into our sights.
-			this.checkSightEvents();
-
-			//---------------------------------------------------
-			// This is where the bot program gets advanced
-			// (While the bot has any energy)
-
-			for (var i = 0; i < this.getCPU(); ++i) {
-				if (this.getEnergy() > 0) {
-					this.interpreter.step();
-					if (this.interpreter.syncFlag) {
-						this.interpreter.syncFlag = false;
-						break;
-					}
-				}
-			}
-
-			// End of bot program cycle (i.e., end of chronon?)
-			//---------------------------------------------------		
-
-			// If any energy has been stored in a weapon register,
-			// fire that weapon now.
-			//this.fireWeapons();
-			
-			if (this.getEnergy() > 0) {
-				this.game.setBodyVelocity(this);
-			}
-		}
-	};
-
-	let beDead = function (gameTasks) {
-		if (--this.deathCounter === 0) {
-			gameTasks.push({
-				op: 'agentEliminated',
-				agent: this,
-			});
-			this.prog.main = beEliminated;
-		}
-	}
-
-	let beEliminated = function (gameTasks) {
-	}
-
-	GenericAgent.prototype.onSight = function () {
-		let seen = this.sight.thing;
-//		console.log(this.name, "sees", seen.name);
-		let p1 = this.getPosition(),
-				p2 = seen.getPosition();
-		//this.game.graphics.drawLine(p1, p2);
-		//this.game.togglePaused();
-	};
-
-	GenericAgent.prototype.checkSightEvents = function () {
-		this.game.checkSightEvents(this);
-	};
-
-	GenericAgent.prototype.queueEvent = function (evt) {
-		this.eventQueue.push(evt);
-	};
-
-	GenericAgent.prototype.render = function (gfx) {
-		this.sprite.render(gfx, this);
-	};
-
-	GenericAgent.prototype.logFrameData = function () {
-		LOG({
-			type: 'agent-frame-data',
-			name: this.getName(),
-			pos: this.getPosition(),
-			sprite: {
-				radius: this.sprite.radius,
-				color: this.sprite.color,
-				aim: this.getAim(),
-			},
-			health: this.getHealth(),
-			maxHealth: this.getMaxHealth(),
-			state: this.getState(),
-			energy: this.getEnergy(),
-			shields: this.getShields(),
-			condition: this.getCondition(),
-		});
-	};
-
-	GenericAgent.prototype.handleEvent = function (evt) {
-//		console.log(this.name, "handleEvent", evt);
-		switch (evt.op) {
-			case 'interrupt':
-				this.handleInterrupt(evt);
-				break;
-			case 'hit':
-				this.projectileImpact(evt.data.hitBy);
-				break;
-			default:
-				throw new Error(`Agent does not recognize event operator (${evt.op})`);
-		}
-	};
-
-	GenericAgent.prototype.handleInterrupt = function (evt) {
-		switch (evt.type) {
-			case 'collision':
-				this.environmentalDamage(Game.const.BUMP_DAMAGE);
-				// TODO: Raise in-collision condition, maybe triggering an interrupt
-				// in the interpreter
-				break;
-			case 'wall':
-				this.environmentalDamage(Game.const.WALL_DAMAGE);
-				this.raiseWallCondition(evt);
-				// TODO: Maybe trigger an interrupt in the interpreter?
-				break;
-			default:
-				throw new Error(`Agent does not recognize event type (${evt.type})`);
-		}
-	};
-
-	GenericAgent.prototype.raiseWallCondition = function (evt) {
-		let name = evt.data.bumped.name;
-		switch (name) {
-			case 'NORTH':
-				this.wall = 1;
-				break;
-			case 'WEST':
-				this.wall = 2;
-				break;
-			case 'SOUTH':
-				this.wall = 3;
-				break;
-			case 'EAST':
-				this.wall = 4;
-				break;
-			default:
-				throw new Error(`raiseWallCondition: Unknown wall '${name}'`);
-		}
-	};
-
-	GenericAgent.prototype.environmentalDamage = function (rawDmg) {
-		// Theoretically, we could have factors like shields and armor that
-		// lessen the effect of the impact. 
-		// For now, we just assess the full raw damage.
-		this.removeHealth(rawDmg);
-	};
-
-	GenericAgent.prototype.projectileImpact = function (projectile) {
-		// Theoretically, we could have factors like shields and armor that
-		// lessen the effect of the impact. 
-		// For now, we just assess the full raw damage.
-		this.removeHealth(projectile.energy);
-	};
-
-
 
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1637,7 +932,7 @@ var MAGIC = ((ns) => {
 
 	Physics.agentBody = function (agent, properties) {
 		let body = Matter.Bodies.circle(
-			properties.pos.x, properties.pos.y,
+			agent.pos.x, agent.pos.y,
 			Game.const.AGENT_RADIUS,
 			// options:
 			{
@@ -1645,7 +940,7 @@ var MAGIC = ((ns) => {
 				friction: 0,
 				frictionAir: 0,
 				frictionStatic: 0,
-				label: properties.name,
+				label: agent.name,
 				// restitution: defaults to 0
 			});
 		// Extend Matter.js body with 'controller', a back-pointer
@@ -1783,7 +1078,6 @@ var MAGIC = ((ns) => {
 
 	// EXPORTS
 	ns.App = App;
-	ns.round = round;
 	ns.TRACE_ON = false;
 
 	return ns;

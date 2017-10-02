@@ -1,0 +1,47 @@
+# ModifiedShotBot
+#
+# A wall bouncer that actually tries to shoot at things
+#
+
+	RandomDirection = mul sys.random 360 
+	sys.heading = store2 4 RandomDirection 
+
+Main:
+	A = add Bounce sys.wall 
+	jump A
+Bounce:
+	jump CheckRange
+	jump GetOffNorthWall
+	jump GetOffWestWall
+	jump GetOffSouthWall
+	jump GetOffEastWall
+
+GetOffNorthWall:
+	# make sure velocity_dy is positive
+	sys.velocity_dy = abs sys.velocity_dy 
+	jump CheckRange
+GetOffWestWall:
+	sys.velocity_dx = abs sys.velocity_dx 
+	jump CheckRange
+GetOffSouthWall:
+	# make sure velocity_dy is negative
+	A = abs sys.velocity_dy 
+	sys.velocity_dy = mul -1 A 
+	jump CheckRange
+GetOffEastWall:
+	A = abs sys.velocity_dx 
+	sys.velocity_dx = mul -1 A 
+	jump CheckRange
+
+
+CheckRange:
+	A = gt sys.range 0 
+	ifnz A DoFire DoRotate
+
+DoFire:
+	sys.fire = 20 
+	jump Main
+
+DoRotate:
+	sys.aim = add sys.aim 7 
+	jump Main

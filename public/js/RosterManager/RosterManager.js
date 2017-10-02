@@ -1,10 +1,11 @@
 
 var MAGIC = ((ns) => {
 
-	function RosterManager (rootElement, numDisplays) {
+	function RosterManager (rootElement, numDisplays, kitList) {
 		this.root = rootElement;
 		this.numDisplays = numDisplays;
 		this.agentDisplays = [];
+		kitList.forEach((kit) => RosterManager.botsAvailable.push(kit));
 	}
 
 	/**
@@ -14,10 +15,11 @@ var MAGIC = ((ns) => {
 	RosterManager.EMPTY_SLOT = "";
 	RosterManager.botsAvailable = [
 			RosterManager.EMPTY_SLOT,
-			"Navigator",
+/*			"Navigator",
 			"GunTurret",
 			"ModifiedShotBot",
 			"WallBouncer",
+			*/
 	];
 
 	RosterManager.prototype.createView = function () {
