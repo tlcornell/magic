@@ -13,6 +13,9 @@ var MAGIC = ((ns) => {
 			GenericAgent = ns.GenericAgent,
 			Interpreter = ns.Interpreter;
 
+
+	let serverUrl = ns.config.server; //'http://localhost:3000';
+
 	function zipForEach(l1, l2, f) {
 		for (let i = 0; i < l1.length; ++i) {
 			f(l1[i], l2[i]);
@@ -31,8 +34,6 @@ var MAGIC = ((ns) => {
 	}
 
 	AgentFactory.prototype.loadAgentKits = function (continuation) {
-
-		let serverUrl = 'http://localhost:3000';
 
 		let downloadKitsFromConfigs = () => {
 			let queue = Object.keys(this.agentKits),
@@ -91,7 +92,7 @@ var MAGIC = ((ns) => {
 		};
 
 		var xreq = new XMLHttpRequest();
-		xreq.open('GET', 'http://localhost:3000/agents');
+		xreq.open('GET', `${serverUrl}/agents`/*'http://localhost:3000/agents'*/);
 		xreq.onload = getKitsFromList;
 		xreq.onerror = function () {
 			throw new Error('Error attempting to get agent kit list from server');

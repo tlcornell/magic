@@ -4,18 +4,21 @@
 var express = require('express'),
   path = require('path'),
   fs = require('fs'),
-  app = express();
+  app = express(),
+  config = require('../config');
 
 //set the port
-app.set('port', 3000);
+app.set('port', config.apiPort);
 
 //
 // Routes to static files
 //	
 var public = path.join(__dirname, '../public');
 var npm = path.join(__dirname, '../node_modules');
+var cfgdir = path.join(__dirname, '../config');
 app.use(express.static(public));
 app.use(express.static(npm));
+app.use('/config', express.static(cfgdir));
 
 app.use((req, res, next) => {
 	console.log('Origin (if specified):', req.get('Origin'));
@@ -30,8 +33,8 @@ app.get('/agents', agentListRequest);
 //
 // Start Listening
 //
-var server = app.listen(app.get('port'), function () {
-  console.log('The server is running on http://localhost:' + app.get('port'));
+var server = app.listen(app.get('port'), config.apiHost, function () {
+  console.log(`The server is running on http://${config.apiHost}:${app.get('port')}`);
 });
 
 
