@@ -1,13 +1,8 @@
 var MAGIC = ((ns) => {
 
-	/*
-	ns.RandomEngine = Random.engines.mt19937().autoSeed();
-	ns.Real01 = Random.real(0, 1);
-	ns.random = function () {
-		return ns.Real01(ns.RandomEngine);
-	}
-	*/
-	ns.random = Math.random;
+	// IMPORTS
+	// --------
+	let AgentFactory = ns.AgentFactory;
 
 	/////////////////////////////////////////////////////////////////////////
 	// Logging
@@ -58,7 +53,7 @@ var MAGIC = ((ns) => {
 			temp = null;
 
 		for (i = array.length - 1; i > 0; i -= 1) {
-			j = Math.floor(ns.random() * (i + 1));
+			j = Math.floor(Math.random() * (i + 1));
 			temp = array[i];
 			array[i] = array[j];
 			array[j] = temp;
@@ -113,19 +108,19 @@ var MAGIC = ((ns) => {
 	}
 
 	function randomInt(lo, hi) {
-		let rand = Math.floor(ns.random() * (hi - lo + 1));
+		let rand = Math.floor(Math.random() * (hi - lo + 1));
 		rand += lo;
 		return rand;
 	}
 
 	function randomFloat(lo, hi) {
-		let rand = ns.random() * (hi - lo);
+		let rand = Math.random() * (hi - lo);
 		rand += lo;
 		return rand;
 	}
 
 	function randomRadian() {
-		return ns.random() * 2 * Math.PI;
+		return Math.random() * 2 * Math.PI;
 	}
 
 	function round(num) {
@@ -332,6 +327,7 @@ var MAGIC = ((ns) => {
 		this.rosterManager = null; 
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
+		this.agentFactory = new AgentFactory(this);
 	};
 
 	/**
@@ -361,6 +357,7 @@ var MAGIC = ((ns) => {
 	Game.prototype.initializeSubsystems = function () {
 		this.graphics.initialize();
 		this.physics.initialize();
+		this.agentFactory.initialize();
 		this.createRosterManager();
 	};
 

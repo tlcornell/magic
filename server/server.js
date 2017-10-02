@@ -9,35 +9,49 @@ var express = require('express'),
 //set the port
 app.set('port', 3000);
 
+//
+// Routes to static files
+//	
 var public = path.join(__dirname, '../public');
-console.log(public);
-app.use(express.static(path.join(__dirname, '../public')));
+var npm = path.join(__dirname, '../node_modules');
+app.use(express.static(public));
+app.use(express.static(npm));
 
-//app.get('/', serveMainGamePage);
+//
+// Routes for Game-Internal APIs
+//
+app.get('/agents', agentListRequest);
 
-//app.get('/agents', agentListRequest);
-
-// Listen for requests
+//
+// Start Listening
+//
 var server = app.listen(app.get('port'), function () {
   console.log('The server is running on http://localhost:' + app.get('port'));
 });
 
 
-function serveMainGamePage(req, res) {
-	res.sendFile(path.join(__dirname, '../public/index.html'));
-}
+
+////////////////////////////////////////////////////////////////////////////
+// Callbacks, Helper Functions, etc.
+//
 
 
-/*
 function agentListRequest(req, res) {
 
-	console.log(req.get('Origin'));
+	/*
+	{
+		name: "...",
+		config: {...},
+		script: "...",
+		sprites: ["...", "...", ...],
+	}
+	*/
 
-	justTheDirs("./resources/agents", (err, results) => {
+	justTheDirs("./public/resources/agents", (err, results) => {
 		if (err) throw err;
-		//console.log(results);
-		res.setHeader('Access-Controll-Allow-Origin', '*');
-		console.log(res);
+		results = results.map((path) => 
+			path.substr(path.indexOf('/resources'))
+		);
 		res.send(results);
 	});
 
@@ -47,11 +61,13 @@ function agentListRequest(req, res) {
 function justTheDirs (root, done) {
 	let results = [];
 	fs.readdir(root, (err, entries) => {
+
 		if (err) return done(err);
 		let pending = entries.length;
 		if (!pending) {
 			return done(null, results);
 		}
+
 		entries.forEach(entry => {
 			entry = path.resolve(root, entry);
 			fs.stat(entry, (err, stats) => {
@@ -65,22 +81,24 @@ function justTheDirs (root, done) {
 				}
 			});
 		});
+
 	});
 }
 
 function traverse (dir, done) {
+
 	let results = [];
+
 	fs.readdir(dir, (err, entries) => {
-		if (err) {
-			return done(err);
-		} 
+
+		if (err) return done(err);
 		let pending = entries.length;
-		if (!pending) {
-			return done(null, results);
-		}
+		if (!pending) return done(null, results);
+		
 		entries.forEach((entry) => {
 			entry = path.resolve(dir, entry);
 			fs.stat(entry, (err, stats) => {
+
 				if (stats && stats.isDirectory()) {
 					traverse(entry, (err, res) => {
 						results = results.concat(res);
@@ -90,8 +108,10 @@ function traverse (dir, done) {
 					results.push(entry);
 					if (!--pending) done(null, results);
 				}
+				
 			});
 		});
+
 	});
 }
-*/
+
