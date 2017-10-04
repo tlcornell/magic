@@ -93,7 +93,7 @@ function justTheDirs (root, done) {
 	});
 }
 
-function traverse (dir, done) {
+function traverse (dir, select, done) {
 
 	let results = [];
 
@@ -108,12 +108,12 @@ function traverse (dir, done) {
 			fs.stat(entry, (err, stats) => {
 
 				if (stats && stats.isDirectory()) {
-					traverse(entry, (err, res) => {
+					traverse(entry, select, (err, res) => {
 						results = results.concat(res);
 						if (!--pending) done(null, results);
 					});
 				} else {
-					results.push(entry);
+					if (select(entry)) results.push(entry);
 					if (!--pending) done(null, results);
 				}
 
