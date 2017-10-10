@@ -75,6 +75,7 @@ var MAGIC = ((ns) => {
 			child.prev = this.last;
 			this.last = child;
 		}
+		child.parent = this;
 	};
 	/**
 	 * On exit, child still has all its pointers intact.

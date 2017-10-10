@@ -26,6 +26,10 @@ var MAGIC = ((ns) => {
 		});
 	};
 
+	Graphics.prototype.reset = function () {
+		this.sceneGraph = new SceneGraph(this);
+	};
+
 	Graphics.prototype.initialize = function () {
 		this.el = e_("arena");
 		let canvas = document.createElement("canvas");

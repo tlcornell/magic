@@ -64,11 +64,15 @@ var MAGIC = ((ns) => {
 		this.currentSprite = this.sprites[key];
 	};
 	GenericAgentSpriteMaster.prototype.drawPortrait = function (ctx, pos) {
-		this.sprites.portrait.preRender({pos: pos, aim: 0});
+		this.sprites.portrait.preRender({
+			getPosition: () => pos, 
+			getAim: () => 0,
+		});
 		this.sprites.portrait.render(ctx);
 	};
 
 	function GenericAgentDeadSprite (master, gfx) {
+		this.name = master.getName();
 		this.radius = master.getRadius();
 	}
 	GenericAgentDeadSprite.prototype.preRender = function (model) {
@@ -84,7 +88,7 @@ var MAGIC = ((ns) => {
 		sceneGraph.removeChild(this);
 	};
 	GenericAgentDeadSprite.prototype.activate = function (sceneGraph) {
-		sceneGraph.addChild('ground', this);
+		sceneGraph.addChild(['ground'], this.name, this);
 	};
 
 	/**
@@ -122,10 +126,10 @@ var MAGIC = ((ns) => {
 		this.length = this.radius;
 		this.angle = master.getInitialAim();
 	}
-	GenericAgentBodySprite.prototype.preRender = function (data) {
-		this.x = data.pos.x;
-		this.y = data.pos.y;
-		this.angle = data.aim;
+	GenericAgentBodySprite.prototype.preRender = function (model) {
+		this.x = model.getPosition().x;
+		this.y = model.getPosition().y;
+		this.angle = model.getAim();
 	};
 	GenericAgentBodySprite.prototype.render = function (ctx) {
 		let stroke = `hsl(${this.baseHue}, 50%, 33%)`,
@@ -134,7 +138,7 @@ var MAGIC = ((ns) => {
 		renderAgentCannon(ctx, this.x, this.y, this.length, this.angle, stroke);
 	};
 	GenericAgentBodySprite.prototype.activate = function (sceneGraph) {
-		sceneGraph.addChild(['active'], this);
+		sceneGraph.addChild(['active'], this.name, this);
 	};
 	GenericAgentBodySprite.prototype.deactivate = function (sceneGraph) {
 		sceneGraph.removeChild(this);
@@ -142,7 +146,7 @@ var MAGIC = ((ns) => {
 
 	function GenericAgentDecorationsSprite (master, gfx) {
 		this.name = master.getName();
-		this.width = master.getRadius;
+		this.width = master.getRadius() * 2;
 		this.height = 3;
 		this.health = this.maxHealth = master.getMaxHealth();
 		this.offset = master.getRadius();
@@ -170,7 +174,7 @@ var MAGIC = ((ns) => {
 		ctx.fillText(this.name, lblX, lblY);
 	};
 	GenericAgentDecorationsSprite.prototype.activate = function (sceneGraph) {
-		sceneGraph.addChild(['labels'], this);
+		sceneGraph.addChild(['labels'], this.name, this);
 	};
 	GenericAgentDecorationsSprite.prototype.deactivate = function (sceneGraph) {
 		sceneGraph.removeChild(this);

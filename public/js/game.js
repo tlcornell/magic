@@ -258,6 +258,7 @@ var MAGIC = ((ns) => {
 	Game.prototype.clearGameWorld = function () {
 		this.resetGameData();
 		this.physics.reset();
+		this.graphics.reset();
 		this.graphics.clearViewport();
 		this.createMap();
 		this.render();
@@ -295,7 +296,6 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
-		console.log(roster);
 		let count = roster.length,
 				initPosList = scatter(count);		// random positions, not too close
 		roster.forEach((type, i) => {
