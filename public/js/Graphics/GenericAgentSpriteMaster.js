@@ -33,7 +33,7 @@ var MAGIC = ((ns) => {
 		this.currentSprite = null; // set this by calling `activate(spriteKey)`
 	}
 	GenericAgentSpriteMaster.prototype.preRender = function (model) {
-		this.currentSprite.preRender(model);
+		if (this.currentSprite) this.currentSprite.preRender(model);
 	};
 	GenericAgentSpriteMaster.prototype.getName = function () {
 		return this.properties.name;
@@ -83,6 +83,12 @@ var MAGIC = ((ns) => {
 	GenericAgentDeadSprite.prototype.render = function (ctx) {
 		renderAgentBody(ctx, this.x, this.y, this.radius, '#888', '#AAA');
 		renderAgentCannon(ctx, this.x, this.y, this.radius, this.angle, '#888');
+		let lblX = this.x,
+				lblY = this.y + this.radius + 12;
+		ctx.font = '8px sans';
+		ctx.textAlign = 'center';
+		ctx.fillStyle = '#888';
+		ctx.fillText(this.name, lblX, lblY);
 	};
 	GenericAgentDeadSprite.prototype.deactivate = function (sceneGraph) {
 		sceneGraph.removeChild(this);
