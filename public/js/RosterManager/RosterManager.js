@@ -67,11 +67,12 @@ var MAGIC = ((ns) => {
 
 	function AgentDisplayWidget (parent, i) {
 		this.agent = null;
+		this.index = i;
 		// What we really want here is two elements occupying the same space,
 		// with only one of them set to 'visible' at a time. Otherwise, we keep
 		// creating new selector elements that are identical to the old ones
 		// that we *hope* have been garbage collected...
-		this.portrait = null;
+		this.canvas = null;
 		this.health = {curr: null, max: null};
 		this.energy = {curr: null, max: null};
 		this.shields = {curr: null, max: null};
@@ -109,14 +110,14 @@ var MAGIC = ((ns) => {
 		canvas.setAttribute('width', '64');
 		canvas.setAttribute('height', '64');
 		canvas.class = 'widget-item';
-		this.portrait = canvas;
+		this.canvas = canvas;
 		this.drawDefaultPortrait();
 		div.appendChild(canvas);
 		return div;
 	};
 
 	AgentDisplayWidget.prototype.getDrawingContext = function () {
-		return this.portrait.getContext('2d');
+		return this.canvas.getContext('2d');
 	};
 
 	AgentDisplayWidget.prototype.resetPortrait = function () {
@@ -128,8 +129,8 @@ var MAGIC = ((ns) => {
 		let radius = 15,
 				stroke = '#888',
 				fill = '#AAA',
-				posX = this.portrait.width/2,
-				posY = this.portrait.height/2;
+				posX = this.canvas.width/2,
+				posY = this.canvas.height/2;
 		ctx.strokeStyle = stroke;
 		ctx.fillStyle = fill;
 		ctx.beginPath();
@@ -140,10 +141,10 @@ var MAGIC = ((ns) => {
 
 	AgentDisplayWidget.prototype.drawAgentPortrait = function () {
 		let sprite = this.agent.sprite,
-				ctx = this.getDrawingContext(),
-				cvs = this.portrait,
+				cvs = this.canvas,
+				ctx = cvs.getContext('2d'),
 				pos = {x: cvs.width/2, y: cvs.height/2};
-		sprite.renderBodyCannon(ctx, pos, 0);
+		sprite.drawPortrait(ctx, pos);
 	};
 
 	AgentDisplayWidget.prototype.mkName = function () {
@@ -271,6 +272,7 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.change = function (val) {
 		this.element.childNodes[0].value = val;
 		this.data = val;
+		// TODO: It would be nice if we could change the portrait here
 	};
 
 	/**

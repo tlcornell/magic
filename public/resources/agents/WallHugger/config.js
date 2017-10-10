@@ -1,5 +1,7 @@
 {
-	"sprites": ["sprite.png"],
+	"sprites": {
+		"main": "sprite.png"
+	},
 	"script": "script.txt",
 	"loadout": {
 		"cpu": 20,

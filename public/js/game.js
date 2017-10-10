@@ -8,6 +8,7 @@ var MAGIC = ((ns) => {
 			a2v = ns.a2v,
 			degrees = ns.degrees,
 			intersectLineCircle = ns.intersectLineCircle;
+	let Graphics = ns.Graphics;
 	let LOG = ns.LOG;
 
 
@@ -184,19 +185,7 @@ var MAGIC = ((ns) => {
 	 * These are constants within a game, but could be considered parameters
 	 * of variation between different types of game.
 	 */
-	Game.const = {
-		AGENT_RADIUS: GenericAgent.const.AGENT_RADIUS,
-		BULLET_RADIUS: 2,
-		BUMP_DAMAGE: 1,
-		MAX_ROSTER_SLOTS: 6,
-		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently
-		WALL_DAMAGE: 5,
-		WALL_THICKNESS: 20,
-		arena: {
-			width: 800,
-			height: 640,
-		},
-	};
+	Game.const = ns.constants;
 
 	Game.prototype.init = function () {
 		this.initializeSubsystems();
@@ -207,13 +196,22 @@ var MAGIC = ((ns) => {
 	Game.prototype.initializeSubsystems = function () {
 		this.graphics.initialize();
 		this.physics.initialize();
-		this.agentFactory.initialize(this.createRosterManager.bind(this));
-		// Async function -- Pass createRosterManager as a continuation
+		this.agentFactory.initialize(this.continueInit.bind(this));
+		// Async function -- Pass continueInit as a continuation
 	};
 
+	/**
+	 * Continue subsystems initialization with things that depend on 
+	 * agent factory initialization to have finished.
+	 */
+	Game.prototype.continueInit = function (kitList) {
+		this.createRosterManager(kitList);
+		this.graphics.preLoadImages();
+	}
+
 	Game.prototype.createMap = function () {
-		let wd = Game.const.arena.width;
-		let ht = Game.const.arena.height;
+		let wd = Game.const.ARENA.WIDTH;
+		let ht = Game.const.ARENA.HEIGHT;
 		let th = Game.const.WALL_THICKNESS;
 		this.addWall(0, 0, wd, th, 'NORTH');
 		this.addWall(0, ht - th, wd, ht, 'SOUTH');
@@ -297,26 +295,28 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
-		this.createAgents(roster);
-	};
-
-	Game.prototype.createAgents = function (roster) {
 		console.log(roster);
-		let count = roster.length;
-		let initPosList = scatter(count);		// random positions, not too close
+		let count = roster.length,
+				initPosList = scatter(count);		// random positions, not too close
 		roster.forEach((type, i) => {
 			let agent = this.agentFactory.createAgent(type);
 			agent.game = this;
 			agent.pos = initPosList[i];
 			agent.body = Physics.agentBody(agent);
+			this.physics.addBody(agent.body);
 			// Generic "sprite" properties, until we get proper sprite support
+			// These belong somewhere else now...
 			let spriteProperties = {
+				name: agent.name,
+				baseHue: (360/count) * agent.number,
 				pos: agent.pos,
-				color: ((360/count) % 360) * agent.number,
 				radius: Game.const.AGENT_RADIUS,
+				maxHealth: agent.getMaxHealth(),
+				aim: agent.getAim(),
 			};
 			agent.sprite = Graphics.createSprite('agent',	spriteProperties);
-			this.physics.addBody(agent.body);
+			//agent.sprite.activate('notDead');
+			Graphics.activate(agent.sprite, 'notDead');
 			this.objects.agents.push(agent);
 		});
 	};
@@ -332,8 +332,8 @@ var MAGIC = ((ns) => {
 		let cols = rows.slice();
 		Matter.Common.shuffle(rows);
 		Matter.Common.shuffle(cols);
-		let cw2 = Math.floor(Game.const.arena.width/(2*n)),
-				rh2 = Math.floor(Game.const.arena.height/(2*n)),
+		let cw2 = Math.floor(Game.const.ARENA.WIDTH/(2*n)),
+				rh2 = Math.floor(Game.const.ARENA.HEIGHT/(2*n)),
 				cw = 2 * cw2,
 				rh = 2 * rh2;
 		let scatteredCoords = [];
@@ -546,11 +546,12 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.render = function () {
-		//if (this.norender) return;	// for debugging
+		// Pre-Render
+		this.objects.map.forEach((wall) => wall.preRender());
+		this.objects.projectiles.forEach((p) => p.preRender());
+		this.objects.agents.forEach((agent) => agent.preRender());
 		this.graphics.clearViewport();
-		this.objects.map.forEach((wall) => wall.render(this.graphics));
-		this.objects.projectiles.forEach((p) => p.render(this.graphics));
-		this.objects.agents.forEach((agent) => agent.render(this.graphics));
+		this.graphics.renderSceneGraph();
 	};
 
 
@@ -570,6 +571,10 @@ var MAGIC = ((ns) => {
 
 	WallObject.prototype.update = function () {
 		console.log("WallObject.prototype.update");	// should be unreachable
+	};
+
+	WallObject.prototype.preRender = function () {
+		this.sprite.preRender(this);
 	};
 
 	WallObject.prototype.render = function (gfx) {
@@ -655,6 +660,10 @@ var MAGIC = ((ns) => {
 		};
 	}
 
+	Projectile.prototype.preRender = function () {
+		this.sprite.preRender(this);
+	};
+
 	Projectile.prototype.render = function (gfx) {
 		this.sprite.render(gfx, this);
 	};
@@ -668,224 +677,6 @@ var MAGIC = ((ns) => {
 
 
 
-
-	///////////////////////////////////////////////////////////////////////////
-	// Graphics Subsystem
-
-	/**
-	 * The graphics subsystem. Someday this will probably be a wrapper around
-	 * a lower level drawing library like Pixi.js or something.
-	 * The main thing we have to do here is to manage a multi-layer canvas
-	 * collection, consisting of several canvases layered on top of each other.
-	 */
-	Graphics = function (theGame) {
-		Object.assign(this, {
-			game: theGame,
-			surface: null,
-		});
-	};
-
-	Graphics.prototype.initialize = function () {
-		this.surface = new LayeredCanvas(this);
-	};
-
-	Graphics.Layer = Object.freeze({
-		MIN: 1,
-		GROUND: 1,
-		ACTIVE: 2,
-		LABELS: 3,
-		MAX: 3,
-	});
-
-	Graphics.prototype.getContext = function (layer) {
-		return this.surface.layers[layer].getContext('2d');
-	};
-
-	Graphics.createSprite = function (key, properties) {
-		switch (key) {
-			case 'agent':
-				return new GenericAgentSprite(properties);
-			case 'bullet':
-				return new BulletSprite(properties);
-			case 'wall':
-				return new WallSprite(properties);
-			default:
-				throw Error(`Unrecognized sprite master key: ${key}`);
-		}
-	};
-
-	Graphics.prototype.clearViewport = function () {
-		this.surface.clear();
-	};
-
-	// for debugging:
-	Graphics.prototype.drawLine = function (p1, p2) {
-		console.log("drawLine", p1, p2);
-		let ctx = this.getContext(Graphics.Layer.LABELS);
-		ctx.strokeStyle = 'black';
-		ctx.beginPath();
-		ctx.moveTo(p1.x, p1.y);
-		ctx.lineTo(p2.x, p2.y);
-		ctx.stroke();
-	};
-
-
-	/**
-	 * Abstraction over multiple stacked canvases
-	 *
-	 * The idea being that we stack them all at the same fixed position,
-	 * and they will draw in 'z axis' order. So stuff drawn on the bottom 
-	 * canvas will get covered by stuff drawn on higher ones.
-	 */
-	LayeredCanvas = function (graphics) {
-		this.el = e_("arena");
-		this.width = 800;
-		this.height = 640;
-		this.layers = [];
-		let Layer = Graphics.Layer;
-		let ids = ["", "ground", "active", "labels"];
-		for (var i = Layer.MIN; i <= Layer.MAX; ++i) {
-			this.createLayer(i, this.el, `${ids[i]}-layer`);
-		}
-	};
-
-	LayeredCanvas.prototype.createLayer = function (idx, el, id) {
-		let layer = document.createElement("canvas");
-		layer.id = id;
-		layer.width = this.width;
-		layer.height = this.height;
-		this.el.appendChild(layer);
-		this.layers[idx] = layer;
-	};
-
-	LayeredCanvas.prototype.clear = function () {
-		for (var i = Graphics.Layer.MIN; i <= Graphics.Layer.MAX; ++i) {
-			let ctx = this.layers[i].getContext('2d');
-			ctx.clearRect(0, 0, Game.const.arena.width, Game.const.arena.height);
-		}
-	};
-
-
-	/**
-	 * A SpriteMaster is a drawable that may draw different actual sprites
-	 *
-	 * The idea is that it controls a collection of graphical resources,
-	 * like sprite sheets, and it handles figuring out which is the
-	 * current one to draw.
-	 * In our current situation, we actually just draw shapes, not
-	 * sprites, so it doesn't do much.
-	 */
-	function WallSprite(properties) {
-		Object.assign(this, {
-			pos: properties.pos,
-			width: properties.width,
-			height: properties.height,
-			name: properties.name,
-		});
-	};
-
-	WallSprite.prototype.render = function (gfx) {
-		// Walls draw in the GROUND layer, so get the right context
-		let ground = Graphics.Layer.GROUND;
-		let ctx = gfx.getContext(ground);
-		ctx.fillStyle = "#AAA";
-		ctx.fillRect(this.pos.x, this.pos.y, this.width, this.height);
-	};
-
-
-	function GenericAgentSprite(properties) {
-		Object.assign(this, properties);
-	}
-
-	/**
-	 * This is tricky, because the layer(s) we draw to varies with the
-	 * state of the agent model.
-	 */
-	GenericAgentSprite.prototype.render = function (gfx, model) {
-		let radius = Game.const.AGENT_RADIUS,
-				name = model.getName(),
-				pos = model.getPosition(),
-				aim = model.getAim(),
-				health = model.getHealth(),
-				maxHealth = model.getMaxHealth();
-		if (model.isNotDead()) {
-			let ctx = gfx.getContext(Graphics.Layer.ACTIVE);
-			this.renderBodyCannon(ctx, pos, aim);
-			// decorations
-			// - label
-			ctx = gfx.getContext(Graphics.Layer.LABELS);
-			ctx.font = "8px sans";
-			ctx.textAlign = "center";
-			ctx.fillStyle = "black";
-			ctx.fillText(name, pos.x, pos.y + radius + 12);
-			// - health bar
-			let barX = pos.x - radius,
-					barY = pos.y - radius - 8,
-					barW = 2 * radius,
-					barH = 3;
-			ctx.fillStyle = 'red';
-			ctx.fillRect(barX, barY, barW, barH);
-			ctx.fillStyle = 'green';
-			ctx.fillRect(barX, barY, barW * (health / maxHealth), barH);
-		} else if (model.isDead()) {
-			let ctx = gfx.getContext(Graphics.Layer.GROUND);
-			let stroke = '#888',
-					fill = '#BBB';
-			// body
-			ctx.strokeStyle = stroke;
-			ctx.fillStyle = fill;
-			ctx.beginPath();
-			ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
-			ctx.fill();
-			// turret
-			ctx.moveTo(pos.x, pos.y);
-			let x2 = pos.x + radius * Math.cos(aim),
-					y2 = pos.y + radius * Math.sin(aim);
-			ctx.lineTo(x2, y2);
-			ctx.stroke();
-			// label
-			ctx.font = '8px sans';
-			ctx.textAlign = 'center';
-			ctx.fillStyle = stroke;	// use disc stroke color for label
-			ctx.fillText(name, pos.x, pos.y + radius + 12);
-		} else if (model.isEliminated()) {
-			// Hopefully this no-op is unreachable...
-		} else {
-			throw new Error(`No valid drawing routine for ${name}`);
-		}
-	};
-
-	GenericAgentSprite.prototype.renderBodyCannon = function (ctx, pos, aim) {
-		let radius = this.radius,
-				stroke = `hsl(${this.color}, 50%, 33%)`,
-				fill = `hsl(${this.color}, 50%, 67%)`;
-		// render body
-		ctx.strokeStyle = stroke;
-		ctx.fillStyle = fill;
-		ctx.beginPath();
-		ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
-		ctx.fill();
-		// render turret
-		ctx.moveTo(pos.x, pos.y);
-		let x2 = pos.x + (radius * Math.cos(aim)),
-				y2 = pos.y + (radius * Math.sin(aim));
-		ctx.lineTo(x2, y2);
-		ctx.stroke();
-	}
-
-
-	function BulletSprite(properties) {
-		Object.assign(this, properties);
-	}
-
-	BulletSprite.prototype.render = function (gfx, model) {
-		let ctx = gfx.getContext(Graphics.Layer.ACTIVE);
-		let pos = model.getPosition();
-		ctx.fillStyle = '#444';
-		ctx.beginPath();
-		ctx.arc(pos.x, pos.y, Game.const.BULLET_RADIUS, 0, 2 * Math.PI);
-		ctx.fill();
-	}
 
 
 	////////////////////////////////////////////////////////////////////////////

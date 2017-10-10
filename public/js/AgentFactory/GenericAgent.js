@@ -99,6 +99,10 @@ var MAGIC = ((ns) => {
 		return this.name;
 	};
 
+	GenericAgent.prototype.getNumber = function () {
+		return this.number;
+	};
+
 	GenericAgent.prototype.getPosition = function () {
 		// Make sure pos registers are up to date
 		let p = this.game.getPosition(this);	// delegates to Game.Physics
@@ -416,6 +420,10 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.queueEvent = function (evt) {
 		this.eventQueue.push(evt);
+	};
+
+	GenericAgent.prototype.preRender = function () {
+		this.sprite.preRender(this);
 	};
 
 	GenericAgent.prototype.render = function (gfx) {

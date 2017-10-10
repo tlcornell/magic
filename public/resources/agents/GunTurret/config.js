@@ -1,5 +1,7 @@
 {
-	"sprites": ["sprite.png"],
+	"sprites": {
+		"main": "sprite.png"
+	},
 	"script": "GunTurret.txt",
 	"loadout": {
 		"cpu": 40,

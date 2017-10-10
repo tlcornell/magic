@@ -33,6 +33,11 @@ var MAGIC = ((ns) => {
 		this.loadAgentKits(continuation);
 	}
 
+	/**
+	 * 1. Figure out what types of agents we have on disk
+	 * 2. Download their config files
+	 * 3. Download the scripts specified in those config files.
+	 */
 	AgentFactory.prototype.loadAgentKits = function (continuation) {
 
 		let downloadKitsFromConfigs = () => {
@@ -75,6 +80,9 @@ var MAGIC = ((ns) => {
 			zipForEach(kitNames, cfgList, (kitName, cfgPath) => {
 				var cfgreq = new XMLHttpRequest();
 				cfgreq.open('GET', `${serverUrl}${cfgPath}`);
+				cfgreq.onerror = () => {
+					throw new Error('Error attempting to get config files from server');
+				};
 				cfgreq.onload = () => {
 					this.agentKits[kitName] = {
 						config: JSON.parse(cfgreq.responseText),
@@ -84,15 +92,12 @@ var MAGIC = ((ns) => {
 						downloadKitsFromConfigs();
 					}
 				};
-				cfgreq.onerror = () => {
-					throw new Error('Error attempting to get config files from server');
-				};
 				cfgreq.send();
 			});
 		};
 
 		var xreq = new XMLHttpRequest();
-		xreq.open('GET', `${serverUrl}/agents`/*'http://localhost:3000/agents'*/);
+		xreq.open('GET', `${serverUrl}/agents`);
 		xreq.onload = getKitsFromList;
 		xreq.onerror = function () {
 			throw new Error('Error attempting to get agent kit list from server');

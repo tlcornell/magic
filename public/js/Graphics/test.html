@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Tests for Graphics Subsystem</title>
+</head>
+<body>
+
+<script src="SceneGraph.js"></script>
+
+<script>
+
+	let SceneGraph = MAGIC.SceneGraph;
+
+	let sg = new SceneGraph();
+	console.log('Test: new SceneGraph', sg);
+
+	sg.addChild(['active'], 'Agent #1', null);
+	console.log('Test add agent to active', sg);
+
+	{
+		let node1 = sg.root._find(['active', 'Agent #1'])[0],
+				sprite1 = {sg_node: node1};
+		console.log(sprite1);
+		sg.removeChild(sprite1);
+		console.log('Test remove agent', sg);
+	}
+
+
+	{
+		let sprite1 = {},
+				sprite2 = {},
+				sprite3 = {};
+		let node1 = sg.addChild(['active'], 'Agent #1', sprite1);
+		let node2 = sg.addChild(['active'], 'Agent #2', sprite2);
+		let node3 = sg.addChild(['active'], 'Agent #3', sprite3);
+		sg.removeChild(sprite2);
+		console.log('Test remove interior child', sg);
+	}
+
+
+</script>
+
+
+
+</body>
+</html>
