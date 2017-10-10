@@ -26,12 +26,10 @@ var MAGIC = ((ns) => {
 		// REVIEW: Note that pos is not a permanant property, unlike the others.
 		// It really just means "initial position", which is mostly useless.
 		this.sprites = {
-			portrait: new GenericAgentPortrait(this, gfx),
+			portrait: new GenericAgentBodySprite(this, gfx),
 			notDead: new GenericAgentNotDeadSprite(this, gfx),
 			dead: new GenericAgentDeadSprite(this, gfx),
 		};
-		// BUG: portrait and notDead sprites are not the same. Portrait lacks 
-		// decorations, and has a fixed aim
 		this.currentSprite = null; // set this by calling `activate(spriteKey)`
 	}
 	GenericAgentSpriteMaster.prototype.preRender = function (model) {
@@ -58,41 +56,35 @@ var MAGIC = ((ns) => {
 	GenericAgentSpriteMaster.prototype.deactivate = function (sceneGraph) {
 		if (this.currentSprite) {
 			this.currentSprite.deactivate(sceneGraph);
+			this.currentSprite = null;
 		}
 	};
 	GenericAgentSpriteMaster.prototype.activate = function (key, sceneGraph) {
 		this.sprites[key].activate(sceneGraph);
+		this.currentSprite = this.sprites[key];
 	};
 	GenericAgentSpriteMaster.prototype.drawPortrait = function (ctx, pos) {
 		this.sprites.portrait.preRender({pos: pos, aim: 0});
 		this.sprites.portrait.render(ctx);
-		/*
-		let hue = this.getBaseHue(),
-				stroke = `hsl(${hue}, 50%, 33%)`,
-				fill = `hsl(${hue}, 50%, 67%)`,
-				angle = 0,
-				radius = this.getRadius();
-		renderAgentBody(ctx, pos.x, pos.y, radius, stroke, fill);
-		renderAgentCannon(ctx, pos.x, pos.y, radius, angle, stroke);
-		*/
 	};
 
-	function GenericAgentPortrait (master, gfx) {
-		this.parts = {
-			body: null,
-			cannon: null,
-		};
-		this.createParts(master);
+	function GenericAgentDeadSprite (master, gfx) {
+		this.radius = master.getRadius();
 	}
-	GenericAgentPortrait.prototype.createParts = function (master) {
-		this.parts.body = new GenericAgentBodySprite(master);
-		this.parts.cannon = new GenericAgentCannonSprite(master);
+	GenericAgentDeadSprite.prototype.preRender = function (model) {
+		this.x = model.getPosition().x;
+		this.y = model.getPosition().y;
+		this.angle = model.getAim();
 	};
-	GenericAgentPortrait.prototype.preRender = function (model) {
-		Object.keys(this.parts).forEach((part) => part.preRender(model));
+	GenericAgentDeadSprite.prototype.render = function (ctx) {
+		renderAgentBody(ctx, this.x, this.y, this.radius, '#888', '#AAA');
+		renderAgentCannon(ctx, this.x, this.y, this.radius, this.angle, '#888');
 	};
-	GenericAgentPortrait.prototype.render = function (ctx) {
-		Object.keys(this.parts).forEach((part) => part.render(ctx));
+	GenericAgentDeadSprite.prototype.deactivate = function (sceneGraph) {
+		sceneGraph.removeChild(this);
+	};
+	GenericAgentDeadSprite.prototype.activate = function (sceneGraph) {
+		sceneGraph.addChild('ground', this);
 	};
 
 	/**
@@ -104,19 +96,20 @@ var MAGIC = ((ns) => {
 	function GenericAgentNotDeadSprite (master, gfx) {
 		this.parts = {
 			body: new GenericAgentBodySprite(master, gfx),
-			cannon: new GenericAgentCannonSprite(master, gfx),
-			health: new GenericAgentHealthBarSprite(master, gfx),
-			label: new GenericAgentLabelSprite(master, gfx),
+			deco: new GenericAgentDecorationsSprite(master, gfx),
 		};
 	};
 	GenericAgentNotDeadSprite.prototype.preRender = function (model) {
-		Object.keys(this.parts).forEach((part) => part.preRender(model));
+		this.parts.body.preRender(model);
+		this.parts.deco.preRender(model);
 	};
 	GenericAgentNotDeadSprite.prototype.deactivate = function (sceneGraph) {
-		Object.keys(this.parts).forEach((part) => part.deactivate(sceneGraph));
+		this.parts.body.deactivate(sceneGraph);
+		this.parts.deco.deactivate(sceneGraph);
 	};
 	GenericAgentNotDeadSprite.prototype.activate = function (sceneGraph) {
-		Object.keys(this.parts).forEach((part) => part.activate(sceneGraph));
+		this.parts.body.activate(sceneGraph);
+		this.parts.deco.activate(sceneGraph);
 	};
 
 
@@ -126,77 +119,63 @@ var MAGIC = ((ns) => {
 		this.radius = master.getRadius();
 		this.x = master.getInitialPosition().x;
 		this.y = master.getInitialPosition().y;
+		this.length = this.radius;
+		this.angle = master.getInitialAim();
 	}
 	GenericAgentBodySprite.prototype.preRender = function (data) {
 		this.x = data.pos.x;
 		this.y = data.pos.y;
+		this.angle = data.aim;
 	};
 	GenericAgentBodySprite.prototype.render = function (ctx) {
 		let stroke = `hsl(${this.baseHue}, 50%, 33%)`,
 				fill = `hsl(${this.baseHue}, 50%, 67%)`;
 		renderAgentBody(ctx, this.x, this.y, this.radius, stroke, fill);
-	};
-	GenericAgentBodySprite.prototype.activate = function (sceneGraph) {
-		this.sg_parent = sceneGraph.addChild('active', this);
-	};
-	GenericAgentBodySprite.prototype.deactivate = function (sceneGraph) {
-		this.sg_parent.removeChild(this);
-	}
-
-	function GenericAgentCannonSprite (master, gfx) {
-		this.length = master.getRadius();
-		this.baseHue = master.getBaseHue();
-		this.x = master.getInitialPosition().x;
-		this.y = master.getInitialPosition().y;
-		this.angle = master.getInitialAim();
-	}
-	GenericAgentCannonSprite.prototype.preRender = function (data) {
-		this.x = data.pos.x;
-		this.y = data.pos.y;
-		this.angle = data.aim;
-	};
-	GenericAgentCannonSprite.prototype.render = function (ctx) {
-		let stroke = `hsl(${this.baseHue}, 50%, 33%)`;
 		renderAgentCannon(ctx, this.x, this.y, this.length, this.angle, stroke);
 	};
+	GenericAgentBodySprite.prototype.activate = function (sceneGraph) {
+		sceneGraph.addChild(['active'], this);
+	};
+	GenericAgentBodySprite.prototype.deactivate = function (sceneGraph) {
+		sceneGraph.removeChild(this);
+	};
 
-	function GenericAgentHealthBarSprite (master, gfx) {
+	function GenericAgentDecorationsSprite (master, gfx) {
+		this.name = master.getName();
 		this.width = master.getRadius;
 		this.height = 3;
 		this.health = this.maxHealth = master.getMaxHealth();
 		this.offset = master.getRadius();
-		this.x = master.getInitialPosition().x - this.offset;
-		this.y = master.getInitialPosition().y - this.offset - 8;
+		this.x = master.getInitialPosition().x /*- this.offset*/;
+		this.y = master.getInitialPosition().y /*- this.offset - 8*/;
 	}
-	GenericAgentHealthBarSprite.prototype.preRender = function (data) {
-		this.x = data.pos.x - this.offset;
-		this.y = data.pos.y - this.offset - 8;
+	GenericAgentDecorationsSprite.prototype.preRender = function (data) {
+		this.x = data.pos.x /*- this.offset*/;
+		this.y = data.pos.y /*- this.offset - 8*/;
 		this.health = data.health;
 	};
-	GenericAgentHealthBarSprite.prototype.render = function (ctx) {
+	GenericAgentDecorationsSprite.prototype.render = function (ctx) {
+		let barX = this.x - this.offset,
+				barY = this.y - this.offset - 8,
+				lblX = this.x,
+				lblY = this.y + this.offset + 12;
 		ctx.fillStyle = 'red';
-		ctx.fillRect(this.x, this.y, this.width, this.height);
+		ctx.fillRect(barX, barY, this.width, this.height);
 		ctx.fillStyle = 'green';
 		let hp = this.width * (this.health / this.maxHealth);
-		ctx.fillRect(this.x, this.y, hp, this.height);
-	};
-
-	function GenericAgentLabelSprite (master, gfx) {
-		this.name = master.getName();
-		this.offset = master.getRadius();
-		this.x = master.getInitialPosition().x;
-		this.y = master.getInitialPosition().y + this.offset + 12;
-	}
-	GenericAgentLabelSprite.prototype.preRender = function (data) {
-		this.x = data.pos.x;
-		this.y = data.pos.y + this.offset + 12;
-	};
-	GenericAgentLabelSprite.prototype.render = function (ctx) {
+		ctx.fillRect(barX, barY, hp, this.height);
 		ctx.font = '8px sans';
 		ctx.textAlign = 'center';
 		ctx.fillStyle = 'black';
-		ctx.fillText(this.name, this.x, this.y);
+		ctx.fillText(this.name, lblX, lblY);
 	};
+	GenericAgentDecorationsSprite.prototype.activate = function (sceneGraph) {
+		sceneGraph.addChild(['labels'], this);
+	};
+	GenericAgentDecorationsSprite.prototype.deactivate = function (sceneGraph) {
+		sceneGraph.removeChild(this);
+	};
+
 
 	// EXPORTS
 	ns.GenericAgentSpriteMaster = GenericAgentSpriteMaster;

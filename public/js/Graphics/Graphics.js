@@ -56,6 +56,10 @@ var MAGIC = ((ns) => {
 		}
 	};
 
+	Graphics.prototype.removeSprite = function (gameObj) {
+		gameObj.sprite.deactivate(this.sceneGraph);
+	};
+
 	Graphics.prototype.clearViewport = function () {
 		let ctx = this.surface.getContext('2d');
 		ctx.clearRect(0, 0, constants.ARENA.WIDTH, constants.ARENA.HEIGHT);
@@ -109,21 +113,33 @@ var MAGIC = ((ns) => {
 
 
 
-
-	function BulletSprite(properties) {
+	/**
+	 * Like walls, bullets only have one sprite, so we combine the 
+	 * SpriteMaster trait with the Sprite trait.
+	 */
+	function BulletSprite(properties, gfx) {
 		Object.assign(this, properties);
+		this.activate('unused', gfx.sceneGraph);
 	}
+	BulletSprite.prototype.deactivate = function (sceneGraph) {
+		sceneGraph.removeChild(this);
+	};
+	BulletSprite.prototype.activate = function (_whichSprite, sceneGraph) {
+		sceneGraph.addChild(['active'], 'bullet', this);
+	};
 	BulletSprite.prototype.preRender = function (model) {
 		this.pos = model.pos;
 	};
-	BulletSprite.prototype.render = function (gfx, model) {
-		let ctx = gfx.getContext(Graphics.Layer.ACTIVE);
+	BulletSprite.prototype.render = function (ctx) {
 		let pos = this.pos;
 		ctx.fillStyle = '#444';
 		ctx.beginPath();
 		ctx.arc(pos.x, pos.y, constants.BULLET_RADIUS, 0, 2 * Math.PI);
 		ctx.fill();
-	}
+	};
+
+
+
 
 	// EXPORTS
 	ns.Graphics = Graphics;

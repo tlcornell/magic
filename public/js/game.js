@@ -314,9 +314,8 @@ var MAGIC = ((ns) => {
 				maxHealth: agent.getMaxHealth(),
 				aim: agent.getAim(),
 			};
-			agent.sprite = Graphics.createSprite('agent',	spriteProperties);
-			//agent.sprite.activate('notDead');
-			Graphics.activate(agent.sprite, 'notDead');
+			agent.sprite = this.graphics.createSprite('agent',	spriteProperties);
+			this.graphics.activate(agent.sprite, 'notDead');
 			this.objects.agents.push(agent);
 		});
 	};
@@ -360,7 +359,7 @@ var MAGIC = ((ns) => {
 			pos: pos,
 		};
 		proj.body = Physics.projectileBody(proj, properties);
-		proj.sprite = Graphics.createSprite('bullet', properties);
+		proj.sprite = this.graphics.createSprite('bullet', properties);
 		this.physics.addBody(proj.body);
 		this.objects.projectiles.push(proj);
 	};
@@ -519,18 +518,18 @@ var MAGIC = ((ns) => {
 			case 'impact':
 				// Remove the projectile that impacted something
 				// Someday this might trigger an animation and sound...
+				this.graphics.removeSprite(task.obj);
 				this.physics.removeBody(task.obj);
+				task.obj.sprite = null;
+				task.obj.body = null;
 				// Okay, which projectile do we remove from the objects list?
 				let place = this.objects.projectiles.findIndex((p) => p === task.obj);
 				if (place === -1) {
 					//LOG("Projectile not found among game objects", task.obj.name);
 				} else {
 					this.objects.projectiles.splice(place, 1);
-					// don't render
-					task.obj.sprite = null;
-					// don't do any physics
-					task.obj.body = null;
 				}
+				task.obj = null;
 				break;
 			case 'interrupt':
 				task.obj.queueEvent(task);

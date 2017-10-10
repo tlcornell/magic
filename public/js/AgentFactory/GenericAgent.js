@@ -503,10 +503,12 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.onAgentDied = function () {
 		this.setState(Q_DEAD);
 		this.deathCounter = 200;
+		this.game.graphics.activate(this.sprite, 'dead');
 	}
 
 	GenericAgent.prototype.onAgentEliminated = function () {
 		this.setState(Q_ELIMINATED);
+		this.game.graphics.removeSprite(this);
 	}
 
 	GenericAgent.prototype.environmentalDamage = function (rawDmg) {
