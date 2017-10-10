@@ -16,9 +16,9 @@ var MAGIC = ((ns) => {
 	 * The main thing we have to do here is to manage a multi-layer canvas
 	 * collection, consisting of several canvases layered on top of each other.
 	 */
-	function Graphics (theGame) {
+	function Graphics (game) {
 		Object.assign(this, {
-			game: theGame,
+			game: game,
 			width: constants.ARENA.WIDTH,
 			height: constants.ARENA.HEIGHT,
 			surface: null,
@@ -43,7 +43,7 @@ var MAGIC = ((ns) => {
 		return this.surface.getContext('2d');
 	};
 
-	Graphics.createSprite = function (key, properties) {
+	Graphics.prototype.createSprite = function (key, properties) {
 		switch (key) {
 			case 'agent':
 				return new GenericAgentSpriteMaster(properties, this);
@@ -65,9 +65,9 @@ var MAGIC = ((ns) => {
 		this.sceneGraph.render(this.surface.getContext('2d'));
 	};
 
-	Graphics.prototype.activate = function (spriteMaster, key) {
+	Graphics.prototype.activate = function (spriteMaster, spriteKey) {
 		spriteMaster.deactivate(this.sceneGraph);
-		spriteMaster.activate(key, this.sceneGraph);
+		spriteMaster.activate(spriteKey, this.sceneGraph);
 	};
 
 
@@ -80,22 +80,29 @@ var MAGIC = ((ns) => {
 	 * current one to draw.
 	 * In our current situation, we actually just draw shapes, not
 	 * sprites, so it doesn't do much.
+	 *
+	 * A WallSprite only controls a single sprite, so we collapse the 
+	 * SpriteMaster and the Sprite into a single object.
 	 */
-	function WallSprite(properties) {
+	function WallSprite(properties, gfx) {
 		Object.assign(this, {
 			pos: properties.pos,
 			width: properties.width,
 			height: properties.height,
 			name: properties.name,
 		});
+		this.activate('unused', gfx.sceneGraph);
 	};
+	WallSprite.prototype.deactivate = function (sceneGraph) {
+		// Does nothing
+	};
+	WallSprite.prototype.activate = function (_, sceneGraph) {
+		sceneGraph.addChild(['ground'], this.name, this);
+	}
 	WallSprite.prototype.preRender = function () {
 		// nothing to do
 	};
-	WallSprite.prototype.render = function (gfx) {
-		// Walls draw in the GROUND layer, so get the right context
-		let ground = Graphics.Layer.GROUND;
-		let ctx = gfx.getContext(ground);
+	WallSprite.prototype.render = function (ctx) {
 		ctx.fillStyle = "#AAA";
 		ctx.fillRect(this.pos.x, this.pos.y, this.width, this.height);
 	};

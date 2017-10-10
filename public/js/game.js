@@ -235,7 +235,7 @@ var MAGIC = ((ns) => {
 		let wall = new WallObject(this, properties);
 		let body = Physics.wallSegment(x, y, w, h, name, wall);
 		this.physics.addBody(body);
-		let sprite = Graphics.createSprite('wall', properties);
+		let sprite = this.graphics.createSprite('wall', properties);
 		wall.body = body;
 		wall.sprite = sprite;
 		this.objects.map.push(wall);

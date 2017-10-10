@@ -48,7 +48,7 @@ var MAGIC = ((ns) => {
 	};
 
 	SceneGraphNode.prototype.render = function (ctx) {
-		this.sprite.render(ctx);
+		if (this.sprite) this.sprite.render(ctx);
 		this.iterate((node) => node.render(ctx));
 	};
 	SceneGraphNode.prototype.clear = function () {
