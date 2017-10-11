@@ -8,13 +8,15 @@ var MAGIC = ((ns) => {
 			angle2vector = ns.angle2vector,
 			vector2angle = ns.vector2angle;
 	let LOG = ns.LOG;
+	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
+	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
+	const Q_ELIMINATED = ns.constants.AGENT_STATE.Q_ELIMINATED;
+
+
 
 	///////////////////////////////////////////////////////////////////////////
 	// Agents
 	
-	const Q_NOT_DEAD = 3;
-	const Q_DEAD = 4;
-	const Q_ELIMINATED = 5;
 
 	/**
 	 * Properties assignable from outside include:
@@ -65,11 +67,7 @@ var MAGIC = ((ns) => {
 		};
 	}
 
-	GenericAgent.const = {
-		AGENT_RADIUS: 15,
-		BUMP_DAMAGE: 1,				// Must be equal to Game.const.BUMP_DAMAGE
-		WALL_DAMAGE: 5,				// Must be equal to Game.const.WALL_DAMAGE
-	};
+	GenericAgent.const = ns.constants;
 
 	GenericAgent.prototype.isNotDead = function () {
 		return this.getState() === Q_NOT_DEAD;

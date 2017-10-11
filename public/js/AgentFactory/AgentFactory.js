@@ -40,11 +40,32 @@ var MAGIC = ((ns) => {
 	 */
 	AgentFactory.prototype.loadAgentKits = function (continuation) {
 
+		let downloadSpritesForKits = () => {
+			let queue = Object.keys(this.agentKits),
+					remaining = queue.length;
+			let imagePaths = [];
+			queue.forEach((kitName) => {
+				let kit = this.agentKits[kitName],
+						sprites = kit.config.sprites;
+				Object.keys(sprites).forEach((key) => {
+					let png = sprites[key],
+							kitPath = `${kitName}/${png}`,
+							extendedKey = `${kitName}/${key}`;
+					imagePaths.push({
+						key: extendedKey,
+						src: `${serverUrl}/resources/agents/${kitPath}`
+					});
+				});
+			});
+			console.log(imagePaths);
+			continuation(queue, imagePaths);
+		};
+
 		let downloadKitsFromConfigs = () => {
 			let queue = Object.keys(this.agentKits),
 					remaining = queue.length;
 			let done = () => {
-				continuation(queue);
+				downloadSpritesForKits();
 			};
 			queue.forEach((kitName) => {
 				let kit = this.agentKits[kitName],

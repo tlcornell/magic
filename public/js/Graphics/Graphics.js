@@ -2,6 +2,7 @@ var MAGIC = ((ns) => {
 
 	// IMPORTS
 	let SceneGraph = ns.SceneGraph,
+			TextureCache = ns.TextureCache,
 			GenericAgentSpriteMaster = ns.GenericAgentSpriteMaster,
 			Game = ns.Game,
 			constants = ns.constants,
@@ -23,6 +24,7 @@ var MAGIC = ((ns) => {
 			height: constants.ARENA.HEIGHT,
 			surface: null,
 			sceneGraph: new SceneGraph(this),
+			cache: new TextureCache(this),
 		});
 	};
 
@@ -39,8 +41,26 @@ var MAGIC = ((ns) => {
 		this.surface = canvas;
 	};
 
-	Graphics.prototype.preLoadImages = function () {
-		// not yet implemented
+	Graphics.prototype.preLoadImages = function (imgDict, callback) {
+		let keys = Object.keys(imgDict),
+				remaining = (keys.length);
+		keys.forEach((key) => {
+			let item = imgDict[key];
+			item.img = new Image();
+			item.img.onerror = () => {
+				console.log(`ERROR: Could not download image ${item.src}`);
+				if (--remaining === 0) {
+					callback();
+				}
+			}
+			item.img.onload = () => {
+				this.cache.add(item);
+				if (--remaining === 0) {
+					callback();
+				}
+			};
+			item.img.src = item.src;
+		});
 	};
 
 	Graphics.prototype.getContext = function (layer) {

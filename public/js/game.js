@@ -204,9 +204,9 @@ var MAGIC = ((ns) => {
 	 * Continue subsystems initialization with things that depend on 
 	 * agent factory initialization to have finished.
 	 */
-	Game.prototype.continueInit = function (kitList) {
+	Game.prototype.continueInit = function (kitList, imgDict) {
 		this.createRosterManager(kitList);
-		this.graphics.preLoadImages();
+		this.graphics.preLoadImages(imgDict, () => {console.log('images all loaded')});
 	}
 
 	Game.prototype.createMap = function () {
