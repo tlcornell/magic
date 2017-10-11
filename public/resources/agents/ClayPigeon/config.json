@@ -1,6 +1,7 @@
 {
 	"sprites": {
-		"main": "sprite.png"
+		"portrait": "sprite.png",
+		"notDead": "sprite.png"
 	},
 	"script": "script.txt",
 	"loadout": {

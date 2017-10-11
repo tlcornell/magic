@@ -308,6 +308,7 @@ var MAGIC = ((ns) => {
 			// These belong somewhere else now...
 			let spriteProperties = {
 				name: agent.name,
+				type: agent.type,
 				baseHue: (360/count) * agent.number,
 				pos: agent.pos,
 				radius: Game.const.AGENT_RADIUS,

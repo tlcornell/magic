@@ -1,6 +1,7 @@
 {
 	"sprites": {
-		"main": "sprite.png"
+		"notDead": "sprite.png",
+		"portrait": "sprite.png"
 	},
 	"script": "GunTurret.txt",
 	"loadout": {

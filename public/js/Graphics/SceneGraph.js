@@ -155,14 +155,20 @@ var MAGIC = ((ns) => {
 		return node;
 	};
 	SceneGraph.prototype.removeChild = function (sprite) {
-		let node = sprite.sg_node,
-				container = node.parent;
+		let node = sprite.sg_node;
+		if (!node) {
+			// Nothing to do
+			return;
+		}
+		let container = node.parent;
 		// Remove the child tree from its container, leaving the container's
 		// child list consistent and correct.
 		container.removeChild(node);
-		// Clear all the nodes in this node's tree (if any), and store their
+		// Clear all the nodes in this node's tree, and store their
 		// indices in the free list
 		this._remove(node);
+
+		sprite.sg_node = null;
 	};
 	/**
 	 * Private auxiliary function for removeChild

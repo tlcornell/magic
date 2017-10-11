@@ -1,8 +1,8 @@
 {
 	"sprites": {
-		"main": "sprite.png"
+		"notDead": "sprite.png"
 	},
-	"script": "script.txt",
+	"script": "ModifiedShotBot.txt",
 	"loadout": {
 		"cpu": 20,
 		"energy": 20,

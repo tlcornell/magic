@@ -53,6 +53,7 @@ var MAGIC = ((ns) => {
 							extendedKey = `${kitName}/${key}`;
 					imagePaths.push({
 						key: extendedKey,
+						path: kitPath,
 						src: `${serverUrl}/resources/agents/${kitPath}`
 					});
 				});
@@ -96,7 +97,7 @@ var MAGIC = ((ns) => {
 			let dirList = JSON.parse(xreq.responseText);
 			let kitNames = dirList.map(
 				(agentDir) => agentDir.substr(agentDir.lastIndexOf('/') + 1));
-			let cfgList = dirList.map((agtDir) => `${agtDir}/config.js`);
+			let cfgList = dirList.map((agtDir) => `${agtDir}/config.json`);
 			let count = cfgList.length;
 			zipForEach(kitNames, cfgList, (kitName, cfgPath) => {
 				var cfgreq = new XMLHttpRequest();
@@ -139,8 +140,8 @@ var MAGIC = ((ns) => {
 				name = typeCount > 1 ? `${agentType} #${typeCount}` : `${agentType}`;
 		let properties = {
 			name: name,
+			type: agentType,
 			number: id,									// per-game unique ID
-			type: 'agent/generic',			// there's no non-generic agent, so redundant
 			hw: kit.config.loadout,
 		};
 		let agent = new GenericAgent(properties);

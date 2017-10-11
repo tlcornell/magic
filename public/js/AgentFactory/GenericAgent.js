@@ -36,6 +36,7 @@ var MAGIC = ((ns) => {
 		Object.assign(this, {
 			//game: game,
 			name: properties.name,
+			type: properties.type,
 			number: properties.number,
 			// logic support
 			eventQueue: [],

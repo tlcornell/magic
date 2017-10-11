@@ -3,6 +3,7 @@ var MAGIC = ((ns) => {
 	// IMPORTS
 	let SceneGraph = ns.SceneGraph,
 			TextureCache = ns.TextureCache,
+			Sprite = ns.Sprite,
 			GenericAgentSpriteMaster = ns.GenericAgentSpriteMaster,
 			Game = ns.Game,
 			constants = ns.constants,
@@ -67,9 +68,14 @@ var MAGIC = ((ns) => {
 		return this.surface.getContext('2d');
 	};
 
+	/**
+	 * Really this should be 'createSpriteMaster'
+	 */
 	Graphics.prototype.createSprite = function (key, properties) {
 		switch (key) {
 			case 'agent':
+				// if sprites specified for this kit, use them
+				// else
 				return new GenericAgentSpriteMaster(properties, this);
 			case 'bullet':
 				return new BulletSprite(properties, this);
@@ -79,6 +85,17 @@ var MAGIC = ((ns) => {
 				throw Error(`Unrecognized sprite master key: ${key}`);
 		}
 	};
+
+	Graphics.prototype.getSprite = function (master, key) {
+		console.log('getSprite', key);
+		let spriteImg = this.cache.get(key);
+		if (!spriteImg) {
+			console.log('not found');
+			return null;
+		}
+		console.log('found');
+		return new Sprite(master, spriteImg);
+	}
 
 	Graphics.prototype.removeSprite = function (gameObj) {
 		gameObj.sprite.deactivate(this.sceneGraph);
