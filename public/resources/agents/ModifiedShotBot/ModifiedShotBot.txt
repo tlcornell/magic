@@ -39,7 +39,9 @@ CheckRange:
 	ifnz A DoFire DoRotate
 
 DoFire:
-	sys.fire = 20 
+	A = gt sys.energy 9
+	ifz A Main
+	sys.fire = 9 
 	jump Main
 
 DoRotate:

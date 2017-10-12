@@ -82,6 +82,9 @@ var MAGIC = ((ns) => {
 		return this.getState() === Q_ELIMINATED;
 	};
 
+	/**
+	 * For display in the status monitor/roster manager
+	 */
 	GenericAgent.prototype.getCondition = function () {
 		switch (this.getState()) {
 			case Q_NOT_DEAD:

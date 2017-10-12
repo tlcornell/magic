@@ -27,6 +27,7 @@ var MAGIC = ((ns) => {
 
 	Interpreter.HWRegister = Object.freeze({
 		aim: true,
+		energy: true,
 		fire: true,
 		heading: true,
 		look: true,
@@ -198,6 +199,8 @@ var MAGIC = ((ns) => {
 			switch (reg) {
 				case 'aim':
 					return this.bot.getAimDegrees();
+				case 'energy':
+					return this.bot.getEnergy();
 				case 'fire':
 					return 0;
 				case 'look':
