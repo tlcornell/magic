@@ -23,7 +23,7 @@ var MAGIC = ((ns) => {
 
 		this.name = 'wall';	// agent.hw[ws.getName()] = ws ?
 		this.priority = 20;
-		this.sensitivity = 0;
+		this.sensitivity = 20;
 		this.handler = -1;
 
 		this.data = [0, 0, 0, 0];
@@ -55,7 +55,8 @@ var MAGIC = ((ns) => {
 	 * Should return an int in [0,4].
 	 */
 	WallSensor.prototype.get = function (prop) {
-		if (prop === []) {
+		if (prop.length === 0) {
+			console.log('plain old wall query');
 			let minDist = this.data[0],
 					closest = 0;
 			this.data.forEach((d, i) => {
@@ -119,7 +120,6 @@ var MAGIC = ((ns) => {
 
 		// Trigger only on change of state
 		if (edgeTrigger()) {
-			console.log('queue interrupt');
 			this.agent.queueInterrupt(this);
 			// REVIEW: `this` is the WallSensor object. Maybe we want to queue
 			// something more like just an interrupt?

@@ -293,6 +293,7 @@ var MAGIC = ((ns) => {
 		this.loopCounter = 0;
 		this.requestId = 0;
 		this.flags.soloMode = false;
+		this.agentFactory.reset();
 	};
 
 	Game.prototype.populateTheArena = function (roster) {

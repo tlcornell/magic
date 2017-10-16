@@ -125,6 +125,7 @@ var MAGIC = ((ns) => {
 
 	AgentFactory.prototype.reset = function () {
 		this.counter = 0;
+		this.howManyOfEach = {};
 	}
 
 	AgentFactory.prototype.createAgent = function (agentType) {
