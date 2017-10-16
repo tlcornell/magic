@@ -1,0 +1,52 @@
+Startup:
+	setint sys.wall WallAlert
+	setlimit sys.wall 30
+	inton
+
+Main:
+	min = sys.wall.north
+	which = 0
+TestWest:
+	A = lt sys.wall.west min
+	ifz A TestSouth
+	min = sys.wall.west
+	which = 1
+TestSouth:
+	A = lt sys.wall.south min
+	ifz A TestEast
+	min = sys.wall.south
+	which = 2
+TestEast:
+	A = lt sys.wall.east min
+	ifz A StartMoving
+	min = sys.wall.east  	# Don't really need min any more...
+	which = 3
+StartMoving:
+	jumpaddr = add JumpTableBase which
+	jump jumpaddr
+JumpTableBase:
+	jump StartMovingNorth
+	jump StartMovingWest
+	jump StartMovingSouth
+	jump StartMovingEast
+
+StartMovingNorth:
+	sys.velocity_dy = -5
+	jump Traveling
+StartMovingWest:
+	sys.velocity_dx = -5
+	jump Traveling
+StartMovingSouth:
+	sys.velocity_dy = 5
+	jump Traveling
+StartMovingEast:
+	sys.velocity_dx = 5
+	jump Traveling
+
+Traveling:
+	jump Traveling
+
+WallAlert:
+	sys.velocity_dx = 0
+	sys.velocity_dy = 0
+	jump Traveling

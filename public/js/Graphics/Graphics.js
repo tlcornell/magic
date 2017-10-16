@@ -87,13 +87,10 @@ var MAGIC = ((ns) => {
 	};
 
 	Graphics.prototype.getSprite = function (master, key) {
-		console.log('getSprite', key);
 		let spriteImg = this.cache.get(key);
 		if (!spriteImg) {
-			console.log('not found');
 			return null;
 		}
-		console.log('found');
 		return new Sprite(master, spriteImg);
 	}
 

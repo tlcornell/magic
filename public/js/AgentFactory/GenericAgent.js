@@ -6,12 +6,169 @@ var MAGIC = ((ns) => {
 	let degrees = ns.degrees,
 			radians = ns.radians,
 			angle2vector = ns.angle2vector,
-			vector2angle = ns.vector2angle;
+			vector2angle = ns.vector2angle,
+			zipForEach = ns.zipForEach;
 	let LOG = ns.LOG;
 	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
 	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
 	const Q_ELIMINATED = ns.constants.AGENT_STATE.Q_ELIMINATED;
 
+
+
+	/**
+	 * Walls are always checked in order: N, W, S, E
+	 */
+	function WallSensor (agent) {
+		this.agent = agent;
+
+		this.name = 'wall';	// agent.hw[ws.getName()] = ws ?
+		this.priority = 20;
+		this.sensitivity = 0;
+		this.handler = -1;
+
+		this.data = [0, 0, 0, 0];
+		this.flags = [0, 0, 0, 0];
+		this.oldFlags = [0, 0, 0, 0];
+	}
+
+	WallSensor.prototype.initialize = function () {
+		// This needs to be delayed until after the agent we are part of
+		// has been assigned its initial coordinates by the agent factory,
+		// which happens after the agent constructor has been called.
+		this._updateData();
+	};
+
+	WallSensor.prototype._updateData = function () {
+		let x = this.agent.getPosX(),
+				y = this.agent.getPosY(),
+				N = constants.WALL_THICKNESS,
+				W = constants.WALL_THICKNESS,
+				S = constants.ARENA.HEIGHT - constants.WALL_THICKNESS,
+				E = constants.ARENA.WIDTH - constants.WALL_THICKNESS;
+		this.data[0] = y - N;		// distance to NORTH wall
+		this.data[1] = x - W;		// ditto WEST
+		this.data[2] = S - y; 	// ditto SOUTH
+		this.data[3] = E - x;		// ditto EAST
+	};
+
+	/**
+	 * Should return an int in [0,4].
+	 */
+	WallSensor.prototype.get = function (prop) {
+		if (prop === []) {
+			let minDist = this.data[0],
+					closest = 0;
+			this.data.forEach((d, i) => {
+				if (d < this.getSensitivity() && d <= minDist) {
+					closest = i + 1;
+					minDist = d;
+				}
+			});
+			return closest;
+		} else switch (prop[0]) {
+			case 'north':
+				return this.data[0];
+			case 'west':
+				return this.data[1];
+			case 'south':
+				return this.data[2];
+			case 'east':
+				return this.data[3];
+			default:
+				throw new Error(`Invalid wall register '${prop[0]}'`);
+		}
+	};
+
+	WallSensor.prototype.update = function () {
+
+		this._updateData();		// distances to all 4 walls
+
+		if (this.handler === -1) {
+			// no handler => interrupt disabled
+			// we can still inspect the wall proximity data by hand, of course
+			return;
+		}
+
+		let redZoneSize = constants.WALL_THICKNESS + this.sensitivity,
+				x = this.agent.getPosX(),
+				y = this.agent.getPosY();
+
+		if (this.data[0] <= redZoneSize) {
+			this.flags[0] = 1;
+		} 
+		if (this.data[1] <= redZoneSize) {
+			this.flags[1] = 1;
+		} 
+		if (this.data[2] <= redZoneSize) {
+			this.flags[2] = 1;
+		} 
+		if (this.data[3] <= redZoneSize) {
+			this.flags[3] = 1;
+		} 
+
+		let edgeTrigger = () => {
+			for (let i = 0; i < 4; ++i) {
+				let f = this.flags[i],
+						o = this.oldFlags[i];
+				if (f === 1 && o === 0) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		// Trigger only on change of state
+		if (edgeTrigger()) {
+			console.log('queue interrupt');
+			this.agent.queueInterrupt(this);
+			// REVIEW: `this` is the WallSensor object. Maybe we want to queue
+			// something more like just an interrupt?
+			// Needs at least name, priority, and handler address
+			this.rememberFlags();
+		}
+	};
+
+	WallSensor.prototype.getName = function () {
+		return this.name;
+	};
+
+	WallSensor.prototype.getPriority = function () {
+		return this.priority;
+	};
+
+	/** 
+	 * Not sure this is ever needed.
+	 */
+	WallSensor.prototype.getSensitivity = function () {
+		return this.sensitivity;
+	};
+
+	WallSensor.prototype.setSensitivity = function (_path, param) {
+		this.sensitivity = param;
+	};
+
+	WallSensor.prototype.getHandler = function () {
+		return this.handler;
+	};
+
+	/**
+	 * Validity of @addr must have been checked already.
+	 * We don't know how long the program is, so we don't know if @addr is
+	 * beyond the end of it, for example.
+	 *
+	 * Set to -1 to disable this interrupt
+	 */
+	WallSensor.prototype.setHandler = function (_path, addr) {
+		this.handler = addr;
+	};
+
+	/**
+	 * REVIEW: Need to be absolutely certain about when this should be called,
+	 * and that it is getting called just when we need it to be.
+	 */
+	WallSensor.prototype.rememberFlags = function () {
+		this.oldFlags = this.flags;
+	};
 
 
 	///////////////////////////////////////////////////////////////////////////
@@ -31,10 +188,9 @@ var MAGIC = ((ns) => {
 	 * shields: Max shields (at normal drain rates)
 	 * weapon: Currently only plain bullets are supported
 	 */
-	function GenericAgent(properties) {
-		//let a0 = randomRadian();
+	function GenericAgent(game, properties) {
 		Object.assign(this, {
-			//game: game,
+			game: game,
 			name: properties.name,
 			type: properties.type,
 			number: properties.number,
@@ -42,7 +198,6 @@ var MAGIC = ((ns) => {
 			eventQueue: [],
 			state: Q_NOT_DEAD,
 			// "Hardware Registers"
-			//pos: properties.pos,
 			cpuSpeed: properties.hw.cpu,
 			energy: properties.hw.energy,
 			maxEnergy: properties.hw.energy,
@@ -61,7 +216,9 @@ var MAGIC = ((ns) => {
 				thing: null,
 				dist: 0,
 			},
-			wall: 0,
+			hw: {
+				wall: new WallSensor(this),
+			},
 		});
 		this.prog = {
 			main: beNotDead,
@@ -69,6 +226,10 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericAgent.const = ns.constants;
+
+	GenericAgent.prototype.initializeHardware = function () {
+		this.hw.wall.initialize();
+	};
 
 	GenericAgent.prototype.isNotDead = function () {
 		return this.getState() === Q_NOT_DEAD;
@@ -95,7 +256,7 @@ var MAGIC = ((ns) => {
 			default:
 				return 'UNKNOWN';
 		}
-	}
+	};
 
 	GenericAgent.prototype.getName = function () {
 		return this.name;
@@ -295,9 +456,32 @@ var MAGIC = ((ns) => {
 	//////////////////////////////////////////////////////////////////////////
 
 
-	GenericAgent.prototype.getWall = function () {
-		return this.wall;
-	}
+	GenericAgent.prototype.module = function (modName) {
+		if (!this.hw.hasOwnProperty(modName)) {
+			throw new Error(`Attempt to access non-existing module '${modName}'`);
+		}
+		return this.hw[modName];
+	};
+
+	GenericAgent.prototype.setInterruptHandler = function (path, hdlr) {
+		let mod = path.shift();
+		if (!this.hw.hasOwnProperty(mod)) {
+			throw new Error(`Unknown hardware module '${mod}'`);
+		}
+		this.hw[mod].setHandler(path, hdlr);
+		// Modules with only one interrupt will ignore the path argument,
+		// which should be [] for them.
+	};
+
+	GenericAgent.prototype.setInterruptSensitivity = function (path, param) {
+		let mod = path.shift();
+		if (!this.hw.hasOwnProperty(mod)) {
+			throw new Error(`Unknown hardware module '${mod}'`);
+		}
+		this.hw[mod].setSensitivity(path, param);
+		// Modules with only one interrupt will ignore the path argument,
+		// which should be [] for them.
+	};
 
 	GenericAgent.prototype.getState = function () {
 		return this.state;
@@ -334,7 +518,7 @@ var MAGIC = ((ns) => {
 		// Handle event notifications (event queue) for "external" events 
 		// coming in from the Game object.
 		// Right now there's no prioritization; it's just a flat list
-		this.wall = 0;
+		this.hw.wall.update();
 		this.sight.dist = 0;
 		this.sight.thing = null;
 		this.eventQueue.forEach((evt) => this.handleEvent(evt));
@@ -367,18 +551,21 @@ var MAGIC = ((ns) => {
 			// has moved into our sights.
 			this.checkSightEvents();
 
+			// Check per-chronon interrupts?
+
 			//---------------------------------------------------
 			// This is where the bot program gets advanced
 			// (While the bot has any energy)
 
 			for (var i = 0; i < this.getCPU(); ++i) {
-				if (this.getEnergy() > 0) {
-					this.interpreter.step();
-					if (this.interpreter.syncFlag) {
-						this.interpreter.syncFlag = false;
-						break;
-					}
+
+				if (this.getEnergy() <= 0) break;
+				if (this.interpreter.syncFlag) {
+					this.interpreter.syncFlag = false;
+					break;
 				}
+
+				this.interpreter.step();
 			}
 
 			// End of bot program cycle (i.e., end of chronon?)
@@ -454,8 +641,15 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.handleEvent = function (evt) {
 //		console.log(this.name, "handleEvent", evt);
 		switch (evt.op) {
-			case 'interrupt':
-				this.handleInterrupt(evt);
+			case 'collision':
+				this.environmentalDamage(GenericAgent.const.BUMP_DAMAGE);
+				// TODO: Raise in-collision condition, maybe triggering an interrupt
+				// in the interpreter
+				break;
+			case 'wall':
+				this.environmentalDamage(GenericAgent.const.WALL_DAMAGE);
+				this.hw.wall.update();	
+				// This will queue an interrupt, if it wasn't already raised by proximity
 				break;
 			case 'hit':
 				this.projectileImpact(evt.data.hitBy);
@@ -465,41 +659,8 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	GenericAgent.prototype.handleInterrupt = function (evt) {
-		switch (evt.type) {
-			case 'collision':
-				this.environmentalDamage(GenericAgent.const.BUMP_DAMAGE);
-				// TODO: Raise in-collision condition, maybe triggering an interrupt
-				// in the interpreter
-				break;
-			case 'wall':
-				this.environmentalDamage(GenericAgent.const.WALL_DAMAGE);
-				this.raiseWallCondition(evt);
-				// TODO: Maybe trigger an interrupt in the interpreter?
-				break;
-			default:
-				throw new Error(`Agent does not recognize event type (${evt.type})`);
-		}
-	};
-
-	GenericAgent.prototype.raiseWallCondition = function (evt) {
-		let name = evt.data.bumped.name;
-		switch (name) {
-			case 'NORTH':
-				this.wall = 1;
-				break;
-			case 'WEST':
-				this.wall = 2;
-				break;
-			case 'SOUTH':
-				this.wall = 3;
-				break;
-			case 'EAST':
-				this.wall = 4;
-				break;
-			default:
-				throw new Error(`raiseWallCondition: Unknown wall '${name}'`);
-		}
+	GenericAgent.prototype.queueInterrupt = function (sensor) {
+		this.interpreter.queueInterrupt(sensor);
 	};
 
 	GenericAgent.prototype.onAgentDied = function () {

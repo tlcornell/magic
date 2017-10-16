@@ -304,6 +304,7 @@ var MAGIC = ((ns) => {
 			agent.pos = initPosList[i];
 			agent.body = Physics.agentBody(agent);
 			this.physics.addBody(agent.body);
+			agent.initializeHardware();
 			// Generic "sprite" properties, until we get proper sprite support
 			// These belong somewhere else now...
 			let spriteProperties = {
@@ -532,7 +533,8 @@ var MAGIC = ((ns) => {
 				}
 				task.obj = null;
 				break;
-			case 'interrupt':
+			case 'collision':
+			case 'wall':
 				task.obj.queueEvent(task);
 				break;
 			default:
@@ -640,7 +642,7 @@ var MAGIC = ((ns) => {
 	 * the game, etc.)
 	 */
 	Projectile.prototype.handleEvent = function (evt, tasks) {
-		switch (evt.type) {
+		switch (evt.op) {
 			case 'collision':
 				tasks.push(createRemoveProjectileTask(this));
 				break;
@@ -649,7 +651,7 @@ var MAGIC = ((ns) => {
 				tasks.push(createRemoveProjectileTask(this));
 				break;
 			default:
-				throw new Error(`Agent does not recognize event type (${evt.type})`);
+				throw new Error(`Agent does not recognize event op (${evt.op})`);
 		}
 	};
 
@@ -813,21 +815,21 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	function createInterrupt(type, subject, data) {
-		let task = {};
-		task.op = 'interrupt';
-		task.type = type;
-		task.obj = subject;
-		task.data = data;
+	function createEvent(type, subject, data) {
+		let task = {
+			op: type,
+			obj: subject,
+			data: data,
+		};
 		return task;
 	}
 
 	function mkWallEvt(A, B) {
-		return createInterrupt('wall', A, {bumped: B});
+		return createEvent('wall', A, {bumped: B});
 	}
 
 	function mkCollEvt(A, B) {
-		return createInterrupt('collision', A, {bumped: B});
+		return createEvent('collision', A, {bumped: B});
 	}
 
 	/**

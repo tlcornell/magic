@@ -8,7 +8,7 @@ var MAGIC = ((ns) => {
 	 */
 	ns.e_ = function (id) {
 		return document.getElementById(id);
-	}
+	};
 
 	/**
 	* Randomly shuffle an array in-place.
@@ -24,7 +24,7 @@ var MAGIC = ((ns) => {
 			array[i] = array[j];
 			array[j] = temp;
 		}
-	}
+	};
 
 	ns.normDegrees = function (degrees) {
 			degrees %= 360;
@@ -32,20 +32,20 @@ var MAGIC = ((ns) => {
 				degrees += 360;
 			}
 		  return degrees;
-	}
+	};
 
 	// Converts from degrees to radians.
 	// Result should fall in [0, 2pi).
 	ns.radians = function (degrees) {
 	  return ns.normDegrees(degrees) * Math.PI / 180;
-	}
+	};
 
 	// Converts from radians to degrees.
 	// Result guaranteed to be in [0, 360).
 	ns.degrees = function (radians) {
 		let d = radians * 180 / Math.PI;
 	  return ns.normDegrees(d);
-	}
+	};
 
 	// This assumes that we are starting from 0,0,
 	// so don't forget to Vector.add an offset.
@@ -54,7 +54,7 @@ var MAGIC = ((ns) => {
 		let x = Math.cos(angle) * distance,
 				y = Math.sin(angle) * distance;
 		return Matter.Vector.create(x, y);
-	}
+	};
 
 	/**
 	 * Return the vector from 'pos' at 'angle' with size 'length'.
@@ -64,30 +64,30 @@ var MAGIC = ((ns) => {
 		let x = Math.cos(angle) * length + pos.x,
 		    y = Math.sin(angle) * length + pos.y;
 		return Matter.Vector.create(x, y);
-	}
+	};
 
 	ns.vector2angle = function (x, y) {
 		let size2 = x * x + y * y,
 				size = Math.sqrt(size2),
 				angle = Math.atan2(dy, dx);
 		return {r: size, th: angle};
-	}
+	};
 
 	ns.randomInt = function (lo, hi) {
 		let rand = Math.floor(Math.random() * (hi - lo + 1));
 		rand += lo;
 		return rand;
-	}
+	};
 
 	ns.randomFloat = function (lo, hi) {
 		let rand = Math.random() * (hi - lo);
 		rand += lo;
 		return rand;
-	}
+	};
 
 	ns.randomRadian = function () {
 		return Math.random() * 2 * Math.PI;
-	}
+	};
 
 	ns.round = function (num) {
 		if (num >= 0) {
@@ -95,7 +95,7 @@ var MAGIC = ((ns) => {
 		} else {
 			return Math.ceil(num);
 		}
-	}
+	};
 
 	/**
 	 * URL: https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
@@ -124,7 +124,13 @@ var MAGIC = ((ns) => {
 			return true;
 		}
 		return false;
-	}
+	};
+
+	ns.zipForEach = function (l1, l2, f) {
+		for (let i = 0; i < l1.length; ++i) {
+			f(l1[i], l2[i]);
+		}
+	};
 
 
 	// EXPORTS

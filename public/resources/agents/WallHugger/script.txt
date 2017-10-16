@@ -136,6 +136,8 @@ CheckRange:
 	ifnz A DoFire DoRotate
 
 DoFire:
+	A = gte sys.energy 10
+	ifz A CheckWall
 	sys.fire = 10 
 	jump CheckWall
 

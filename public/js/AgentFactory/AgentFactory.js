@@ -11,16 +11,11 @@ var MAGIC = ((ns) => {
 	// IMPORTS
 	let Game = ns.Game,
 			GenericAgent = ns.GenericAgent,
-			Interpreter = ns.Interpreter;
+			Interpreter = ns.Interpreter,
+			zipForEach = ns.zipForEach;
 
 
 	let serverUrl = ns.config.server; //'http://localhost:3000';
-
-	function zipForEach(l1, l2, f) {
-		for (let i = 0; i < l1.length; ++i) {
-			f(l1[i], l2[i]);
-		}
-	}
 
 	function AgentFactory(game) {
 		this.game = game;
@@ -144,7 +139,7 @@ var MAGIC = ((ns) => {
 			number: id,									// per-game unique ID
 			hw: kit.config.loadout,
 		};
-		let agent = new GenericAgent(properties);
+		let agent = new GenericAgent(this.game, properties);
 		agent.sourceCode = kit.script; 
 		let compiler = new ns.Compiler();
 		compiler.compile(agent);	// --> agent.program
