@@ -318,7 +318,6 @@ var MAGIC = ((ns) => {
 				aim: agent.getAim(),
 			};
 			agent.sprite = this.graphics.createSprite('agent',	spriteProperties);
-			this.graphics.activate(agent.sprite, 'notDead');
 			this.objects.agents.push(agent);
 		});
 	};

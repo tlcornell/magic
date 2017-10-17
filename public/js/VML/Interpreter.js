@@ -266,7 +266,7 @@ var MAGIC = ((ns) => {
 				case 'velocity_dy':
 					return this.bot.getSpeedY();
 				case 'wall':
-					return this.bot.module('wall').get(path);
+					return this.bot.module('wall').read(path);
 				case 'x':
 					return this.bot.getPosX();
 				case 'y':

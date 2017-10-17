@@ -74,13 +74,17 @@ var MAGIC = ((ns) => {
 	Graphics.prototype.createSprite = function (key, properties) {
 		switch (key) {
 			case 'agent':
-				// if sprites specified for this kit, use them
-				// else
-				return new GenericAgentSpriteMaster(properties, this);
+				let a = new GenericAgentSpriteMaster(properties, this);
+				a.activate('notDead', this.sceneGraph);
+				return a;
 			case 'bullet':
-				return new BulletSprite(properties, this);
+				let b = new BulletSprite(properties);
+				b.activate('unused', this.sceneGraph);
+				return b;
 			case 'wall':
-				return new WallSprite(properties, this);
+				let w = new WallSprite(properties);
+				w.activate('unused', this.sceneGraph);
+				return w;
 			default:
 				throw Error(`Unrecognized sprite master key: ${key}`);
 		}
@@ -126,14 +130,13 @@ var MAGIC = ((ns) => {
 	 * A WallSprite only controls a single sprite, so we collapse the 
 	 * SpriteMaster and the Sprite into a single object.
 	 */
-	function WallSprite(properties, gfx) {
+	function WallSprite(properties) {
 		Object.assign(this, {
 			pos: properties.pos,
 			width: properties.width,
 			height: properties.height,
 			name: properties.name,
 		});
-		this.activate('unused', gfx.sceneGraph);
 	};
 	WallSprite.prototype.deactivate = function (sceneGraph) {
 		// Does nothing
@@ -155,9 +158,8 @@ var MAGIC = ((ns) => {
 	 * Like walls, bullets only have one sprite, so we combine the 
 	 * SpriteMaster trait with the Sprite trait.
 	 */
-	function BulletSprite(properties, gfx) {
+	function BulletSprite(properties) {
 		Object.assign(this, properties);
-		this.activate('unused', gfx.sceneGraph);
 	}
 	BulletSprite.prototype.deactivate = function (sceneGraph) {
 		sceneGraph.removeChild(this);
