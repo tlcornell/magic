@@ -50,6 +50,10 @@ var MAGIC = ((ns) => {
 		this.queue.push(sensor);
 	};
 
+	InterruptQueue.prototype.shift = function () {
+		return this.queue.shift();
+	};
+
 
 	function Interpreter (agent) {
 		Object.assign(this, {
@@ -123,6 +127,10 @@ var MAGIC = ((ns) => {
 			};
 			framestack.push(frame);
 			return frame;
+		};
+
+		let popFrame = (framestack) => {
+			return framestack.pop();
 		};
 
 		let rval = (token, context) => {
@@ -255,12 +263,18 @@ var MAGIC = ((ns) => {
 					return this.bot.getEnergy();
 				case 'fire':
 					return 0;
+				/*
 				case 'look':
 					return this.bot.getLookDegrees();
+					*/
 				case 'random':
 					return Math.random();
+				/*
 				case 'range':
 					return this.bot.getSightDist();
+					*/
+				case 'agents':
+					return this.bot.module('agents').read(path);
 				case 'velocity_dx':
 					return this.bot.getSpeedX();
 				case 'velocity_dy':
@@ -333,16 +347,17 @@ var MAGIC = ((ns) => {
 
 		// Any interrupts to handle?
 		if (this.irflag && this.irq.length()) {
-			this.irq.forEach((sensor) => {
-				let hdlr = sensor.getHandler();
-				if (isNaN(hdlr) || hdlr < 0 || hdlr >= this.program.instructions.length) {
-					this.error(`Bad return address: ${hdlr}`);
-				}
-				let frame = pushNewFrame(this.framestack);
-				frame.return = this.pc;
-				this.irflag = false;	// turn off interrupts on branching to a handler
-				this.pc = hdlr;
-			});
+			let sensor = this.irq.shift(),
+					hdlr = sensor.getHandler();
+			if (hdlr === -1) return;
+			if (isNaN(hdlr) || hdlr < 0 || hdlr >= this.program.instructions.length) {
+				this.error(`Bad return address: ${hdlr}`);
+			}
+			// Call interrupt handler as if it was a subroutine, 
+			let frame = pushNewFrame(this.framestack);
+			frame.return = this.pc;
+			this.irflag = false;	// turn off interrupts on branching to a handler
+			this.pc = hdlr;
 		}
 
 		// Okay, execute the instruction at this.pc
@@ -406,10 +421,6 @@ var MAGIC = ((ns) => {
 			case 'eq':
 				binOp((a,b)=>(a===b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
-			case 'flushint':
-				this.irq.clear();
-				++this.pc;
-				break;
 			case 'gt':
 				binOp((a,b)=>(a>b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
@@ -425,12 +436,36 @@ var MAGIC = ((ns) => {
 				brElse = (args.length === 3) ? rval(args[2]) : null;
 				doConditional(!rval(args[0]), rval(args[1]), brElse);
 				break;
-			case 'intoff':
-				this.irflag = false;
+			case 'ircall': 	// <interrupt name> <addr> 
+				setInterruptHandler(args[0], rval(args[1]));
+				break;
+			case 'ircontinue': {
+					let frame = popFrame(this.framestack);
+					this.irflag = true;
+					if (args.length === 1) {
+						frame.return = rval(args[0]);
+					}
+					if (isNaN(frame.return) 
+						|| frame.return < 0 
+						|| frame.return >= this.program.instructions.length) {
+						this.error(`ircontinue: Bad return address: ${frame.return}`);
+					}
+					this.pc = frame.return;
+				}
+				break;
+			case 'irflush':
+				this.irq.clear()
 				++this.pc;
 				break;
-			case 'inton':
+			case 'irparam':
+				setInterruptSensitivity(args[0], rval(args[1]));
+				break;
+			case 'irstart':
 				this.irflag = true;
+				++this.pc;
+				break;
+			case 'irstop':
+				this.irflag = false;
 				++this.pc;
 				break;
 			case 'jump':
@@ -438,7 +473,7 @@ var MAGIC = ((ns) => {
 				if (isNaN(addr) 
 					|| addr < 0 
 					|| addr >= this.program.instructions.length) {
-					this.error(`Bad jump address: ${addr}`);
+					this.error(`jump: Bad address: ${addr}`);
 				}
 				this.pc = addr;
 				break;
@@ -473,25 +508,9 @@ var MAGIC = ((ns) => {
 						|| frame.return >= this.program.instructions.length) {
 						this.error(`Bad return address: ${frame.return}`);
 					}
+					popFrame(this.framestack);
 					this.pc = frame.return;
 				}
-				break;
-			case 'rti': {
-					let frame = top(this.framestack);
-					this.irflag = true;
-					if (isNaN(frame.return) 
-						|| frame.return < 0 
-						|| frame.return >= this.program.instructions.length) {
-						this.error(`Bad return address: ${frame.return}`);
-					}
-					this.pc = frame.return;
-				}
-				break;
-			case 'setint': 	// <interrupt name> <addr> 
-				setInterruptHandler(args[0], rval(args[1]));
-				break;
-			case 'setlimit':
-				setInterruptSensitivity(args[0], rval(args[1]));
 				break;
 			case 'sin':
 				scale = (args.length > 1) ? rval(args[1]) : 1;

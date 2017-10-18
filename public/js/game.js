@@ -405,14 +405,15 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * Sets observer.sight.thing if there is anything to see at
+	 * Sets observer.hw.agents.data, if there is anything to see at
 	 * observer.sight.angle + observer.sight.offset. 
 	 * Object returned will be the closest, in case there are 
 	 * multiple candidates.
 	 */
 	Game.prototype.checkSightEvents = function (observer) {
-		observer.sight.thing = null;
-		let angle = observer.sight.angle + observer.sight.offset,
+		let scanner = observer.hw.agents;
+		scanner.data = null;
+		let angle = observer.turret.angle + scanner.angle,
 				pos = observer.getPosition(),
 				sightRay = a2v(pos, angle, Game.const.SIGHT_DISTANCE);
 		let agents = this.objects.agents;
@@ -422,8 +423,6 @@ var MAGIC = ((ns) => {
 			if (!agent.isNotDead() || observer === agent) {
 				continue;
 			}
-			let debug = aimData(observer, agent),
-					dbgWhere = a2v(pos, angle, debug.dist);
 			let C = agent.getPosition(),
 					r = Game.const.AGENT_RADIUS;
 			if (intersectLineCircle(pos, sightRay, C, r)) {
@@ -446,13 +445,14 @@ var MAGIC = ((ns) => {
 				argmin = thing;
 			}
 		}
-		observer.sight.thing = argmin;
-		observer.sight.dist = Math.sqrt(min);
-		
-		if (observer.sight.thing !== null) {
-			observer.onSight();
+		if (argmin) {
+			scanner.data = {
+				thing: argmin,
+				dist: Math.sqrt(min),
+			};
 		}
 	};
+
 
 	Game.prototype.loop = function () {
 
@@ -612,6 +612,10 @@ var MAGIC = ((ns) => {
 	}
 
 	Projectile.idCounter = 0;
+
+	Projectile.prototype.isNotDead = function () {
+		return true;
+	};
 
 	Projectile.prototype.getPosition = function () {
 		// Make sure pos registers are up to date

@@ -1,7 +1,7 @@
 Startup:
-	setint sys.wall WallAlert
-	setlimit sys.wall 30
-	inton
+	ircall sys.wall WallAlert
+	irparam sys.wall 30
+	irstart
 
 Main:
 	min = sys.wall.north
@@ -49,4 +49,4 @@ Traveling:
 WallAlert:
 	sys.velocity_dx = 0
 	sys.velocity_dy = 0
-	jump Traveling
+	ircontinue Traveling

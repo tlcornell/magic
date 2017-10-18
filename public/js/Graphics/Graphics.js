@@ -99,7 +99,11 @@ var MAGIC = ((ns) => {
 	}
 
 	Graphics.prototype.removeSprite = function (gameObj) {
-		gameObj.sprite.deactivate(this.sceneGraph);
+		// For some odd reason, sometimes the sprite is 'null' when this is called.
+		// Maybe some kind of synchronization issue way back in the browser?
+		if (gameObj.sprite) {
+			gameObj.sprite.deactivate(this.sceneGraph);
+		}
 	};
 
 	Graphics.prototype.clearViewport = function () {

@@ -1,6 +1,55 @@
 var MAGIC = ((ns) => {
 
 	// IMPORTS
+	let constants = ns.constants;
+	
+
+	function AgentsScanner (agent) {
+		Object.assign(this, {
+			agent: agent,
+			name: 'agents',
+			angle: 0,
+			data: null,		// {thing: (object), dist: (pixels)}
+			priority: 60,
+			sensitivity: constants.SIGHT_DISTANCE,
+			handler: -1,
+		});
+	}
+
+	AgentsScanner.prototype.getHandler = function () {
+		return this.handler;
+	};
+
+	AgentsScanner.prototype.setHandler = function (addr) {
+		this.handler = addr;
+	};
+
+	AgentsScanner.prototype.getPriority = function () {
+		return this.priority;
+	};
+
+	AgentsScanner.prototype.setSensitivity = function (param) {
+		this.sensitivity = param;
+	};
+
+	/** 
+	 * Ideally, the current state of the ir-flag will be passed in 
+	 * as an argument.
+	 */
+	AgentsScanner.prototype.update = function () {
+		this.agent.checkSightEvents();
+		// Maybe trigger an interrupt?
+		if (!this.data) return;
+		if (this.handler === -1) return;
+		if (this.data.dist > this.sensitivity) return;
+		// Trigger interrupt (no edge triggering behavior here)
+		this.agent.queueInterrupt(this);
+	};
+
+	AgentsScanner.prototype.read = function () {
+		if (!this.data) return 0;
+		return this.data.dist;
+	};
 
 
 
@@ -45,7 +94,6 @@ var MAGIC = ((ns) => {
 	 */
 	WallSensor.prototype.read = function (prop) {
 		if (prop.length === 0) {
-			console.log('plain old wall query');
 			let minDist = this.data[0],
 					closest = 0;
 			this.data.forEach((d, i) => {
@@ -74,6 +122,7 @@ var MAGIC = ((ns) => {
 		this._updateData();		// distances to all 4 walls
 
 		if (this.handler === -1) {
+			console.log('Wall handler is -1');
 			// no handler => interrupt disabled
 			// we can still inspect the wall proximity data by hand, of course
 			return;
@@ -110,11 +159,8 @@ var MAGIC = ((ns) => {
 		// Trigger only on change of state
 		if (edgeTrigger()) {
 			this.agent.queueInterrupt(this);
-			// REVIEW: `this` is the WallSensor object. Maybe we want to queue
-			// something more like just an interrupt?
-			// Needs at least name, priority, and handler address
-			this.rememberFlags();
 		}
+		this.rememberFlags();
 	};
 
 	WallSensor.prototype.getName = function () {
@@ -156,11 +202,12 @@ var MAGIC = ((ns) => {
 	 * and that it is getting called just when we need it to be.
 	 */
 	WallSensor.prototype.rememberFlags = function () {
-		this.oldFlags = this.flags;
+		this.flags.forEach((f, i) => this.oldFlags[i] = f);
 	};
 
 
 	// EXPORTS
+	ns.AgentsScanner = AgentsScanner;
 	ns.WallSensor = WallSensor;
 
 	return ns;

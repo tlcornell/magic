@@ -8,7 +8,8 @@ var MAGIC = ((ns) => {
 			angle2vector = ns.angle2vector,
 			vector2angle = ns.vector2angle,
 			zipForEach = ns.zipForEach;
-	let WallSensor = ns.WallSensor;
+	let AgentsScanner = ns.AgentsScanner,
+			WallSensor = ns.WallSensor;
 	let LOG = ns.LOG;
 	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
 	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
@@ -56,13 +57,11 @@ var MAGIC = ((ns) => {
 				x: 0,
 				y: 0,
 			},
-			sight: {
+			turret: {
 				angle: 0,
-				offset: 0,
-				thing: null,
-				dist: 0,
 			},
 			hw: {
+				agents: new AgentsScanner(this),
 				wall: new WallSensor(this),
 			},
 		});
@@ -134,7 +133,7 @@ var MAGIC = ((ns) => {
 	* Return contents of AIM register, which are natively in radians.
 	*/
 	GenericAgent.prototype.getAim = function () {
-		return this.sight.angle;
+		return this.turret.angle;
 	};
 
 	GenericAgent.prototype.getAimDegrees = function () {
@@ -142,8 +141,9 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.setAim = function (rad) {
-		this.sight.angle = rad;
-		this.checkSightEvents();
+		this.turret.angle = rad;
+		this.checkSightEvents('agents');
+		this.checkSightEvents('attacks');
 	};
 
 	GenericAgent.prototype.setAimDegrees = function (deg) {
@@ -156,18 +156,19 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.getLookDegrees = function () {
-		return degrees(this.sight.offset);
+		return degrees(this.turret.offset);
 	}
 
 	GenericAgent.prototype.setLook = function (rad) {
 		this.vision.offset = rad;
-		this.checkSightEvents();
+		this.checkSightEvents('agents');
 	}
 
 	GenericAgent.prototype.setLookDegrees = function (deg) {
 		this.setLook(radians(deg));
 	}
 
+	/*
 	GenericAgent.prototype.getSightDist = function () {
 		if (this.sight.dist) {
 			return this.sight.dist;
@@ -175,6 +176,7 @@ var MAGIC = ((ns) => {
 			return 0;
 		}
 	};
+	*/
 
 	GenericAgent.prototype.getCPU = function () {
 		return this.cpuSpeed;
@@ -359,22 +361,23 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.update = function () {
 
-		let generatedTasks = [];
+		let gameMessages = [];
 
 		// Handle event notifications (event queue) for "external" events 
 		// coming in from the Game object.
 		// Right now there's no prioritization; it's just a flat list
+		// The update methods may queue interrupts. In any case, they update
+		// the relevant registers for reading under normal program control.
 		this.hw.wall.update();
-		this.sight.dist = 0;
-		this.sight.thing = null;
+		this.hw.agents.update();
 		this.eventQueue.forEach((evt) => this.handleEvent(evt));
 		this.eventQueue = [];
+
 		// Trigger events if warranted (e.g., we just died)
 		// We might add some generated tasks here.
+		this.prog.main.call(this, gameMessages);
 
-		this.prog.main.call(this, generatedTasks);
-
-		return generatedTasks;
+		return gameMessages;
 
 	};
 
@@ -395,7 +398,8 @@ var MAGIC = ((ns) => {
 			this.rechargeEnergy();
 			// Even without interrupts, we need to do this in case a bot
 			// has moved into our sights.
-			this.checkSightEvents();
+			this.checkSightEvents('agents');
+			this.checkSightEvents('attacks');
 
 			// Check per-chronon interrupts?
 
@@ -441,12 +445,8 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericAgent.prototype.onSight = function () {
-		let seen = this.sight.thing;
+//		let seen = this.sight.thing;
 //		console.log(this.name, "sees", seen.name);
-		let p1 = this.getPosition(),
-				p2 = seen.getPosition();
-		//this.game.graphics.drawLine(p1, p2);
-		//this.game.togglePaused();
 	};
 
 	GenericAgent.prototype.checkSightEvents = function () {

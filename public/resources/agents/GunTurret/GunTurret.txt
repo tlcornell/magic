@@ -4,7 +4,7 @@
 #
 
 Main:
-	A = gt sys.range 0
+	A = gt sys.agents.dist 0
 	ifnz A DoFire
 	sys.aim = add 7 sys.aim 
 	jump Main

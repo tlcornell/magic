@@ -35,7 +35,7 @@ GetOffEastWall:
 
 
 CheckRange:
-	A = gt sys.range 0 
+	A = gt sys.agents.dist 0 
 	ifnz A DoFire DoRotate
 
 DoFire:
