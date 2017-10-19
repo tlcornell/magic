@@ -39,25 +39,22 @@ SeekingWall:
 	
 
 HugWall:
-	log "HugWall"
 	dx = sys.velocity_dx
 	sys.velocity_dx = sys.velocity_dy
 	sys.velocity_dy = dx
 	ircontinue HugLoop	# pop stack frame, re-enable interrupts
 HugLoop:
-	log "HugLoop"
 	ircall sys.wall ReverseDirection
 	call CheckRange
 	jump HugLoop
 
 ReverseDirection:
-	log "ReverseDirection"
 	sys.velocity_dx = mul -1 sys.velocity_dx
 	sys.velocity_dy = mul -1 sys.velocity_dy
 	ircontinue
 
 CheckRange:
-	A = gt sys.agents.dist 0 
+	A = gt sys.agents.data.dist 0 
 	ifnz A DoFire DoRotate
 DoFire:
 	A = gte sys.energy 10

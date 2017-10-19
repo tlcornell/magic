@@ -139,7 +139,7 @@ var MAGIC = ((ns) => {
 			else {
 				let nxt = path.shift();
 				if (!object.hasOwnProperty(nxt)) {
-					throw new Error(`Attempt to read from non-existent location '${nxt}'`);
+					this.error(`Attempt to read from non-existent location '${nxt}'`);
 				}
 				return readFromPath(object[nxt], path);
 			}

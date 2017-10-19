@@ -72,6 +72,10 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.const = ns.constants;
 
+	GenericAgent.prototype.error = function (msg) {
+		throw new Error(`[${this.name}] ERROR: ${msg}`);
+	};
+
 	GenericAgent.prototype.initializeHardware = function () {
 		this.hw.wall.initialize();
 	};
@@ -216,7 +220,7 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.removeHealth = function (amt) {
 		if (amt < 0) {
-			throw new Error(`removeHealth: Negative amount (${amt})`);
+			this.error(`removeHealth: Negative amount (${amt})`);
 		}
 		let H = this.getHealth();
 		if (H === 0) {
@@ -305,7 +309,7 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.module = function (modName) {
 		if (!this.hw.hasOwnProperty(modName)) {
-			throw new Error(`Attempt to access non-existing module '${modName}'`);
+			this.error(`Attempt to access non-existing module '${modName}'`);
 		}
 		return this.hw[modName];
 	};
@@ -313,7 +317,7 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.setInterruptHandler = function (path, hdlr) {
 		let mod = path.shift();
 		if (!this.hw.hasOwnProperty(mod)) {
-			throw new Error(`Unknown hardware module '${mod}'`);
+			this.error(`Unknown hardware module '${mod}'`);
 		}
 		this.hw[mod].setHandler(hdlr);
 		// Modules with only one interrupt will ignore the path argument,
@@ -323,7 +327,7 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.setInterruptSensitivity = function (path, param) {
 		let mod = path.shift();
 		if (!this.hw.hasOwnProperty(mod)) {
-			throw new Error(`Unknown hardware module '${mod}'`);
+			this.error(`Unknown hardware module '${mod}'`);
 		}
 		this.hw[mod].setSensitivity(param);
 		// Modules with only one interrupt will ignore the path argument,
@@ -491,7 +495,7 @@ var MAGIC = ((ns) => {
 				this.projectileImpact(evt.data.hitBy);
 				break;
 			default:
-				throw new Error(`Agent does not recognize event operator (${evt.op})`);
+				this.error(`Agent does not recognize event operator (${evt.op})`);
 		}
 	};
 

@@ -23,7 +23,7 @@ var MAGIC = ((ns) => {
 	};
 
 	AgentsScanner.prototype.setHandler = function (addr) {
-		if (isNaN(addr)) throw new Error(`setHandler: ${addr} is not a number`);
+		if (isNaN(addr)) this.agent.error(`setHandler: ${addr} is not a number`);
 		this.handler = addr;
 	};
 
@@ -32,7 +32,6 @@ var MAGIC = ((ns) => {
 	};
 
 	AgentsScanner.prototype.setSensitivity = function (param) {
-		console.log(this.agent.getName(), 'AgentsScanner::setSensitivity', param);
 		this.sensitivity = param;
 	};
 
@@ -60,6 +59,7 @@ var MAGIC = ((ns) => {
 			case 'angle':
 				return degrees(this.angle);
 			case 'data': {
+				if (!this.data) return 0;
 				let reg1 = path.shift();
 				switch (reg1) {
 					case 'thing':
@@ -71,7 +71,7 @@ var MAGIC = ((ns) => {
 			case 'param':
 				return this.sensitivity;
 		}
-		throw new Error(`AgentsScanner: Bad register '${path.join(".")}'`);
+		this.agent.error(`AgentsScanner: Bad register '${path.join(".")}'`);
 	};
 
 	AgentsScanner.prototype.write = function (path, val) {
@@ -80,7 +80,7 @@ var MAGIC = ((ns) => {
 			this.angle = radians(val);
 		}
 		else {
-			throw new Error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
+			this.agent.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
 		}
 	};
 
@@ -146,12 +146,12 @@ var MAGIC = ((ns) => {
 			case 'east':
 				return this.data[3];
 			default:
-				throw new Error(`Invalid wall register '${prop[0]}'`);
+				this.agent.error(`Invalid wall register '${prop[0]}'`);
 		}
 	};
 
 	WallSensor.prototype.write = function (_path, _val) {
-		throw new Error(`WallSensor: No writable registers`);
+		this.agent.error(`WallSensor: No writable registers`);
 	};
 
 	WallSensor.prototype.update = function () {
@@ -164,6 +164,10 @@ var MAGIC = ((ns) => {
 			return;
 		}
 
+		// There was a bug here regarding redZoneSize: it originally included
+		// wall thickness. However, this.data[i] holds the distance to wall i,
+		// not distance to the edge of the arena. So the red zone size should 
+		// be measured from the wall, not from the edge of the arena.
 		let redZoneSize = /*constants.WALL_THICKNESS +*/ this.sensitivity,
 				x = this.agent.getPosX(),
 				y = this.agent.getPosY();
@@ -192,11 +196,15 @@ var MAGIC = ((ns) => {
 			return false;
 		};
 
+		let rememberFlags = () => {
+			this.flags.forEach((f, i) => this.oldFlags[i] = f);
+		};
+
 		// Trigger only on change of state
 		if (edgeTrigger()) {
 			this.agent.queueInterrupt(this);
 		}
-		this.rememberFlags();
+		rememberFlags();
 	};
 
 	WallSensor.prototype.getName = function () {
@@ -215,7 +223,9 @@ var MAGIC = ((ns) => {
 	};
 
 	WallSensor.prototype.setSensitivity = function (param) {
+		//this._clearOldFlags();
 		this.sensitivity = param;
+		//this.update();
 	};
 
 	WallSensor.prototype.getHandler = function () {
@@ -233,12 +243,8 @@ var MAGIC = ((ns) => {
 		this.handler = addr;
 	};
 
-	/**
-	 * REVIEW: Need to be absolutely certain about when this should be called,
-	 * and that it is getting called just when we need it to be.
-	 */
-	WallSensor.prototype.rememberFlags = function () {
-		this.flags.forEach((f, i) => this.oldFlags[i] = f);
+	WallSensor.prototype._clearOldFlags = function () {
+		this.oldFlags.forEach((_, i) => this.oldFlags[i] = 0);
 	};
 
 
