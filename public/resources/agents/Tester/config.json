@@ -3,8 +3,8 @@
 	},
 	"script": "script.txt",
 	"loadout": {
-		"cpu": 10,
-		"energy": 40,
+		"cpu": 20,
+		"energy": 50,
 		"damage": 150,
 		"shields": 30
 	}

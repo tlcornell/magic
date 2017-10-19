@@ -98,8 +98,7 @@ var MAGIC = ((ns) => {
 		this.handler = -1;
 
 		this.data = [0, 0, 0, 0];
-		this.flags = [0, 0, 0, 0];
-		this.oldFlags = [0, 0, 0, 0];
+		this.oldData = [0, 0, 0, 0];
 	}
 
 	WallSensor.prototype.initialize = function () {
@@ -164,47 +163,18 @@ var MAGIC = ((ns) => {
 			return;
 		}
 
-		// There was a bug here regarding redZoneSize: it originally included
-		// wall thickness. However, this.data[i] holds the distance to wall i,
-		// not distance to the edge of the arena. So the red zone size should 
-		// be measured from the wall, not from the edge of the arena.
-		let redZoneSize = /*constants.WALL_THICKNESS +*/ this.sensitivity,
-				x = this.agent.getPosX(),
-				y = this.agent.getPosY();
+		let triggerInterrupt = false;
 
-		if (this.data[0] <= redZoneSize) {
-			this.flags[0] = 1;
-		} 
-		if (this.data[1] <= redZoneSize) {
-			this.flags[1] = 1;
-		} 
-		if (this.data[2] <= redZoneSize) {
-			this.flags[2] = 1;
-		} 
-		if (this.data[3] <= redZoneSize) {
-			this.flags[3] = 1;
-		} 
+		for (let i = 0; i < 4; ++i) {
+			if (this.data[i] <= this.sensitivity && this.data[i] < this.oldData[i]) {
+				triggerInterrupt = true;
+			} 
+			this.oldData[i] = this.data[i];
+		}
 
-		let edgeTrigger = () => {
-			for (let i = 0; i < 4; ++i) {
-				let f = this.flags[i],
-						o = this.oldFlags[i];
-				if (f === 1 && o === 0) {
-					return true;
-				}
-			}
-			return false;
-		};
-
-		let rememberFlags = () => {
-			this.flags.forEach((f, i) => this.oldFlags[i] = f);
-		};
-
-		// Trigger only on change of state
-		if (edgeTrigger()) {
+		if (triggerInterrupt) {
 			this.agent.queueInterrupt(this);
 		}
-		rememberFlags();
 	};
 
 	WallSensor.prototype.getName = function () {

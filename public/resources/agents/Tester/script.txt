@@ -1,4 +1,6 @@
 Startup:
+	debug
+
 	irparam sys.wall 1000
 	closest = sys.wall
 	jmpoffset = add JumpTableBase closest
@@ -34,7 +36,7 @@ ArrivedAtWall:
 	sys.velocity_dy = 0
 	ircall sys.agents Shoot
 	irparam sys.agents 10000
-	ircall sys.wall -1
+	ircall sys.wall RegainPosition
 	jmpoffset = add WallTurretBase sys.wall
 	jump jmpoffset
 WallTurretBase:
@@ -43,6 +45,62 @@ WallTurretBase:
 	ircontinue OnWestWall
 	ircontinue OnSouthWall
 	ircontinue OnEastWall
+
+Shoot:
+	sys.aim = add sys.aim sys.agents.angle
+	A = gte sys.energy 50
+	ifz A SkipIt
+	sys.fire = 50
+SkipIt:
+	ircontinue
+
+RegainPosition:
+	irparam sys.wall 10000
+	jmpoffset = add RegainBase sys.wall
+	irparam sys.wall 30
+	jump jmpoffset
+RegainBase:
+	log "noop"
+	jump GetOffNorth
+	jump GetOffWest
+	jump GetOffSouth
+	jump GetOffEast
+GetOffNorth:
+	log "GetOffNorth"
+	sys.velocity_dy = 2
+	sync
+	A = lte sys.y 50
+	log sys.y 50
+	if A GetOffNorth
+	sys.velocity_dy = 0
+	ircontinue
+GetOffWest:
+	log "GetOffWest"
+	sys.velocity_dx = 2
+	sync
+	A = lte sys.x 50
+	log sys.x 50
+	if A GetOffWest
+	sys.velocity_dx = 0
+	ircontinue
+GetOffSouth:
+	log "GetOffSouth"
+	sys.velocity_dy = -2
+	sync
+	A = gte sys.y 590
+	log sys.y 590
+	if A GetOffSouth
+	sys.velocity_dy = 0
+	ircontinue
+GetOffEast:
+	log "GetOffEast"
+	sys.velocity_dx = -2
+	sync
+	A = gte sys.x 750
+	log sys.x 750
+	if A GetOffEast
+	sys.velocity_dx = 0
+	ircontinue
 
 OnNorthWall:
 	sys.aim = 0
@@ -139,11 +197,5 @@ OnEastWall:
 	sys.agents.angle = add sys.agents.angle 1
 	sys.agents.angle = mod sys.agents.angle 7
 	jump OnEastWall
-
-Shoot:
-	sys.aim = add sys.aim sys.agents.angle
-	sys.fire = 50
-	ircontinue
-
 
 

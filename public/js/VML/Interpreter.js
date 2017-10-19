@@ -562,6 +562,7 @@ var MAGIC = ((ns) => {
 				break;
 			case 'sync':
 				this.syncFlag = true;
+				++this.pc;
 				break;
 			default:
 				console.log("------------------------------------------");
