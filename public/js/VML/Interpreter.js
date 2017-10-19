@@ -73,13 +73,12 @@ var MAGIC = ((ns) => {
 	}
 
 	Interpreter.HWRegister = Object.freeze({
+		agents: true,
 		aim: true,
 		energy: true,
 		fire: true,
 		heading: true,
-		look: true,
 		random: true,
-		range: true,
 		velocity_dx: true,
 		velocity_dy: true,
 		velocity: true,
@@ -133,6 +132,19 @@ var MAGIC = ((ns) => {
 			return framestack.pop();
 		};
 
+		let readFromPath = (object, path) => {
+			if (path.length === 0) {
+				return object;
+			}
+			else {
+				let nxt = path.shift();
+				if (!object.hasOwnProperty(nxt)) {
+					throw new Error(`Attempt to read from non-existent location '${nxt}'`);
+				}
+				return readFromPath(object[nxt], path);
+			}
+		};
+
 		let rval = (token, context) => {
 			if (!context) {
 				context = top(this.framestack);
@@ -176,6 +188,8 @@ var MAGIC = ((ns) => {
 					return this.program.labels[parts[0]];
 				} else {
 					// Must be a local
+					let val = readFromPath(context.locals, parts);
+					/*
 					let name = parts[0];
 					if (!context.locals.hasOwnProperty(name)) {
 						this.error(`Attempt to load unknown local (${name})`);
@@ -183,6 +197,8 @@ var MAGIC = ((ns) => {
 					// Someday we may want to decode the local value
 					// Also someday there might be locals with more than one part
 					return context.locals[name];
+					*/
+					return val;
 				}
 			}
 		};
@@ -194,53 +210,74 @@ var MAGIC = ((ns) => {
 		let decodeLVal = (storagePath) => {
 			let parts = storagePath.split('.');
 			var decoded;
-			if (parts[0] === 'sys') {
-				let reg = parts[1];
-				if (!Interpreter.HWRegister.hasOwnProperty(reg)) {
-					this.error(`Unrecognized hardware register (${reg})`);
+			let prefix = parts.shift();
+			if (prefix === 'sys') {
+				let mod = parts[0];
+				if (!Interpreter.HWRegister.hasOwnProperty(mod)) {
+					this.error(`Unrecognized hardware module (${mod})`);
 				}
-				decoded = {container: this.bot, key: reg};
-			} else if (parts[0] === 'user') {
-				decoded = {container: this.globals, key: parts[1]};
+				decoded = {container: this.bot, key: parts};
+			} else if (prefix === 'user') {
+				decoded = {container: this.globals, key: parts};
 			} else {
 				let frame = top(this.framestack);
-				decoded = {container: frame.locals, key: parts[0]};
+				parts.unshift(prefix);
+				decoded = {container: frame.locals, key: parts};
 			}
 			//console.log(decoded);
 			return decoded;
 		};
 
+		let storeToPath = (obj, path, val) => {
+			if (path.length === 1) {
+				obj[path[0]] = val;
+			}
+			else {
+				let nxt = path.shift();
+				if (!obj.hasOwnProperty(nxt)) {
+					obj[nxt] = {};
+				}
+				storeToPath(obj[nxt], path, val);
+			}
+		};
+
 		let storeLVal = (lval, x) => {
 			if (lval.container !== this.bot) {
-				lval.container[lval.key] = x;
+				storeToPath(lval.container, lval.key, x);
 				return;
 			}
 			// Store to hardware registers:
-			switch (lval.key) {
+			let module = lval.key.shift();
+			switch (module) {
+				case 'agents':
+					this.bot.module('agents').write(lval.key, x);
 				case 'aim':
+					// lval.key should be []
 					this.bot.setAimDegrees(x);
 					break;
 				case 'fire':
+					// lval.key should be []
 					this.bot.addBulletEnergy(x);
 					this.bot.fireWeapons();
-					//this.bot.launchProjectile(this.bot.getAim(), x);
 					break;
 				case 'velocity_dx':
+					// lval.key should be []
 					this.bot.setSpeedX(x);
 					break;
 				case 'velocity_dy':
+					// lval.key should be []
 					this.bot.setSpeedY(x);
 					break;
 				default:
-					this.error(`Attempt to write to unrecognized or read-only hardware register (${lval.key})`);
+					this.error(`Attempt to write to unrecognized or read-only hardware register (${module})`);
 			}
 		};
 
 		let storeObject = (lval, v1, v2) => {
 			// lval of the form {container: C, key: K}
 			// lval.container should === this.bot in all cases (aka 'sys')
-			// lval.key should be atomic ('velocity' or 'heading')
-			switch (lval.key) {
+			// lval.key should be a singleton array (['velocity'] or ['heading'])
+			switch (lval.key[0]) {
 				case 'velocity':
 					// v1 -> dx, v2 -> dy
 					this.bot.setVelocity(v1, v2);
@@ -250,7 +287,7 @@ var MAGIC = ((ns) => {
 					this.bot.setHeading(v1, v2);
 					break;
 				default:
-					this.error(`Attempt to store to unrecognized hardware register (${lval.key})`);
+					this.error(`Attempt to store to unrecognized hardware register (${lval.key.join(".")})`);
 			}
 		};
 
@@ -263,16 +300,8 @@ var MAGIC = ((ns) => {
 					return this.bot.getEnergy();
 				case 'fire':
 					return 0;
-				/*
-				case 'look':
-					return this.bot.getLookDegrees();
-					*/
 				case 'random':
 					return Math.random();
-				/*
-				case 'range':
-					return this.bot.getSightDist();
-					*/
 				case 'agents':
 					return this.bot.module('agents').read(path);
 				case 'velocity_dx':
@@ -372,7 +401,7 @@ var MAGIC = ((ns) => {
 			this.error(`PC does not match instr addr: ${this.pc}/${instruction.debug.address}`);
 		}
 
-		//console.log("step:", instruction);
+//		console.log("step:", instruction);
 		if (this.doTrace) {
 			let name = this.bot.getName(),
 					line = instruction.debug.line;
@@ -403,7 +432,7 @@ var MAGIC = ((ns) => {
 				binOp((a,b)=>a+b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'call':
-				doCall(rval(args[0]), args/*.slice(1)*/, dest);
+				doCall(rval(args[0]), args, dest);
 				break;
 			case 'cos':
 				scale = (args.length > 1) ? rval(args[1]) : 1;
@@ -478,7 +507,7 @@ var MAGIC = ((ns) => {
 				this.pc = addr;
 				break;
 			case 'log':
-				let logmsg = "LOG: ";
+				let logmsg = `[${this.bot.getName()}] LOG: `;
 				args.forEach((arg) => {
 					logmsg += `${rval(arg)} `;
 				});
@@ -491,6 +520,9 @@ var MAGIC = ((ns) => {
 				break;
 			case 'lte':
 				binOp((a,b) => (a<=b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
+				break;
+			case 'mod':
+				binOp((a,b) => a % b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'mul':
 				binOp((a,b)=>a*b, rval(args[0]), rval(args[1]), dest);

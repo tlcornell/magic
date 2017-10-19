@@ -2,6 +2,8 @@ var MAGIC = ((ns) => {
 
 	// IMPORTS
 	let constants = ns.constants;
+	let radians = ns.radians,
+			degrees = ns.degrees;
 	
 
 	function AgentsScanner (agent) {
@@ -21,6 +23,7 @@ var MAGIC = ((ns) => {
 	};
 
 	AgentsScanner.prototype.setHandler = function (addr) {
+		if (isNaN(addr)) throw new Error(`setHandler: ${addr} is not a number`);
 		this.handler = addr;
 	};
 
@@ -29,6 +32,7 @@ var MAGIC = ((ns) => {
 	};
 
 	AgentsScanner.prototype.setSensitivity = function (param) {
+		console.log(this.agent.getName(), 'AgentsScanner::setSensitivity', param);
 		this.sensitivity = param;
 	};
 
@@ -46,9 +50,38 @@ var MAGIC = ((ns) => {
 		this.agent.queueInterrupt(this);
 	};
 
-	AgentsScanner.prototype.read = function () {
-		if (!this.data) return 0;
-		return this.data.dist;
+	AgentsScanner.prototype.read = function (path) {
+		if (path.length === 0) {
+			if (!this.data) return 0;
+			return this.data.dist;
+		} 
+		let reg = path.shift();
+		switch (reg) {
+			case 'angle':
+				return degrees(this.angle);
+			case 'data': {
+				let reg1 = path.shift();
+				switch (reg1) {
+					case 'thing':
+						return this.data.thing;
+					case 'dist':
+						return this.data.dist;
+				}
+			}
+			case 'param':
+				return this.sensitivity;
+		}
+		throw new Error(`AgentsScanner: Bad register '${path.join(".")}'`);
+	};
+
+	AgentsScanner.prototype.write = function (path, val) {
+		let reg = path.shift();
+		if (reg === 'angle') {
+			this.angle = radians(val);
+		}
+		else {
+			throw new Error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
+		}
 	};
 
 
@@ -97,7 +130,7 @@ var MAGIC = ((ns) => {
 			let minDist = this.data[0],
 					closest = 0;
 			this.data.forEach((d, i) => {
-				if (d < this.getSensitivity() && d <= minDist) {
+				if (d <= this.getSensitivity() && d <= minDist) {
 					closest = i + 1;
 					minDist = d;
 				}
@@ -117,18 +150,21 @@ var MAGIC = ((ns) => {
 		}
 	};
 
+	WallSensor.prototype.write = function (_path, _val) {
+		throw new Error(`WallSensor: No writable registers`);
+	};
+
 	WallSensor.prototype.update = function () {
 
 		this._updateData();		// distances to all 4 walls
 
 		if (this.handler === -1) {
-			console.log('Wall handler is -1');
 			// no handler => interrupt disabled
 			// we can still inspect the wall proximity data by hand, of course
 			return;
 		}
 
-		let redZoneSize = constants.WALL_THICKNESS + this.sensitivity,
+		let redZoneSize = /*constants.WALL_THICKNESS +*/ this.sensitivity,
 				x = this.agent.getPosX(),
 				y = this.agent.getPosY();
 
@@ -178,7 +214,7 @@ var MAGIC = ((ns) => {
 		return this.sensitivity;
 	};
 
-	WallSensor.prototype.setSensitivity = function (_path, param) {
+	WallSensor.prototype.setSensitivity = function (param) {
 		this.sensitivity = param;
 	};
 
@@ -193,7 +229,7 @@ var MAGIC = ((ns) => {
 	 *
 	 * Set to -1 to disable this interrupt
 	 */
-	WallSensor.prototype.setHandler = function (_path, addr) {
+	WallSensor.prototype.setHandler = function (addr) {
 		this.handler = addr;
 	};
 

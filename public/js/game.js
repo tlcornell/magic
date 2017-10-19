@@ -450,7 +450,10 @@ var MAGIC = ((ns) => {
 				thing: argmin,
 				dist: Math.sqrt(min),
 			};
+//			console.log(observer.getName(), 'sees', scanner.data.thing.getName());
 		}
+		// This was called by the agent. It will check the result and raise
+		// an interrupt, if warranted.
 	};
 
 

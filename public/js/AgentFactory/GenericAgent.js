@@ -142,8 +142,7 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.setAim = function (rad) {
 		this.turret.angle = rad;
-		this.checkSightEvents('agents');
-		this.checkSightEvents('attacks');
+		this.hw.agents.update();
 	};
 
 	GenericAgent.prototype.setAimDegrees = function (deg) {
@@ -161,7 +160,7 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.setLook = function (rad) {
 		this.vision.offset = rad;
-		this.checkSightEvents('agents');
+		this.hw.agents.update();
 	}
 
 	GenericAgent.prototype.setLookDegrees = function (deg) {
@@ -316,7 +315,7 @@ var MAGIC = ((ns) => {
 		if (!this.hw.hasOwnProperty(mod)) {
 			throw new Error(`Unknown hardware module '${mod}'`);
 		}
-		this.hw[mod].setHandler(path, hdlr);
+		this.hw[mod].setHandler(hdlr);
 		// Modules with only one interrupt will ignore the path argument,
 		// which should be [] for them.
 	};
@@ -326,7 +325,7 @@ var MAGIC = ((ns) => {
 		if (!this.hw.hasOwnProperty(mod)) {
 			throw new Error(`Unknown hardware module '${mod}'`);
 		}
-		this.hw[mod].setSensitivity(path, param);
+		this.hw[mod].setSensitivity(param);
 		// Modules with only one interrupt will ignore the path argument,
 		// which should be [] for them.
 	};
@@ -368,6 +367,8 @@ var MAGIC = ((ns) => {
 		// Right now there's no prioritization; it's just a flat list
 		// The update methods may queue interrupts. In any case, they update
 		// the relevant registers for reading under normal program control.
+		// REVIEW: Maybe these calls should be moved to beNotDead, since only
+		// then is the agent aware of its surroundings...
 		this.hw.wall.update();
 		this.hw.agents.update();
 		this.eventQueue.forEach((evt) => this.handleEvent(evt));
@@ -396,12 +397,6 @@ var MAGIC = ((ns) => {
 		} else {
 
 			this.rechargeEnergy();
-			// Even without interrupts, we need to do this in case a bot
-			// has moved into our sights.
-			this.checkSightEvents('agents');
-			this.checkSightEvents('attacks');
-
-			// Check per-chronon interrupts?
 
 			//---------------------------------------------------
 			// This is where the bot program gets advanced
@@ -443,11 +438,6 @@ var MAGIC = ((ns) => {
 
 	let beEliminated = function (gameTasks) {
 	}
-
-	GenericAgent.prototype.onSight = function () {
-//		let seen = this.sight.thing;
-//		console.log(this.name, "sees", seen.name);
-	};
 
 	GenericAgent.prototype.checkSightEvents = function () {
 		this.game.checkSightEvents(this);

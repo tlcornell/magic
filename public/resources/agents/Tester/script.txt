@@ -1,30 +1,13 @@
 Startup:
-	ircall sys.wall WallAlert
+	irparam sys.wall 1000
+	closest = sys.wall
+	jmpoffset = add JumpTableBase closest
+	ircall sys.wall ArrivedAtWall
 	irparam sys.wall 30
 	irstart
-
-Main:
-	min = sys.wall.north
-	which = 0
-TestWest:
-	A = lt sys.wall.west min
-	ifz A TestSouth
-	min = sys.wall.west
-	which = 1
-TestSouth:
-	A = lt sys.wall.south min
-	ifz A TestEast
-	min = sys.wall.south
-	which = 2
-TestEast:
-	A = lt sys.wall.east min
-	ifz A StartMoving
-	min = sys.wall.east  	# Don't really need min any more...
-	which = 3
-StartMoving:
-	jumpaddr = add JumpTableBase which
-	jump jumpaddr
+	jump jmpoffset
 JumpTableBase:
+	log "unreachable"
 	jump StartMovingNorth
 	jump StartMovingWest
 	jump StartMovingSouth
@@ -46,7 +29,121 @@ StartMovingEast:
 Traveling:
 	jump Traveling
 
-WallAlert:
+ArrivedAtWall:
 	sys.velocity_dx = 0
 	sys.velocity_dy = 0
-	ircontinue Traveling
+	ircall sys.agents Shoot
+	irparam sys.agents 10000
+	ircall sys.wall -1
+	jmpoffset = add WallTurretBase sys.wall
+	jump jmpoffset
+WallTurretBase:
+	log "better be unreachable"
+	ircontinue OnNorthWall
+	ircontinue OnWestWall
+	ircontinue OnSouthWall
+	ircontinue OnEastWall
+
+OnNorthWall:
+	sys.aim = 0
+	sys.aim = 10
+	sys.aim = 20
+	sys.aim = 30
+	sys.aim = 40
+	sys.aim = 50
+	sys.aim = 60
+	sys.aim = 70
+	sys.aim = 80
+	sys.aim = 90
+	sys.aim = 100
+	sys.aim = 110
+	sys.aim = 120
+	sys.aim = 130
+	sys.aim = 140
+	sys.aim = 150
+	sys.aim = 160
+	sys.aim = 170
+	sys.aim = 180
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnNorthWall
+
+OnWestWall:
+	sys.aim = 270
+	sys.aim = 280
+	sys.aim = 290
+	sys.aim = 300
+	sys.aim = 310
+	sys.aim = 320
+	sys.aim = 330
+	sys.aim = 340
+	sys.aim = 350
+	sys.aim = 360
+	sys.aim = 370
+	sys.aim = 380
+	sys.aim = 390
+	sys.aim = 400
+	sys.aim = 410
+	sys.aim = 420
+	sys.aim = 430
+	sys.aim = 440
+	sys.aim = 450
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnWestWall
+
+OnSouthWall:
+	sys.aim = 180
+	sys.aim = 190
+	sys.aim = 200
+	sys.aim = 210
+	sys.aim = 220
+	sys.aim = 230
+	sys.aim = 240
+	sys.aim = 250
+	sys.aim = 260
+	sys.aim = 270
+	sys.aim = 280
+	sys.aim = 290
+	sys.aim = 300
+	sys.aim = 310
+	sys.aim = 320
+	sys.aim = 330
+	sys.aim = 340
+	sys.aim = 350
+	sys.aim = 360
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnSouthWall
+
+OnEastWall:
+	sys.aim = 90
+	sys.aim = 100
+	sys.aim = 110
+	sys.aim = 120
+	sys.aim = 130
+	sys.aim = 140
+	sys.aim = 150
+	sys.aim = 160
+	sys.aim = 170
+	sys.aim = 180
+	sys.aim = 190
+	sys.aim = 200
+	sys.aim = 210
+	sys.aim = 220
+	sys.aim = 230
+	sys.aim = 240
+	sys.aim = 250
+	sys.aim = 260
+	sys.aim = 270
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnEastWall
+
+Shoot:
+	sys.aim = add sys.aim sys.agents.angle
+	sys.fire = 50
+	ircontinue
+
+
+
