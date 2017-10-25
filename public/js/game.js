@@ -48,8 +48,8 @@ var MAGIC = ((ns) => {
 		this.startCtl.onclick = this.start.bind(this);
 		this.pauseCtl.onclick = this.pause.bind(this);
 		this.pauseCtl.disabled = true;
-		this.debugCtl.onclick = this.debug.bind(this);
-		this.stepperCtl.onclick = null;
+		this.debugCtl.onclick = this.debugStart.bind(this);
+		this.stepperCtl.onclick = this.debugStep.bind(this);
 		this.stepperCtl.disabled = true;
 	};
 
@@ -61,16 +61,15 @@ var MAGIC = ((ns) => {
 		this.clearLog();
 		this.setPauseCtl('Pause', false);
 		this.setStartCtl('Start', true);
-		this.setDebugCtl('Debug', true);
+		this.setDebugCtl('Debug', true, 'start');
 	};
 
 	App.prototype.restart = function () {
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.clearLog();
-		this.setPauseCtl('Pause', false);
-		this.setDebugCtl('Debug', false);
 		this.start();
+		// buttons handled when we eventually reach run()
 	};
 
 	App.prototype.start = function () {
@@ -78,24 +77,36 @@ var MAGIC = ((ns) => {
 		this.game.populateGameWorld();
 		this.game.bindStatusDisplays();
 		this.run();
+		// buttons handled in run()
 	};
 
+	App.prototype.continue = function () {
+		this.run();
+	}
+
+	/**
+	 * This is the continuation of either start() or continue().
+	 * It shouldn't really be called on its own.
+	 */
 	App.prototype.run = function () {
 		this.setPauseCtl('Pause', true);
 		this.setStartCtl('Restart', true);
 		this.setDebugCtl('Debug', false);
+		// run() on its own is Continue,
+		// but if it's called from start(), then it's Start (or Restart).
 		this.game.enterGameLoop();
 	};
 
 	App.prototype.pause = function () {
 		this.game.exitGameLoop();
 		this.setPauseCtl('Continue', true);
-		this.setDebugCtl('Debug', true);
+		this.setDebugCtl('Debug', true, 'continue');
 	};
 
 	App.prototype.endGame = function () {
 		this.game.exitGameLoop();
 		this.setPauseCtl('Pause', false);
+		this.setDebugCtl('Debug', false);
 		if (ns.TRACE_ON) {
 			this.game.objects.agents.forEach((agent) => {
 				if (agent.interpreter.doTrace) {
@@ -110,19 +121,32 @@ var MAGIC = ((ns) => {
 		//window.setTimeout(this.displayLog.bind(this), 10);
 	};
 
-	App.prototype.debug = function () {
-		let debugBtns = document.getElementsByName('enable-debugging');
-		let selected = null;
-		debugBtns.forEach((btn) => {
-			if (btn.checked) {
-				selected = btn.value;
-			}
-		});
-		if (selected === null) {
-			alert('You must select an agent to be debugged');
-			return;
-		}
-		console.log(`Debugging agent ${selected}`);
+	App.prototype.debugStart = function () {
+		this.game.commitRosterManager();
+		this.game.populateGameWorld();
+		this.game.bindStatusDisplays();
+		this.debug('start');
+		//this.game.enterGameLoop();
+		// Hand control over to the stepper button
+	};
+
+	App.prototype.debug = function (state) {
+		state = state || 'continue';
+		this.setPauseCtl('Pause', false);
+		this.setStartCtl('Restart', true);
+		this.setDebugCtl('Resume', true, state);
+		this.setStepperCtl('Step', true);
+		// to the stepper button...
+	};
+
+	App.prototype.debugStep = function () {
+		console.log('Step pressed');
+		// game.debugStep
+	}
+
+	App.prototype.debugEnd = function () {
+		this.setStepperCtl('Step', false);
+		this.continue();
 	};
 
 	App.prototype.setStartCtl = function (label, enabled) {
@@ -143,15 +167,33 @@ var MAGIC = ((ns) => {
 		if (label === 'Pause') {
 			this.pauseCtl.onclick = this.pause.bind(this);
 		} else if (label === 'Continue') {
-			this.pauseCtl.onclick = this.run.bind(this);
+			this.pauseCtl.onclick = this.continue.bind(this);
 		} else {
 			throw new Error(`setPauseCtl: Label value (${label}) unrecognized`);
 		}
 	};
 
-	App.prototype.setDebugCtl = function (label, enabled) {
+	/**
+	 * @arg state: 'start' or 'continue'
+	 */
+	App.prototype.setDebugCtl = function (label, enabled, state) {
 		this.debugCtl.innerText = label;
 		this.debugCtl.disabled = !enabled;
+		if (label === 'Debug') {
+			if (state === 'start') {
+				this.debugCtl.onclick = this.debugStart.bind(this);
+			} else if (state === 'continue') {
+				this.debugCtl.onclick = this.debug.bind(this);
+			}
+		} else if (label === 'Resume') {
+			this.debugCtl.onclick = this.debugEnd.bind(this);	
+		} else {
+			throw new Error(`setDebugCtl: Label value (${label}) unrecognized`);
+		}
+	};
+
+	App.prototype.setStepperCtl = function (_label, enabled) {
+		this.stepperCtl.disabled = !enabled;
 	};
 
 
@@ -592,6 +634,21 @@ var MAGIC = ((ns) => {
 		this.objects.agents.forEach((agent) => agent.preRender());
 		this.graphics.clearViewport();
 		this.graphics.renderSceneGraph();
+	};
+
+	Game.prototype.startDebugging = function (rosterId) {
+		let debugBtns = document.getElementsByName('enable-debugging');
+		let selected = null;
+		debugBtns.forEach((btn) => {
+			if (btn.checked) {
+				selected = btn.value;
+			}
+		});
+		if (selected === null) {
+			alert('You must select an agent to be debugged');
+			return;
+		}
+		console.log(`Debugging agent ${selected}`);
 	};
 
 
