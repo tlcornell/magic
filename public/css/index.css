@@ -11,18 +11,6 @@
 	position: absolute;
 }
 
-#ground-layer {
-	z-index: 1;
-}
-
-#active-layer {
-	z-index: 2;
-}
-
-#labels-layer {
-	z-index: 3;
-}
-
 #roster {
 	float: left;
 	margin-left: 32px;
@@ -45,6 +33,11 @@
 }
 
 
+#debug {
+	margin-left: 2em;
+}
+
+
 /*--------------------- Status Display Widget ------------------------*/
 
 .status-widget {
@@ -57,9 +50,9 @@
 	margin: 0;
 }
 .status-widget {
+	/* The class of the whole status widget */
 	display: grid;
 	grid-template-columns: auto repeat(4, 1fr);
-	/*grid-gap: 4px;*/
 	grid-auto-rows: auto;
 }
 .name {
@@ -69,7 +62,6 @@
 	font: 12px sans-serif;
 }
 .conditionVal {
-	/* color is for GOOD condition */
 	border: 1px solid;
 	border-radius: 3px;
 	padding: 2px;

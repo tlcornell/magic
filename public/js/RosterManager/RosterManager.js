@@ -1,6 +1,9 @@
 
 var MAGIC = ((ns) => {
 
+	// IMPORTS
+	let constants = ns.constants;
+
 	function RosterManager (rootElement, numDisplays, kitList) {
 		this.root = rootElement;
 		this.numDisplays = numDisplays;
@@ -9,21 +12,15 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * This shouldn't really be hard-coded, but until we have the ability 
-	 * to scan the disk for built-ins and host posted agents it'll have to do.
+	 * Leave an empty slot, so that "None" is always an option
 	 */
 	RosterManager.EMPTY_SLOT = "";
 	RosterManager.botsAvailable = [
-			RosterManager.EMPTY_SLOT,
-/*			"Navigator",
-			"GunTurret",
-			"ModifiedShotBot",
-			"WallBouncer",
-			*/
+		RosterManager.EMPTY_SLOT,
 	];
 
 	RosterManager.prototype.createView = function () {
-		for (let i = 0; i < 6; ++i) {
+		for (let i = 0; i < constants.MAX_ROSTER_SLOTS; ++i) {
 			this.addAgentDisplay(i);
 		}
 	};
@@ -68,19 +65,19 @@ var MAGIC = ((ns) => {
 	function AgentDisplayWidget (parent, i) {
 		this.agent = null;
 		this.index = i;
-		// What we really want here is two elements occupying the same space,
+		// REVIEW: What we really want here is two elements occupying the same space,
 		// with only one of them set to 'visible' at a time. Otherwise, we keep
 		// creating new selector elements that are identical to the old ones
 		// that we *hope* have been garbage collected...
 		this.canvas = null;
+		// References to <span> elements that display the corresponding values
 		this.health = {curr: null, max: null};
 		this.energy = {curr: null, max: null};
 		this.shields = {curr: null, max: null};
 		this.condition = null;
-
+		// Current value of the <select> widget
 		this.data = "";
-		// The <div> wrapping the selector/text:
-		this.element = this.create(parent, i);
+		this.create(parent, i);
 
 	}
 
@@ -100,10 +97,7 @@ var MAGIC = ((ns) => {
 	}
 
 	AgentDisplayWidget.prototype.mkPortrait = function (idx) {
-		//let agent = this.agent;
 		let div = document.createElement('div');
-//		div.style.margin = 0;
-//		div.style.padding = 0;
 		div.setAttribute('class', 'widget-item');
 
 		let canvas = document.createElement('canvas');
@@ -150,11 +144,18 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.mkName = function () {
 		let div = document.createElement('div');
 		div.setAttribute('class', 'widget-item name');
-		let sel = this.mkSelect();
-		div.appendChild(sel);
+		// The alternating "selector" and "label" widgets
+		// Exactly one of these should be visible ('displya: inline') at a time.
+		// The other should be out of line ('display: none').
+		this.selector = this.mkSelect();
+		div.appendChild(this.selector);
+		this.displayName = document.createElement('span');
+		this.displayName.innerText = "";
+		this.displayName.style.display = 'none';
+		div.appendChild(this.displayName);
 		//-----------------------------------------------
-		this.element = div;
-		this.change(sel.value);
+//		this.element = div;
+		this.change(this.selector.value);
 		//-----------------------------------------------
 		div.style.paddingLeft = '12px';
 		div.style.paddingTop = '8px';
@@ -162,9 +163,9 @@ var MAGIC = ((ns) => {
 	};
 
 	AgentDisplayWidget.prototype.mkStatus = function () {
-		//let agent = this.agent;
 		let div = document.createElement('div');
 		div.setAttribute('class', 'widget-item status');
+		// Make this a sub-grid of the main roster widget grid
 		div.style['display'] ='grid';
 		div.style['grid-template-columns'] = '1fr 1fr 1fr 1fr';
 		div.style['align-items'] = 'center';
@@ -239,14 +240,35 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.create = function (parent, idx) {
 
 		let portrait = this.mkPortrait(idx);
-		portrait.style['grid-column'] = '1'
+		portrait.style['grid-column'] = '1';
 		portrait.style['grid-row'] = `${(idx * 2) + 1}/span 2`;
 		parent.appendChild(portrait);
 
 		let name = this.mkName();
-		name.style['grid-column'] = '2/span 4'
+		name.style['grid-column'] = '2/span 4';
 		name.style['grid-row'] = `${(idx * 2) + 1}`;
 		parent.appendChild(name);
+
+		let debEnable = document.createElement('input');
+		debEnable.type = 'radio';
+		debEnable.name = 'enable-debugging';
+		debEnable.value = `debug-${this.index}`; 
+		debEnable.style['grid-column'] = '5';
+		debEnable.style['grid-row'] = `${(idx * 2) + 1}`;
+		debEnable.style['justify-self'] = 'end';
+		debEnable.style['margin-right'] = '8px';
+		debEnable.addEventListener('click', function () {
+			console.log('onclick', debEnable.value);
+			if (this.classList.contains('itsThisOne')) {
+				this.classList.remove('itsThisOne');
+				this.checked = false;
+			} else {
+				this.checked = true; // shouldn't this already be so?
+				this.classList.add('itsThisOne');
+			}
+		});
+		parent.appendChild(debEnable);
+		debEnable.style['align-self'] = 'center';
 
 		let status = this.mkStatus();
 		status.style['grid-column'] = '2/span 4';
@@ -259,7 +281,7 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.handleEvent = function (evt) {
 		switch (evt.type) {
 			case 'change':
-				this.change(this.element.childNodes[0].value);
+				this.change(this.selector.value);
 				break;
 		}
 	};
@@ -270,8 +292,9 @@ var MAGIC = ((ns) => {
 	 * game UI.
 	 */
 	AgentDisplayWidget.prototype.change = function (val) {
-		this.element.childNodes[0].value = val;
+		this.selector.value = val;
 		this.data = val;
+		this.displayName.innerText = val;
 		// TODO: It would be nice if we could change the portrait here
 	};
 
@@ -282,8 +305,10 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.acceptSelection = function () {
 		// Replace <select> with text from <select>.value
 		// Contract: this.data must equal the final value of <select>
-		this.element.innerHTML = '';
-		this.element.innerHTML = this.data;
+//		this.element.innerHTML = '';
+//		this.element.innerHTML = this.data;
+		this.selector.style.display = 'none';
+		this.displayName.style.display = 'inline';
 		this.agent = null;
 	};
 
@@ -292,10 +317,13 @@ var MAGIC = ((ns) => {
 	 * selection of agents in the roster.
 	 */
 	AgentDisplayWidget.prototype.allowSelection = function () {
-		this.element.innerHTML = '';
-		let sel = this.mkSelect();
-		this.element.appendChild(sel);
-		this.change(sel.value);
+		//this.element.innerHTML = '';
+		//let sel = this.mkSelect();
+		//this.element.appendChild(sel);
+		this.displayName.style.display = 'none';
+		this.selector.style.display = 'inline-block';
+		this.selector.value = RosterManager.EMPTY_SLOT;
+		this.change(this.selector.value);
 	}
 
 	AgentDisplayWidget.prototype.mkSelect = function () {

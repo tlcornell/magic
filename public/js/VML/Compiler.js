@@ -255,6 +255,20 @@ var MAGIC = ((ns) => {
 		this.labelMap = {};
 	};
 
+	Compiler.toString = function (instruction) {
+		let str = "";
+		if (instruction.store) {
+			str += `${instruction.store} = `;
+		}
+		if (instruction.opcode != 'store') {
+			str += `${instruction.opcode} `;
+		}
+		instruction.args.forEach((arg) => {
+			str += `${arg.value} `;
+		});
+		return str;
+	};
+
 	Compiler.prototype.createInstruction = function () {
 		return {
 			opcode: '',
@@ -280,7 +294,6 @@ var MAGIC = ((ns) => {
 		    c = t.debug.char;
 		ERROR(f, l, c, msg);
 	};
-
 
 	Compiler.prototype.compile = function (actor) {
 		let source = actor.sourceCode,

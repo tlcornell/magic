@@ -76,12 +76,7 @@
 				return;
 			}
 
-			program.instructions.forEach((i) => {
-				display.value += JSON.stringify(i, null, 2);
-				display.value += "\n";
-			});
-			display.value += "----------------------------------------------\n";
-			display.value += JSON.stringify(program.labels, null, 2);
+			display.value = JSON.stringify(program, null, 2);
 
 		}
 

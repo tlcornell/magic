@@ -396,10 +396,6 @@ var MAGIC = ((ns) => {
 
 		let instruction = this.program.instructions[this.pc],
 				opcode = instruction.opcode;
-		// sanity check:
-		if (this.pc !== instruction.debug.address) {
-			this.error(`PC does not match instr addr: ${this.pc}/${instruction.debug.address}`);
-		}
 
 //		console.log("step:", instruction);
 		if (this.doTrace) {

@@ -21,6 +21,8 @@ var MAGIC = ((ns) => {
 		this.pauseCtl = e_('pause'); 
 		// 'Pause' may be replaced by keyboard controls, 
 		// so it wouldn't be a visible UI control any more...
+		this.debugCtl = e_('debug');	// Enable the debugger's transport controls
+		this.stepperCtl = e_('stepper');
 		this.game = null;
 	};
 
@@ -46,16 +48,20 @@ var MAGIC = ((ns) => {
 		this.startCtl.onclick = this.start.bind(this);
 		this.pauseCtl.onclick = this.pause.bind(this);
 		this.pauseCtl.disabled = true;
+		this.debugCtl.onclick = this.debug.bind(this);
+		this.stepperCtl.onclick = null;
+		this.stepperCtl.disabled = true;
 	};
 
 	App.prototype.reset = function () {
-		e_('show-log').checked = false;
+		//e_('show-log').checked = false;
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
 		this.clearLog();
 		this.setPauseCtl('Pause', false);
 		this.setStartCtl('Start', true);
+		this.setDebugCtl('Debug', true);
 	};
 
 	App.prototype.restart = function () {
@@ -63,6 +69,7 @@ var MAGIC = ((ns) => {
 		this.game.clearGameWorld();
 		this.clearLog();
 		this.setPauseCtl('Pause', false);
+		this.setDebugCtl('Debug', false);
 		this.start();
 	};
 
@@ -76,12 +83,14 @@ var MAGIC = ((ns) => {
 	App.prototype.run = function () {
 		this.setPauseCtl('Pause', true);
 		this.setStartCtl('Restart', true);
+		this.setDebugCtl('Debug', false);
 		this.game.enterGameLoop();
 	};
 
 	App.prototype.pause = function () {
 		this.game.exitGameLoop();
 		this.setPauseCtl('Continue', true);
+		this.setDebugCtl('Debug', true);
 	};
 
 	App.prototype.endGame = function () {
@@ -98,7 +107,22 @@ var MAGIC = ((ns) => {
 		// We need the following trivial timeout so as to get the final
 		// animation frame displayed before we go into what may be a long
 		// wait for the the log to display.
-		window.setTimeout(this.displayLog.bind(this), 10);
+		//window.setTimeout(this.displayLog.bind(this), 10);
+	};
+
+	App.prototype.debug = function () {
+		let debugBtns = document.getElementsByName('enable-debugging');
+		let selected = null;
+		debugBtns.forEach((btn) => {
+			if (btn.checked) {
+				selected = btn.value;
+			}
+		});
+		if (selected === null) {
+			alert('You must select an agent to be debugged');
+			return;
+		}
+		console.log(`Debugging agent ${selected}`);
 	};
 
 	App.prototype.setStartCtl = function (label, enabled) {
@@ -125,11 +149,18 @@ var MAGIC = ((ns) => {
 		}
 	};
 
+	App.prototype.setDebugCtl = function (label, enabled) {
+		this.debugCtl.innerText = label;
+		this.debugCtl.disabled = !enabled;
+	};
+
 
 	App.prototype.displayLog = function () {
+		/*
 		if (!e_('show-log').checked) {
 			return;
 		}
+		*/
 		let div = e_('log-div');
 		div.innerHTML = `<textarea id="log-display" rows="10" wrap="off" style="width: 90%;"></textarea>`;
 		let display = e_('log-display');
@@ -242,7 +273,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.createRosterManager = function (kitList) {
-		let widget = document.getElementsByClassName("status-widget")[0],
+		let widget = e_("roster"),
 				count = Game.const.MAX_ROSTER_SLOTS;
 		this.rosterManager = new ns.RosterManager(widget, count, kitList);
 		this.rosterManager.createView();
@@ -456,13 +487,7 @@ var MAGIC = ((ns) => {
 		// an interrupt, if warranted.
 	};
 
-
-	Game.prototype.loop = function () {
-
-		this.requestId = requestAnimationFrame(this.loop.bind(this));
-
-		// Count cycles and elapsed time
-		++this.loopCounter;
+	Game.prototype.updateTimeDisplay = function () {
 		if (this.startTime === 0) {
 			this.startTime = Date.now();
 		} 
@@ -476,6 +501,16 @@ var MAGIC = ((ns) => {
 			loopCounter: this.loopCounter, 
 			elapsedTime: elapsedTime,
 		});
+	};
+
+
+	Game.prototype.loop = function () {
+
+		this.requestId = requestAnimationFrame(this.loop.bind(this));
+
+		// Count cycles and elapsed time
+		++this.loopCounter;
+		this.updateTimeDisplay();
 
 		this.update();
 		this.logFrameData();
@@ -639,11 +674,12 @@ var MAGIC = ((ns) => {
 		this.eventQueue.forEach((evt) => this.handleEvent(evt, gameTasks));
 		this.eventQueue = [];
 		this.game.setBodyVelocity(this);
-		//Matter.Body.setVelocity(this.body, this.drv);
-		return gameTasks;	// we don't generate tasks yet...
+		return gameTasks;
 	};
 
 	/**
+	 * Note: Currently this is never called -- no events are queued for projectiles.
+	 *
 	 * When projectiles handle events, this can lead to tasks for other
 	 * game objects (like calculating actual damage, removing this from 
 	 * the game, etc.)
@@ -857,7 +893,7 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * 'A' is an agent, 'B' is a weapon of some sort. 'A' needs to
+	 * 'A' is an agent, 'B' is an attack of some sort. 'A' needs to
 	 * assess damage, given the type of strike.
 	 */
 	function mkTakeHitEvt(A, B) {

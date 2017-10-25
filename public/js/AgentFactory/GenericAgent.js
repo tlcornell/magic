@@ -357,7 +357,7 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.launchProjectile = function (angle, energy) {
 		let norm = angle2vector(angle, 1),	// direction of shot
 				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
-				offset = Matter.Vector.mult(norm, GenericAgent.const.AGENT_RADIUS + 1), // start outside of shooter bot
+				offset = Matter.Vector.mult(norm, GenericAgent.const.AGENT_RADIUS + 2), // start outside of shooter bot
 				pos = Matter.Vector.add(this.getPosition(), offset);
 		this.game.createProjectile(this, pos, drv, energy);
 	}

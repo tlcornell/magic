@@ -1,5 +1,5 @@
 Startup:
-	debug
+#	debug
 
 	irparam sys.wall 1000
 	closest = sys.wall
