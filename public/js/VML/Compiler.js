@@ -255,7 +255,16 @@ var MAGIC = ((ns) => {
 		this.labelMap = {};
 	};
 
-	Compiler.toString = function (instruction) {
+	Compiler.decompile = function (actor) {
+		let program = actor.program,
+				instructions = program.instructions,
+				labels = program.labels;
+		let lines = [];
+		instructions.forEach((inst) => lines.push(Compiler.toString(inst, labels)));
+		return lines;
+	};
+
+	Compiler.toString = function (instruction, labels) {
 		let str = "";
 		if (instruction.store) {
 			str += `${instruction.store} = `;
@@ -264,7 +273,11 @@ var MAGIC = ((ns) => {
 			str += `${instruction.opcode} `;
 		}
 		instruction.args.forEach((arg) => {
-			str += `${arg.value} `;
+			if (labels.hasOwnProperty(arg.value)) {
+				str += `${arg.value} (${labels[arg.value] + 1}) `;
+			} else {
+				str += `${arg.value} `;
+			}
 		});
 		return str;
 	};

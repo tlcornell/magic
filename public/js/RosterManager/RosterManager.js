@@ -51,6 +51,24 @@ var MAGIC = ((ns) => {
 		return roster;
 	};
 
+	RosterManager.prototype.getSelectedAgent = function () {
+		let debugBtns = document.getElementsByName('enable-debugging');
+		let selected = null;
+		debugBtns.forEach((btn) => {
+			if (btn.checked) {
+				selected = btn.value;
+			}
+		});
+		if (!selected) {
+			alert('You must select an agent to be debugged');
+			return null;
+		}
+		let parts = selected.split('-'),
+				index = parseInt(parts[1]),
+				agent = this.agentDisplays[index].agent;
+		return agent;
+	};
+
 	RosterManager.prototype.updateView = function () {
 		this.agentDisplays.forEach((view, index) => view.updateAgentView(index));
 	};

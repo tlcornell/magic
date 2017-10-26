@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Test Page for MAGIC Debugger</title>
+
+	<style type="text/css">
+		#container {
+			padding: 0;
+			margin: 0;
+			position: relative;
+		}
+		#linenums {
+			float: left;
+			width: 36pt;
+			height: 525pt;
+			font-family: Lucida Console, monospace;
+			font-size: 10pt;
+			line-height: 15pt;
+			overflow: hidden;
+			text-align: right;
+			padding-right: 8pt;
+		}
+		#viewer {
+			float: left;
+			width: 400pt;
+			height: 525pt;
+			font-family: Lucida Console, monospace;
+			font-size: 10pt;
+			line-height: 15pt;
+			overflow: hidden;
+		}
+		#highlighter {
+			z-index: -1;
+			background-color: yellow;
+			width: 444pt;
+			position: absolute;
+			height: 15pt;
+		}
+		#step {
+			margin-top: 12px;
+		}
+		.clearboth {
+			clear: both;
+		}
+	</style>
+
+</head>
+
+
+<body>
+
+	<div id="container">
+		<div id="linenums"></div>
+		<div id="highlighter"></div>
+		<div id="viewer"></div>
+		<div class="clearboth"></div>
+		<button id="step" onclick="step()">Step</button>
+	</div>
+
+
+	<script type="text/javascript">
+		let scriptTxt = `
+Startup:
+	debug
+
+	irparam sys.wall 1000
+	closest = sys.wall
+	jmpoffset = add JumpTableBase closest
+	ircall sys.wall ArrivedAtWall
+	irparam sys.wall 30
+	irstart
+	jump jmpoffset
+JumpTableBase:
+	log "unreachable"
+	jump StartMovingNorth
+	jump StartMovingWest
+	jump StartMovingSouth
+	jump StartMovingEast
+
+StartMovingNorth:
+	sys.velocity_dy = -5
+	jump Traveling
+StartMovingWest:
+	sys.velocity_dx = -5
+	jump Traveling
+StartMovingSouth:
+	sys.velocity_dy = 5
+	jump Traveling
+StartMovingEast:
+	sys.velocity_dx = 5
+	jump Traveling
+
+Traveling:
+	jump Traveling
+
+ArrivedAtWall:
+	sys.velocity_dx = 0
+	sys.velocity_dy = 0
+	ircall sys.agents Shoot
+	irparam sys.agents 10000
+	ircall sys.wall RegainPosition
+	jmpoffset = add WallTurretBase sys.wall
+	jump jmpoffset
+WallTurretBase:
+	log "better be unreachable"
+	ircontinue OnNorthWall
+	ircontinue OnWestWall
+	ircontinue OnSouthWall
+	ircontinue OnEastWall
+
+Shoot:
+	sys.aim = add sys.aim sys.agents.angle
+	A = gte sys.energy 50
+	ifz A SkipIt
+	sys.fire = 50
+SkipIt:
+	ircontinue
+
+RegainPosition:
+	irparam sys.wall 10000
+	jmpoffset = add RegainBase sys.wall
+	irparam sys.wall 30
+	jump jmpoffset
+RegainBase:
+	log "noop"
+	jump GetOffNorth
+	jump GetOffWest
+	jump GetOffSouth
+	jump GetOffEast
+GetOffNorth:
+	log "GetOffNorth"
+	sys.velocity_dy = 2
+	sync
+	A = lte sys.y 50
+	log sys.y 50
+	if A GetOffNorth
+	sys.velocity_dy = 0
+	ircontinue
+GetOffWest:
+	log "GetOffWest"
+	sys.velocity_dx = 2
+	sync
+	A = lte sys.x 50
+	log sys.x 50
+	if A GetOffWest
+	sys.velocity_dx = 0
+	ircontinue
+GetOffSouth:
+	log "GetOffSouth"
+	sys.velocity_dy = -2
+	sync
+	A = gte sys.y 590
+	log sys.y 590
+	if A GetOffSouth
+	sys.velocity_dy = 0
+	ircontinue
+GetOffEast:
+	log "GetOffEast"
+	sys.velocity_dx = -2
+	sync
+	A = gte sys.x 750
+	log sys.x 750
+	if A GetOffEast
+	sys.velocity_dx = 0
+	ircontinue
+
+OnNorthWall:
+	sys.aim = 0
+	sys.aim = 10
+	sys.aim = 20
+	sys.aim = 30
+	sys.aim = 40
+	sys.aim = 50
+	sys.aim = 60
+	sys.aim = 70
+	sys.aim = 80
+	sys.aim = 90
+	sys.aim = 100
+	sys.aim = 110
+	sys.aim = 120
+	sys.aim = 130
+	sys.aim = 140
+	sys.aim = 150
+	sys.aim = 160
+	sys.aim = 170
+	sys.aim = 180
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnNorthWall
+
+OnWestWall:
+	sys.aim = 270
+	sys.aim = 280
+	sys.aim = 290
+	sys.aim = 300
+	sys.aim = 310
+	sys.aim = 320
+	sys.aim = 330
+	sys.aim = 340
+	sys.aim = 350
+	sys.aim = 360
+	sys.aim = 370
+	sys.aim = 380
+	sys.aim = 390
+	sys.aim = 400
+	sys.aim = 410
+	sys.aim = 420
+	sys.aim = 430
+	sys.aim = 440
+	sys.aim = 450
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnWestWall
+
+OnSouthWall:
+	sys.aim = 180
+	sys.aim = 190
+	sys.aim = 200
+	sys.aim = 210
+	sys.aim = 220
+	sys.aim = 230
+	sys.aim = 240
+	sys.aim = 250
+	sys.aim = 260
+	sys.aim = 270
+	sys.aim = 280
+	sys.aim = 290
+	sys.aim = 300
+	sys.aim = 310
+	sys.aim = 320
+	sys.aim = 330
+	sys.aim = 340
+	sys.aim = 350
+	sys.aim = 360
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnSouthWall
+
+OnEastWall:
+	sys.aim = 90
+	sys.aim = 100
+	sys.aim = 110
+	sys.aim = 120
+	sys.aim = 130
+	sys.aim = 140
+	sys.aim = 150
+	sys.aim = 160
+	sys.aim = 170
+	sys.aim = 180
+	sys.aim = 190
+	sys.aim = 200
+	sys.aim = 210
+	sys.aim = 220
+	sys.aim = 230
+	sys.aim = 240
+	sys.aim = 250
+	sys.aim = 260
+	sys.aim = 270
+	sys.agents.angle = add sys.agents.angle 1
+	sys.agents.angle = mod sys.agents.angle 7
+	jump OnEastWall
+		`;
+		let viewer = document.getElementById('viewer'),
+				linenums = document.getElementById('linenums');
+		let script = scriptTxt.split('\n');
+		let start = 0,
+				len = 40;
+		script.slice(start, start+len).forEach((line, i) => {
+			linenums.innerText += `${i+1}.` + '\n';
+			viewer.innerText += line + '\n';
+		});
+		let currentLine = 0;
+		highlighter.style.top = '0pt';
+
+		function step() {
+			++currentLine;
+			let highlightLine;
+			if (currentLine > 16) {
+				// shift the text up and highlight line 16
+				let start = currentLine - 16,
+						len = 40,
+						txt = "",
+						nums = "";
+				script.slice(start, start+len).forEach((line, i) => {
+					nums += `${start+i+1}.` + '\n';
+					txt += line + '\n'
+				});
+				linenums.innerText = nums;
+				viewer.innerText = txt;
+			}
+			else {
+				// shift the highlighter down one line
+				highlighter.style.top = `${currentLine * 15}pt`;
+			}
+		}
+	</script>
+
+</body>
+
+
+</html>

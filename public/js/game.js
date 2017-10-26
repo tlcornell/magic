@@ -4,6 +4,7 @@ var MAGIC = ((ns) => {
 	// --------
 	let AgentFactory = ns.AgentFactory,
 			GenericAgent = ns.GenericAgent;
+	let Debugger = ns.Debugger;
 	let e_ = ns.e_,
 			a2v = ns.a2v,
 			degrees = ns.degrees,
@@ -136,7 +137,9 @@ var MAGIC = ((ns) => {
 		this.setStartCtl('Restart', true);
 		this.setDebugCtl('Resume', true, state);
 		this.setStepperCtl('Step', true);
-		// to the stepper button...
+		// Set up the source code viewer, 
+		this.game.startDebugging();
+		// and then leave everything up to the stepper button...
 	};
 
 	App.prototype.debugStep = function () {
@@ -146,6 +149,8 @@ var MAGIC = ((ns) => {
 
 	App.prototype.debugEnd = function () {
 		this.setStepperCtl('Step', false);
+		// Hide the source code viewer
+		this.game.stopDebugging();
 		this.continue();
 	};
 
@@ -252,6 +257,7 @@ var MAGIC = ((ns) => {
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
 		this.agentFactory = new AgentFactory(this);
+		this.debugger = new Debugger(this);
 	};
 
 	/**
@@ -636,20 +642,17 @@ var MAGIC = ((ns) => {
 		this.graphics.renderSceneGraph();
 	};
 
-	Game.prototype.startDebugging = function (rosterId) {
-		let debugBtns = document.getElementsByName('enable-debugging');
-		let selected = null;
-		debugBtns.forEach((btn) => {
-			if (btn.checked) {
-				selected = btn.value;
-			}
-		});
-		if (selected === null) {
-			alert('You must select an agent to be debugged');
-			return;
-		}
-		console.log(`Debugging agent ${selected}`);
+	Game.prototype.startDebugging = function () {
+		let agent = this.rosterManager.getSelectedAgent();
+		console.log(`Debugging agent ${agent.getName()}`);
+		this.debugger = new Debugger(this, agent);
+		this.debugger.start();
 	};
+
+	Game.prototype.stopDebugging = function () {
+		this.debugger.stop();
+		this.debugger = null;
+	}
 
 
 	///////////////////////////////////////////////////////////////////////////
