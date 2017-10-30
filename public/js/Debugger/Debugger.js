@@ -38,33 +38,39 @@ var MAGIC = ((ns) => {
 		let container = e_('debug-container');
 
 		// Set up the HTML elements
-		let dbgGutter = document.createElement('div');
-		dbgGutter.id = 'dbg-gutter';
-		container.appendChild(dbgGutter);
-		let dbgViewer = document.createElement('div');
-		dbgViewer.id = 'dbg-viewer';
-		container.appendChild(dbgViewer);
-		let dbgHighlighter = document.createElement('div');
-		dbgHighlighter.id = 'dbg-highlighter';
-		container.appendChild(dbgHighlighter);
-
-		let pc = this.agent.interpreter.pc;
+		this.dbgGutter = document.createElement('div');
+		this.dbgGutter.id = 'dbg-gutter';
+		container.appendChild(this.dbgGutter);
+		this.dbgViewer = document.createElement('div');
+		this.dbgViewer.id = 'dbg-viewer';
+		container.appendChild(this.dbgViewer);
+		this.dbgHighlighter = document.createElement('div');
+		this.dbgHighlighter.id = 'dbg-highlighter';
+		container.appendChild(this.dbgHighlighter);
 
 		// Get the program text
-		let lines = Compiler.decompile(this.agent),
-				start = pc < 15 ? 0 : pc - 15,
-				len = 40;
-		lines.slice(start, start + len).forEach((line, i) => {
-			dbgGutter.innerText += `${start + i + 1}` + '\n';
-			dbgViewer.innerText += line + '\n';
-		});
-		let currentLine = pc - start;
-		dbgHighlighter.style.top = `${currentLine * 15}pt`;
+		this.lines = Compiler.decompile(this.agent);
+		this.displayText();
 
 		container.style.display = 'block';
 	};
 
+	Debugger.prototype.displayText = function () {
+		let pc = this.agent.interpreter.pc,
+				start = pc < 15 ? 0 : pc - 15,
+				len = 40;
+		this.dbgGutter.innerText = "";
+		this.dbgViewer.innerText = "";
+		this.lines.slice(start, start + len).forEach((line, i) => {
+			this.dbgGutter.innerText += `${start + i + 1}` + '\n';
+			this.dbgViewer.innerText += line + '\n';
+		});
+		let currentLine = pc - start;
+		this.dbgHighlighter.style.top = `${currentLine * 15}pt`;
+	};
+
 	Debugger.prototype.stop = function () {
+		console.log('Debugger::stop');
 		let container = e_('debug-container');
 		while (container.lastChild) {
 			container.removeChild(container.lastChild);
@@ -73,7 +79,7 @@ var MAGIC = ((ns) => {
 	}
 
 	Debugger.prototype.listen = function (instruction, decodedVals) {
-		console.log(instruction, decodedVals);
+		this.displayText();
 	};
 
 

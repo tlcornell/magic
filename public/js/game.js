@@ -60,6 +60,7 @@ var MAGIC = ((ns) => {
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
 		this.clearLog();
+		this.debugStop();		// does nothing if we weren't debugging
 		this.setPauseCtl('Pause', false);
 		this.setStartCtl('Start', true);
 		this.setDebugCtl('Debug', true, 'start');
@@ -69,6 +70,7 @@ var MAGIC = ((ns) => {
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.clearLog();
+		this.debugStop();
 		this.start();
 		// buttons handled when we eventually reach run()
 	};
@@ -153,8 +155,11 @@ var MAGIC = ((ns) => {
 		this.game.debugStep();
 	}
 
-	App.prototype.debugEnd = function () {
-		console.log('debugEnd');
+	App.prototype.debugStop = function () {
+		if (!this.game.debugger) {
+			return;
+		}
+		console.log('debugStop');
 		this.setStepperCtl('Step', false);
 		// Hide the source code viewer
 		this.game.stopDebugging();
@@ -198,7 +203,7 @@ var MAGIC = ((ns) => {
 				this.debugCtl.onclick = this.debug.bind(this);
 			}
 		} else if (label === 'Resume') {
-			this.debugCtl.onclick = this.debugEnd.bind(this);	
+			this.debugCtl.onclick = this.debugStop.bind(this);	
 		} else {
 			throw new Error(`setDebugCtl: Label value (${label}) unrecognized`);
 		}
@@ -265,7 +270,7 @@ var MAGIC = ((ns) => {
 		this.graphics = new Graphics(this);
 		this.physics = new Physics(this);
 		this.agentFactory = new AgentFactory(this);
-		this.debugger = new Debugger(this);
+		this.debugger = null;
 	};
 
 	/**
@@ -581,7 +586,6 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.gameOver = function () {
-		console.log('gameOver', 'soloMode', this.flags.soloMode, 'remainingPlayers', this.remainingPlayers());
 		let go = (this.flags.soloMode && this.remainingPlayers() === 0) ||
 			(!this.flags.soloMode && this.remainingPlayers() <= 1);
 		if (go) {

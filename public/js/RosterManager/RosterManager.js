@@ -83,11 +83,8 @@ var MAGIC = ((ns) => {
 	function AgentDisplayWidget (parent, i) {
 		this.agent = null;
 		this.index = i;
-		// REVIEW: What we really want here is two elements occupying the same space,
-		// with only one of them set to 'visible' at a time. Otherwise, we keep
-		// creating new selector elements that are identical to the old ones
-		// that we *hope* have been garbage collected...
 		this.canvas = null;
+		this.debugSelector = null;
 		// References to <span> elements that display the corresponding values
 		this.health = {curr: null, max: null};
 		this.energy = {curr: null, max: null};
@@ -102,6 +99,10 @@ var MAGIC = ((ns) => {
 	AgentDisplayWidget.prototype.reset = function () {
 		this.agent = null;
 		this.allowSelection();	// should reset this.data
+		if (this.debugSelector.classList.contains('itsThisOne')) {
+			this.debugSelector.classList.remove('itsThisOne');
+			this.debugSelector.checked = false;
+		}	
 		this.resetPortrait();
 		this.resetStats();
 	}
@@ -268,6 +269,7 @@ var MAGIC = ((ns) => {
 		parent.appendChild(name);
 
 		let debEnable = document.createElement('input');
+		this.debugSelector = debEnable;
 		debEnable.type = 'radio';
 		debEnable.name = 'enable-debugging';
 		debEnable.value = `debug-${this.index}`; 
