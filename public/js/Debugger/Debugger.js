@@ -26,16 +26,18 @@ var MAGIC = ((ns) => {
 		dbgHighlighter.id = 'dbg-highlighter';
 		container.appendChild(dbgHighlighter);
 
+		let pc = this.agent.interpreter.pc;
+
 		// Get the program text
 		let lines = Compiler.decompile(this.agent),
-				start = 0,
+				start = pc < 15 ? 0 : pc - 15,
 				len = 40;
 		lines.slice(start, start + len).forEach((line, i) => {
-			dbgGutter.innerText += `${i + 1}` + '\n';
+			dbgGutter.innerText += `${start + i + 1}` + '\n';
 			dbgViewer.innerText += line + '\n';
 		});
-		let currentLine = 0;
-		dbgHighlighter.style.top = '0pt';
+		let currentLine = pc - start;
+		dbgHighlighter.style.top = `${currentLine * 15}pt`;
 
 		container.style.display = 'block';
 	};
@@ -47,6 +49,12 @@ var MAGIC = ((ns) => {
 		}
 		container.style.display = 'none';
 	}
+
+	Debugger.prototype.listen = function (instruction, decodedVals) {
+		console.log(instruction, decodedVals);
+	};
+
+
 
 	// EXPORTS
 	ns.Debugger = Debugger;

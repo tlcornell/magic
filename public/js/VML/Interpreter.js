@@ -69,6 +69,7 @@ var MAGIC = ((ns) => {
 			trace: [],
 			irflag: false,	// interrupts enabled
 			irq: new InterruptQueue(),				// interrupt queue
+			listeners: [],	// e.g., the debugger
 		});
 	}
 
@@ -97,6 +98,19 @@ var MAGIC = ((ns) => {
 
 	Interpreter.prototype.queueInterrupt = function (sensor) {
 		this.irq.insert(sensor);
+	};
+
+	Interpreter.prototype.registerListener = function (listener) {
+		this.listeners.push(listener);
+	};
+
+	Interpreter.prototype.removeListener = function (listener) {
+		let i = this.listeners.indexOf(listener);
+		this.listeners.splice(i, 1);
+	};
+
+	Interpreter.prototype.clearListeners = function () {
+		this.listeners = [];
 	};
 
 	Interpreter.prototype.step = function () {
@@ -416,10 +430,10 @@ var MAGIC = ((ns) => {
 
 		let args = instruction.args,
 				dest = decodeLVal(instruction.store),
-		    val1,
-				val2,
+				vals,
 				scale,
-				brElse;
+				brElse,
+				thisOnesFree = false;
 		switch (opcode) {
 			case 'abs':
 				unaryOp(Math.abs, rval(args[0]), dest);
@@ -438,7 +452,8 @@ var MAGIC = ((ns) => {
 				console.log(`Turning tracing on for ${this.bot.getName()}`);
 				this.doTrace = true;
 				++this.pc;
-				this.step();
+				//this.step();
+				thisOnesFree = true;
 				break;
 			case 'div':
 				binOp((a,b)=>a/b, rval(args[0]), rval(args[1]), dest);
@@ -509,7 +524,8 @@ var MAGIC = ((ns) => {
 				});
 				console.log(logmsg);
 				++this.pc;
-				this.step();	// log is a free instruction, so do one more
+				//this.step();	// log is a free instruction, so do one more
+				thisOnesFree = true;
 				break;
 			case 'lt':
 				binOp((a,b) => (a<b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
@@ -548,8 +564,8 @@ var MAGIC = ((ns) => {
 				unaryOp((a)=>a, rval(args[0]), dest);
 				break;
 			case 'store2':
-				val1 = rval(args[0]);
-				val2 = rval(args[1]);
+				let val1 = rval(args[0]),
+						val2 = rval(args[1]);
 				storeObject(dest, val1, val2);
 				++this.pc;
 				break;
@@ -565,6 +581,12 @@ var MAGIC = ((ns) => {
 				console.log(instruction);
 				console.log(this.framestack);
 				this.error(`Unhandled opcode '${opcode}'`);
+		}
+
+		this.listeners.forEach((l) => l.listen(instruction, vals));
+
+		if (thisOnesFree) {
+			this.step();
 		}
 
 	};

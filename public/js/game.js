@@ -131,6 +131,9 @@ var MAGIC = ((ns) => {
 		// Hand control over to the stepper button
 	};
 
+	/**
+	 * aka "debugContinue"
+	 */
 	App.prototype.debug = function (state) {
 		state = state || 'continue';
 		this.setPauseCtl('Pause', false);
@@ -143,8 +146,7 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.debugStep = function () {
-		console.log('Step pressed');
-		// game.debugStep
+		this.game.debugStep();
 	}
 
 	App.prototype.debugEnd = function () {
@@ -252,6 +254,7 @@ var MAGIC = ((ns) => {
 			flags: {
 				soloMode: false,
 			},
+			eventQueue: [],
 		});
 		this.rosterManager = null; 
 		this.graphics = new Graphics(this);
@@ -442,6 +445,7 @@ var MAGIC = ((ns) => {
 		proj.body = Physics.projectileBody(proj, properties);
 		proj.sprite = this.graphics.createSprite('bullet', properties);
 		this.physics.addBody(proj.body);
+		this.setBodyVelocity(proj);
 		this.objects.projectiles.push(proj);
 	};
 
@@ -554,35 +558,59 @@ var MAGIC = ((ns) => {
 
 	Game.prototype.loop = function () {
 
-		this.requestId = requestAnimationFrame(this.loop.bind(this));
-
-		// Count cycles and elapsed time
-		++this.loopCounter;
-		this.updateTimeDisplay();
-
-		this.update();
-		this.logFrameData();
-		this.render();
-		this.rosterManager.updateView();
-
-		let gameOver = 
-			(this.flags.soloMode && this.remainingPlayers() === 0) ||
-			(!this.flags.soloMode && this.remainingPlayers() <= 1);
-		if (gameOver) {
-			this.app.endGame();
+		if (this.gameOver()) {
 			return;
 		}
+		++this.loopCounter;
+
+		this.requestId = requestAnimationFrame(this.loop.bind(this));
+
+		this.update();
+
+		this.updateView();
 
 	};
 
+	Game.prototype.gameOver = function () {
+		let go = (this.flags.soloMode && this.remainingPlayers() === 0) ||
+			(!this.flags.soloMode && this.remainingPlayers() <= 1);
+		if (go) {
+			this.app.endGame();
+		}
+		return go;
+	};
+
 	Game.prototype.update = function () {
-		this.physics.update().forEach((task) => this.execute(task));
+		this.physics.update();
+		this.objects.projectiles.forEach((proj) => proj.update());
+		this.objects.agents.forEach((agent) => agent.update());
+		/*
 		this.objects.agents.forEach((agent) => {
-			agent.update().forEach((task) => this.execute(task));
+			if (agent.beingDebugged) return;
+			agent.update();
 		});
-		this.objects.projectiles.forEach((proj) => {
-			proj.update().forEach((task) => this.execute(task));
-		});
+		// Now step through the agent being debugged
+		*/
+	};
+
+	Game.prototype.updateView = function () {
+		// Count cycles and elapsed time
+		this.updateTimeDisplay();
+		this.handleEvents();
+		this.logFrameData();
+		this.render();
+		this.rosterManager.updateView();
+	};
+
+	Game.prototype.queueEvent = function (evt) {
+		this.eventQueue.push(evt);
+	};
+
+	Game.prototype.handleEvents = function () {
+		while (this.eventQueue.length > 0) {
+			let task = this.eventQueue.shift();
+			this.execute(task);
+		}
 	};
 
 	/**
@@ -646,11 +674,16 @@ var MAGIC = ((ns) => {
 		let agent = this.rosterManager.getSelectedAgent();
 		console.log(`Debugging agent ${agent.getName()}`);
 		this.debugger = new Debugger(this, agent);
+		agent.interpreter.registerListener(this.debugger);
 		this.debugger.start();
+	};
+
+	Game.prototype.debugStep = function () {
 	};
 
 	Game.prototype.stopDebugging = function () {
 		this.debugger.stop();
+		this.agent.interpreter.removeListener(this.debugger);
 		this.debugger = null;
 	}
 
@@ -719,8 +752,8 @@ var MAGIC = ((ns) => {
 		// Make sure pos registers are up to date
 		let p = this.game.getPosition(this);
 		if (p) {
-			this.pos.x = p.x; //this.body.position.x;
-			this.pos.y = p.y; //this.body.position.y;
+			this.pos.x = p.x; 
+			this.pos.y = p.y; 
 		}
 		return this.pos;
 	};
@@ -730,40 +763,10 @@ var MAGIC = ((ns) => {
 	};
 
 	Projectile.prototype.update = function () {
-		let gameTasks = [];
-		this.eventQueue.forEach((evt) => this.handleEvent(evt, gameTasks));
-		this.eventQueue = [];
-		this.game.setBodyVelocity(this);
-		return gameTasks;
-	};
-
-	/**
-	 * Note: Currently this is never called -- no events are queued for projectiles.
-	 *
-	 * When projectiles handle events, this can lead to tasks for other
-	 * game objects (like calculating actual damage, removing this from 
-	 * the game, etc.)
-	 */
-	Projectile.prototype.handleEvent = function (evt, tasks) {
-		switch (evt.op) {
-			case 'collision':
-				tasks.push(createRemoveProjectileTask(this));
-				break;
-			case 'wall':
-				console.log(this.name, "on wall", evt.data.bumped.name);
-				tasks.push(createRemoveProjectileTask(this));
-				break;
-			default:
-				throw new Error(`Agent does not recognize event op (${evt.op})`);
+		if (this.eventQueue.length > 0) {
+			this.game.error(`Projectile event queue not empty: ${this.eventQueue}`);
 		}
 	};
-
-	function createRemoveProjectileTask(projectile) {
-		return {
-			op: 'removeProjectile',
-			obj: projectile,
-		};
-	}
 
 	Projectile.prototype.preRender = function () {
 		this.sprite.preRender(this);
@@ -807,14 +810,14 @@ var MAGIC = ((ns) => {
 		Matter.Engine.clear(this.engine);
 	};
 
-	Physics.prototype.update = function () {
+	Physics.prototype.update = function (tasks) {
 		// Clear the task list
-		this.tasks = [];
+		this.tasks = tasks;
 		Matter.Engine.update(this.engine, 1000/60);
 		// Okay, maybe we have some events to deal with...
 		// Event handlers registered with Matter will add tasks to 
 		// this.tasks.
-		return this.tasks;
+		//return this.tasks;
 	};
 
 	Physics.wallSegment = function (x, y, w, h, name, agent) {
@@ -889,30 +892,30 @@ var MAGIC = ((ns) => {
 			if (A instanceof Projectile) {
 				if (B instanceof Projectile) {
 				} else if (isWall(bodyB)) {
-					this.tasks.push(mkImpactEvt(A, B));
+					this.game.queueEvent(mkImpactEvt(A, B));
 				} else {
-					this.tasks.push(mkImpactEvt(A, B));
-					this.tasks.push(mkTakeHitEvt(B, A));
+					this.game.queueEvent(mkImpactEvt(A, B));
+					this.game.queueEvent(mkTakeHitEvt(B, A));
 				}
 				// Everything else involves agents bumping into things
 			} else if (isWall(bodyA)) {
 				if (B instanceof Projectile) {
-					this.tasks.push(mkImpactEvt(B, A));
+					this.game.queueEvent(mkImpactEvt(B, A));
 				} else {
 //					console.log(bodyB.label, "on", bodyA.label);
-					this.tasks.push(mkWallEvt(B, A));
+					this.game.queueEvent(mkWallEvt(B, A));
 				}
 			} else {
 				if (B instanceof Projectile) {
-					this.tasks.push(mkImpactEvt(B, A));
-					this.tasks.push(mkTakeHitEvt(A, B));
+					this.game.queueEvent(mkImpactEvt(B, A));
+					this.game.queueEvent(mkTakeHitEvt(A, B));
 				} else if (isWall(bodyB)) {
 //					console.log(bodyA.label, "on", bodyB.label);
-					this.tasks.push(mkWallEvt(A, B));
+					this.game.queueEvent(mkWallEvt(A, B));
 				} else {
 //					console.log(bodyA.label, "collides with", bodyB.label);
-					this.tasks.push(mkCollEvt(A, B));
-					this.tasks.push(mkCollEvt(B, A));
+					this.game.queueEvent(mkCollEvt(A, B));
+					this.game.queueEvent(mkCollEvt(B, A));
 				}
 			}
 		}

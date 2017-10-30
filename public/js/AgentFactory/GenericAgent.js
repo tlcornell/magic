@@ -65,9 +65,11 @@ var MAGIC = ((ns) => {
 				wall: new WallSensor(this),
 			},
 		});
+		/*
 		this.prog = {
 			main: beNotDead,
 		};
+		*/
 	}
 
 	GenericAgent.const = ns.constants;
@@ -284,6 +286,9 @@ var MAGIC = ((ns) => {
 		this.energy = Math.min(this.maxEnergy, this.energy);
 		this.drv.x = dx;
 		this.drv.y = dy;
+		if (this.energy > 0) {
+			this.game.setBodyVelocity(this);
+		}
 	};
 
 	/**
@@ -364,84 +369,91 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.update = function () {
 
-		let gameMessages = [];
+		this.startChronon();
 
+		if (this.isNotDead()) {
+			this.beNotDead();
+		}
+
+	};
+
+	GenericAgent.prototype.startChronon = function () {
 		// Handle event notifications (event queue) for "external" events 
 		// coming in from the Game object.
 		// Right now there's no prioritization; it's just a flat list
 		// The update methods may queue interrupts. In any case, they update
 		// the relevant registers for reading under normal program control.
-		// REVIEW: Maybe these calls should be moved to beNotDead, since only
-		// then is the agent aware of its surroundings...
-		this.hw.wall.update();
-		this.hw.agents.update();
 		this.eventQueue.forEach((evt) => this.handleEvent(evt));
 		this.eventQueue = [];
+		this.checkState();
 
-		// Trigger events if warranted (e.g., we just died)
-		// We might add some generated tasks here.
-		this.prog.main.call(this, gameMessages);
-
-		return gameMessages;
-
-	};
-
-	/**
-	 * This is the main agent state, where we run an interpreter over
-	 * the agent control program. This wrapper handles tasks that must
-	 * be executed before and after the actual interpreter cycle.
-	 */
-	let beNotDead = function (gameTasks) {
-		if (this.getHealth() === 0) {
-			gameTasks.push({
-				op: 'agentDied',
-				agent: this,
-			});
-			this.prog.main = beDead;
-		} else {
-
+		if (this.isNotDead()) {
+			this.hw.wall.update();
+			this.hw.agents.update();
 			this.rechargeEnergy();
-
-			//---------------------------------------------------
-			// This is where the bot program gets advanced
-			// (While the bot has any energy)
-
-			for (var i = 0; i < this.getCPU(); ++i) {
-
-				if (this.getEnergy() <= 0) break;
-				if (this.interpreter.syncFlag) {
-					this.interpreter.syncFlag = false;
-					break;
-				}
-
-				this.interpreter.step();
-			}
-
-			// End of bot program cycle (i.e., end of chronon?)
-			//---------------------------------------------------		
-
-			// If any energy has been stored in a weapon register,
-			// fire that weapon now.
-			//this.fireWeapons();
-			
-			if (this.getEnergy() > 0) {
-				this.game.setBodyVelocity(this);
-			}
 		}
 	};
 
-	let beDead = function (gameTasks) {
-		if (--this.deathCounter === 0) {
-			gameTasks.push({
-				op: 'agentEliminated',
-				agent: this,
-			});
-			this.prog.main = beEliminated;
+	GenericAgent.prototype.checkState = function () {
+		switch (this.state) {
+			case Q_NOT_DEAD:
+				if (this.getHealth() === 0) {
+					this.game.queueEvent({
+						op: 'agentDied',
+						agent: this,
+					});
+					this.setState(Q_DEAD);
+				}
+				break;
+			case Q_DEAD:
+				if (--this.deathCounter === 0) {
+					this.game.queueEvent({
+						op: 'agentEliminated',
+						agent: this,
+					});
+					this.setState(Q_ELIMINATED);
+				}
+				break;
+			case Q_ELIMINATED:
+				break;
+			default:
+				this.error('checkState: Bad state');
 		}
-	}
+	};
 
-	let beEliminated = function (gameTasks) {
-	}
+	GenericAgent.prototype.beNotDead = function () {
+
+		//---------------------------------------------------
+		// This is where the bot program gets advanced
+		// (While the bot has any energy)
+
+		this.stepper(0);
+
+		// End of bot program cycle (i.e., end of chronon?)
+		//---------------------------------------------------		
+
+	};
+
+	GenericAgent.prototype.stepper = function (tick) {
+		if (tick >= this.getCPU()) {
+			return;
+		}
+		if (this.getEnergy() <= 0) {
+			return;
+		}
+		if (this.interpreter.syncFlag) {
+			this.interpreter.syncFlag = false;
+			return;
+		}
+
+		this.interpreter.step();
+
+		if (this.beingDebugged) {
+			return;
+		} else {
+			this.stepper(tick + 1);
+		}
+	};
 
 	GenericAgent.prototype.checkSightEvents = function () {
 		this.game.checkSightEvents(this);
@@ -504,13 +516,11 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.onAgentDied = function () {
-		this.setState(Q_DEAD);
 		this.deathCounter = 200;
 		this.game.graphics.activate(this.sprite, 'dead');
 	}
 
 	GenericAgent.prototype.onAgentEliminated = function () {
-		this.setState(Q_ELIMINATED);
 		this.game.graphics.removeSprite(this);
 	}
 
