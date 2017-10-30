@@ -67,7 +67,7 @@ var MAGIC = ((ns) => {
 		});
 		/*
 		this.prog = {
-			main: beNotDead,
+			main: runProgram,
 		};
 		*/
 	}
@@ -372,9 +372,19 @@ var MAGIC = ((ns) => {
 		this.startChronon();
 
 		if (this.isNotDead()) {
-			this.beNotDead();
+			this.runProgram();
 		}
 
+	};
+
+	GenericAgent.prototype.debugUpdateStep = function (dbg) {
+		if (dbg.startOfChronon()) {
+			this.startChronon();
+		}
+		if (this.isNotDead() && !this.done(dbg.getClock())) {
+			this.interpreter.step();
+			dbg.advanceClock();
+		}
 	};
 
 	GenericAgent.prototype.startChronon = function () {
@@ -421,39 +431,38 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	GenericAgent.prototype.beNotDead = function () {
-
-		//---------------------------------------------------
-		// This is where the bot program gets advanced
-		// (While the bot has any energy)
+	/**
+	 * Kick off the recursive call to stepper().
+	 */
+	GenericAgent.prototype.runProgram = function () {
 
 		this.stepper(0);
-
-		// End of bot program cycle (i.e., end of chronon?)
-		//---------------------------------------------------		
 
 	};
 
 	GenericAgent.prototype.stepper = function (tick) {
-		if (tick >= this.getCPU()) {
-			return;
-		}
-		if (this.getEnergy() <= 0) {
-			return;
-		}
-		if (this.interpreter.syncFlag) {
-			this.interpreter.syncFlag = false;
+		if (this.done(tick)) {
 			return;
 		}
 
 		this.interpreter.step();
 
-		if (this.beingDebugged) {
-			return;
-		} else {
-			this.stepper(tick + 1);
-		}
+		this.stepper(tick + 1);
 	};
+
+	GenericAgent.prototype.done = function (tick) {
+		if (tick >= this.getCPU()) {
+			return true;
+		}
+		if (this.getEnergy() <= 0) {
+			return true;
+		}
+		if (this.interpreter.syncFlag) {
+			this.interpreter.syncFlag = false;
+			return true;
+		}
+		return false;		
+	}
 
 	GenericAgent.prototype.checkSightEvents = function () {
 		this.game.checkSightEvents(this);

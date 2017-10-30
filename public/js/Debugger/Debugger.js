@@ -10,7 +10,29 @@ var MAGIC = ((ns) => {
 	function Debugger (game, agent) {
 		this.parent = game;
 		this.agent = agent;
+		this.clock = 0;
 	}
+
+	Debugger.prototype.startOfChronon = function () {
+		return this.clock === 0;
+	};
+
+	Debugger.prototype.endOfChronon = function () {
+		return this.clock >= this.agent.getCPU();
+	};
+
+	Debugger.prototype.getClock = function () {
+		return this.clock;
+	};
+
+	Debugger.prototype.advanceClock = function () {
+		++this.clock;
+	};
+
+	Debugger.prototype.resetClock = function () {
+		this.clock = 0;
+	};
+
 
 	Debugger.prototype.start = function () {
 		let container = e_('debug-container');

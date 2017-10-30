@@ -128,6 +128,7 @@ var MAGIC = ((ns) => {
 		this.game.bindStatusDisplays();
 		this.debug('start');
 		//this.game.enterGameLoop();
+		this.game.checkSoloMode();
 		// Hand control over to the stepper button
 	};
 
@@ -145,11 +146,15 @@ var MAGIC = ((ns) => {
 		// and then leave everything up to the stepper button...
 	};
 
+	/**
+	 * Click handler for the Step/Next button
+	 */
 	App.prototype.debugStep = function () {
 		this.game.debugStep();
 	}
 
 	App.prototype.debugEnd = function () {
+		console.log('debugEnd');
 		this.setStepperCtl('Step', false);
 		// Hide the source code viewer
 		this.game.stopDebugging();
@@ -355,14 +360,18 @@ var MAGIC = ((ns) => {
 		this.populateStatusDisplay();
 	};
 	Game.prototype.enterGameLoop = function () {
-		if (this.objects.agents.length === 1) {
-			this.flags.soloMode = true;
-		}
+		this.checkSoloMode();
 		this.loop();
 	};
 	Game.prototype.exitGameLoop = function () {
 		if (this.requestId !== 0) {
 			window.cancelAnimationFrame(this.requestId);
+		}
+	};
+
+	Game.prototype.checkSoloMode = function () {
+		if (this.objects.agents.length === 1) {
+			this.flags.soloMode = true;
 		}
 	};
 
@@ -572,6 +581,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.gameOver = function () {
+		console.log('gameOver', 'soloMode', this.flags.soloMode, 'remainingPlayers', this.remainingPlayers());
 		let go = (this.flags.soloMode && this.remainingPlayers() === 0) ||
 			(!this.flags.soloMode && this.remainingPlayers() <= 1);
 		if (go) {
@@ -671,6 +681,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.startDebugging = function () {
+		console.log('startDebugging');
 		let agent = this.rosterManager.getSelectedAgent();
 		console.log(`Debugging agent ${agent.getName()}`);
 		this.debugger = new Debugger(this, agent);
@@ -679,11 +690,37 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.debugStep = function () {
+		if (this.debugger.startOfChronon()) {
+			if (this.gameOver()) {
+				console.log('game over');
+				this.stopDebugging();
+				return;
+			}
+			++this.loopCounter;
+			this.physics.update();
+			this.objects.projectiles.forEach((proj) => proj.update());
+			//this.objects.agents.forEach((agent) => agent.update());
+			this.objects.agents.forEach((agent) => {
+				if (agent === this.debugger.agent) {
+					return;
+				}
+				agent.update();
+			});
+		}
+
+		// advance the agent being debugged one cpu clock tick
+		this.debugger.agent.debugUpdateStep(this.debugger);
+
+		if (this.debugger.endOfChronon()) {
+			this.updateView();
+			this.debugger.resetClock();
+		}
 	};
 
 	Game.prototype.stopDebugging = function () {
+		console.log('stopDebugging');
 		this.debugger.stop();
-		this.agent.interpreter.removeListener(this.debugger);
+		this.debugger.agent.interpreter.removeListener(this.debugger);
 		this.debugger = null;
 	}
 
