@@ -269,7 +269,7 @@ var MAGIC = ((ns) => {
 		parent.appendChild(name);
 
 		let debEnable = document.createElement('input');
-		this.debugSelector = debEnable;
+		this.debugSelector = debEnable;		// we need to hold on to a reference for later
 		debEnable.type = 'radio';
 		debEnable.name = 'enable-debugging';
 		debEnable.value = `debug-${this.index}`; 

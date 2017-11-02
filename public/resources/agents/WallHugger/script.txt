@@ -49,6 +49,7 @@ HugLoop:
 	jump HugLoop
 
 ReverseDirection:
+	# One of dx or dy is zero, so this is okay
 	sys.velocity_dx = mul -1 sys.velocity_dx
 	sys.velocity_dy = mul -1 sys.velocity_dy
 	ircontinue

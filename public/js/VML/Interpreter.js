@@ -384,49 +384,67 @@ var MAGIC = ((ns) => {
 			++this.pc;
 		};
 
-		//
-		//---------------------- Mainline -----------------------------------
-		//
-
-		// Any interrupts to handle?
-		if (this.irflag && this.irq.length()) {
-			let sensor = this.irq.shift(),
-					hdlr = sensor.getHandler();
-			if (hdlr === -1) return;
+		let checkIRQ = () => {
+			let hdlr = -1;
+			// Get us the first interrupt with a valid handler address
+			while (this.irq.length() > 0 && hdlr === -1) {
+				let sensor = this.irq.shift();
+				hdlr = sensor.getHandler();
+				if (hdlr === -1) {
+					continue;
+				}
+			}
+			// irq empty OR hdlr exists
+			if (hdlr === -1) {
+				// No interrupts to service
+				return;
+			}
 			if (isNaN(hdlr) || hdlr < 0 || hdlr >= this.program.instructions.length) {
-				this.error(`Bad return address: ${hdlr}`);
+				this.error(`Bad interrupt handler address: ${hdlr}`);
 			}
 			// Call interrupt handler as if it was a subroutine, 
 			let frame = pushNewFrame(this.framestack);
 			frame.return = this.pc;
 			this.irflag = false;	// turn off interrupts on branching to a handler
 			this.pc = hdlr;
-		}
+		};
+
+		let checkTrace = (instruction) => {
+			if (this.doTrace) {
+				let name = this.bot.getName(),
+						line = instruction.debug.line;
+				let traceRecord = `[${name}.${line}] `;
+				if (instruction.store) {
+					traceRecord += `${instruction.store} = `;
+				}
+				if (instruction.opcode != 'store') {
+					traceRecord += `${instruction.opcode} `;
+				}
+				instruction.args.forEach((arg) => {
+					traceRecord += `${arg.value} `;
+				});
+				this.trace.push(traceRecord);
+			}
+		};
+
+		//
+		//---------------------- Mainline -----------------------------------
+		//
+
+		// Any interrupts to handle? This will set the PC to the handler
+		// address, if so.
+		checkIRQ();
 
 		// Okay, execute the instruction at this.pc
 		if (this.pc > this.program.length) {
 			this.error(`Foops, out of rope! (${this.pc})`);
 		}
-
 		let instruction = this.program.instructions[this.pc],
 				opcode = instruction.opcode;
 
 //		console.log("step:", instruction);
-		if (this.doTrace) {
-			let name = this.bot.getName(),
-					line = instruction.debug.line;
-			let traceRecord = `[${name}.${line}] `;
-			if (instruction.store) {
-				traceRecord += `${instruction.store} = `;
-			}
-			if (instruction.opcode != 'store') {
-				traceRecord += `${instruction.opcode} `;
-			}
-			instruction.args.forEach((arg) => {
-				traceRecord += `${arg.value} `;
-			});
-			this.trace.push(traceRecord);
-		}
+
+		checkTrace(instruction);
 
 		let args = instruction.args,
 				dest = decodeLVal(instruction.store),
@@ -452,7 +470,6 @@ var MAGIC = ((ns) => {
 				console.log(`Turning tracing on for ${this.bot.getName()}`);
 				this.doTrace = true;
 				++this.pc;
-				//this.step();
 				thisOnesFree = true;
 				break;
 			case 'div':

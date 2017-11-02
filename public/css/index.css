@@ -41,6 +41,9 @@
 	clear: both;
 }
 
+#repeat-game {
+	margin-top: 12px;
+}
 
 #debug {
 	margin-left: 2em;

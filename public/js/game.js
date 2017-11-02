@@ -56,6 +56,7 @@ var MAGIC = ((ns) => {
 
 	App.prototype.reset = function () {
 		//e_('show-log').checked = false;
+		e_('repeat-game').checked = false;
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
@@ -67,6 +68,7 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.restart = function () {
+		console.log('restart');
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.clearLog();
@@ -76,6 +78,7 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.start = function () {
+		console.log('start');
 		this.game.commitRosterManager();
 		this.game.populateGameWorld();
 		this.game.bindStatusDisplays();
@@ -214,12 +217,11 @@ var MAGIC = ((ns) => {
 	};
 
 
+/*
 	App.prototype.displayLog = function () {
-		/*
 		if (!e_('show-log').checked) {
 			return;
 		}
-		*/
 		let div = e_('log-div');
 		div.innerHTML = `<textarea id="log-display" rows="10" wrap="off" style="width: 90%;"></textarea>`;
 		let display = e_('log-display');
@@ -228,6 +230,7 @@ var MAGIC = ((ns) => {
 		display.scrollTop = display.scrollHeight;
 		window.scrollTo(0, 0);
 	};
+*/
 
 	App.prototype.clearLog = function () {
 		ns.log.clear();
@@ -343,6 +346,7 @@ var MAGIC = ((ns) => {
 	// Control interface
 	// Methods call by the App on UI events
 	Game.prototype.populateGameWorld = function () {
+		console.log('populateGameWorld');
 		let roster = this.rosterManager.getRoster();
 		this.populateTheArena(roster);
 		this.render();
@@ -393,12 +397,23 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
+		console.log('populateTheArena');
 		let count = roster.length,
-				initPosList = scatter(count);		// random positions, not too close
+				initPosList;
+		if (e_('repeat-game').checked && this.lastGameData) {
+			initPosList = this.lastGameData.initPosList;
+		} else {
+			initPosList = scatter(count);		// random positions, not too close
+			this.lastGameData = this.lastGameData || {};
+			this.lastGameData.initPosList = initPosList;
+		}
+		console.log('initPosList', initPosList);
 		roster.forEach((type, i) => {
 			let agent = this.agentFactory.createAgent(type);
 			agent.game = this;
-			agent.pos = initPosList[i];
+			agent.pos = {};
+			agent.pos.x = initPosList[i].x;
+			agent.pos.y = initPosList[i].y;
 			agent.body = Physics.agentBody(agent);
 			this.physics.addBody(agent.body);
 			agent.initializeHardware();
