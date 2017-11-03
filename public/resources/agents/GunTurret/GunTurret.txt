@@ -4,8 +4,7 @@
 #
 
 Main:
-	A = gt sys.agents.data.dist 0
-	ifnz A DoFire
+	ifnz sys.agents.data.dist DoFire
 	sys.aim = add 7 sys.aim 
 	jump Main
 DoFire:

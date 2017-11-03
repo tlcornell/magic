@@ -58,6 +58,7 @@ var MAGIC = ((ns) => {
 		//e_('show-log').checked = false;
 		e_('repeat-game').checked = false;
 		this.game.exitGameLoop();
+		this.game.clearSavedGame();
 		this.game.clearGameWorld();
 		this.game.resetRosterManager();
 		this.clearLog();
@@ -68,7 +69,6 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.restart = function () {
-		console.log('restart');
 		this.game.exitGameLoop();
 		this.game.clearGameWorld();
 		this.clearLog();
@@ -78,7 +78,6 @@ var MAGIC = ((ns) => {
 	};
 
 	App.prototype.start = function () {
-		console.log('start');
 		this.game.commitRosterManager();
 		this.game.populateGameWorld();
 		this.game.bindStatusDisplays();
@@ -132,7 +131,6 @@ var MAGIC = ((ns) => {
 		this.game.populateGameWorld();
 		this.game.bindStatusDisplays();
 		this.debug('start');
-		//this.game.enterGameLoop();
 		this.game.checkSoloMode();
 		// Hand control over to the stepper button
 	};
@@ -162,7 +160,6 @@ var MAGIC = ((ns) => {
 		if (!this.game.debugger) {
 			return;
 		}
-		console.log('debugStop');
 		this.setStepperCtl('Step', false);
 		// Hide the source code viewer
 		this.game.stopDebugging();
@@ -243,7 +240,6 @@ var MAGIC = ((ns) => {
 		let display = e_('trace-display');
 		let trace = "";
 		agent.interpreter.trace.forEach((line) => {
-			//console.log(line);
 			trace += line + "\n";
 		});
 		display.value = trace;
@@ -346,10 +342,12 @@ var MAGIC = ((ns) => {
 	// Control interface
 	// Methods call by the App on UI events
 	Game.prototype.populateGameWorld = function () {
-		console.log('populateGameWorld');
 		let roster = this.rosterManager.getRoster();
 		this.populateTheArena(roster);
 		this.render();
+	};
+	Game.prototype.clearSavedGame = function () {
+		this.lastGameData = null;
 	};
 	Game.prototype.clearGameWorld = function () {
 		this.resetGameData();
@@ -397,17 +395,21 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.populateTheArena = function (roster) {
-		console.log('populateTheArena');
 		let count = roster.length,
 				initPosList;
 		if (e_('repeat-game').checked && this.lastGameData) {
 			initPosList = this.lastGameData.initPosList;
+			Math.seedrandom(this.lastGameData.randomSeed);
 		} else {
+			// (NOT repeat-game.checked) OR (NOT EXISTS this.lastGameData)
+			if (!this.lastGameData) {
+				console.log('WARNING: repeat-game checked, but no previous game data exists');
+				this.lastGameData = {};
+			}
 			initPosList = scatter(count);		// random positions, not too close
-			this.lastGameData = this.lastGameData || {};
 			this.lastGameData.initPosList = initPosList;
+			this.lastGameData.randomSeed = Math.seedrandom();
 		}
-		console.log('initPosList', initPosList);
 		roster.forEach((type, i) => {
 			let agent = this.agentFactory.createAgent(type);
 			agent.game = this;
@@ -613,17 +615,9 @@ var MAGIC = ((ns) => {
 		this.physics.update();
 		this.objects.projectiles.forEach((proj) => proj.update());
 		this.objects.agents.forEach((agent) => agent.update());
-		/*
-		this.objects.agents.forEach((agent) => {
-			if (agent.beingDebugged) return;
-			agent.update();
-		});
-		// Now step through the agent being debugged
-		*/
 	};
 
 	Game.prototype.updateView = function () {
-		// Count cycles and elapsed time
 		this.updateTimeDisplay();
 		this.handleEvents();
 		this.logFrameData();
@@ -700,9 +694,7 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.startDebugging = function () {
-		console.log('startDebugging');
 		let agent = this.rosterManager.getSelectedAgent();
-		console.log(`Debugging agent ${agent.getName()}`);
 		this.debugger = new Debugger(this, agent);
 		agent.interpreter.registerListener(this.debugger);
 		this.debugger.start();
@@ -737,7 +729,6 @@ var MAGIC = ((ns) => {
 	};
 
 	Game.prototype.stopDebugging = function () {
-		console.log('stopDebugging');
 		this.debugger.stop();
 		this.debugger.agent.interpreter.removeListener(this.debugger);
 		this.debugger = null;
@@ -759,7 +750,7 @@ var MAGIC = ((ns) => {
 	}
 
 	WallObject.prototype.update = function () {
-		console.log("WallObject.prototype.update");	// should be unreachable
+		console.log("WallObject::update: That's funny. I thought we didn't update wall objects...");	// should be unreachable
 	};
 
 	WallObject.prototype.preRender = function () {

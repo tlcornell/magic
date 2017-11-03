@@ -5,7 +5,7 @@
 	},
 	"script": "GunTurret.txt",
 	"loadout": {
-		"cpu": 40,
+		"cpu": 10,
 		"energy": 40,
 		"damage": 150,
 		"shields": 30
