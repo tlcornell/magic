@@ -1,7 +1,9 @@
 var MAGIC = ((ns) => {
 
-	// Imports
-	let OpCode = ns.OpCode;
+	// IMPORTS
+	let OpCode = ns.OpCode,
+			OpSym = ns.OpSym;
+
 
 	function ERROR (file, line, char, msg) {
 		logmsg = `[${file}:${line}.${char}] ERROR ${msg}`;
@@ -48,8 +50,9 @@ var MAGIC = ((ns) => {
 			return self.pos >= self.source.length;
 		}
 
-		function peek() {
-			return self.source.charAt(self.pos);
+		function peek(n) {
+			let offset = n ? n : 0;
+			return self.source.charAt(self.pos + offset);
 		}
 
 		function skipComment() {
@@ -116,6 +119,10 @@ var MAGIC = ((ns) => {
 		function isletter(ch) {
 			return islower(ch) || isupper(ch);
 		}
+
+		const isopchar = (ch) => {
+			return '+-*/%!&|=<>'.indexOf(ch) != -1;
+		};
 
 		/**
 		 * Technically, this allows identifiers to start with a number,
@@ -191,9 +198,35 @@ var MAGIC = ((ns) => {
 		}
 
 		function isopcode(sym) {
-			sym.toLowerCase();
 			return OpCode.hasOwnProperty(sym);
 		}
+
+		/**
+		 * This returns an Option object. If None, then it is safe to 
+		 * try an alternative analysis. Once we are committed, failure will
+		 * raise an error, and not return anything.
+		 */
+		const scanOpSym = () => {
+			if (!isopchar(peek())) {
+				return {some: false};
+			}
+			// OPSYM token or die
+			let start = this.pos,
+					chStart = this.char;
+			while (!atEnd() && isopchar(peek())) {
+				advance();
+			}
+			let str = self.source.substr(start, this.pos - start);
+			if (OpSym.hasOwnProperty(str)) {
+				return {some: true, value: createToken('OPSYM', OpSym[str], chStart)};
+			} else {
+				this.error(`Syntax error scanning operator symbol`);
+			}
+		};
+
+		//
+		//----------- Mainline --------------------------------------------
+		//
 
 		skipSpace();
 		if (atEnd()) {
@@ -201,21 +234,39 @@ var MAGIC = ((ns) => {
 		}
 		let ch = peek();
 		while (!atEnd() && !isspace(ch)) {
-			if (ch === '-' || isdigit(ch)) {
-				return scanNumber();
+			let chStart = this.char;
+			if (ch === '-') {
+				let ch1 = peek(1);
+				if (isspace(ch1)) {
+					// it's a `sub` operator
+					advance();
+					return createToken('OPSYM', 'sub', chStart);
+				} else if (isdigit(ch1)) {
+					return scanNumber();
+				} else {
+					this.error(`Syntax error after '-'`);
+				}
 			} else if (ch === '"') {
 				return scanString();
 			} else if (ch === ':') {
 				advance();
-				return createToken(':', ':', this.char - 1);
+				return createToken(':', ':', chStart);
 			} else if (ch === '=') {
-				advance();
-				return createToken('=', '=', this.char - 1);
+				let ch1 = peek(1);
+				if (ch1 === '=') {
+					advance(2);
+					return createToken('OPSYM', 'eq', chStart);
+				} else {
+					advance();
+					return createToken('=', '=', chStart);
+				}
 			} else {
-				let start = this.pos,
-						chStart = this.char;
-				let sym = scanSymbol();
-				let symL = sym.toLowerCase();
+				let opsymOpt = scanOpSym();
+				if (opsymOpt.some) {
+					return opsymOpt.value;
+				}
+				let sym = scanSymbol(),
+						symL = sym.toLowerCase();
 				if (isopcode(symL)) {
 					return createToken('OPCODE', symL, chStart);
 				} else if (sym.length) {
@@ -426,6 +477,10 @@ var MAGIC = ((ns) => {
 		var result;
 		if ((result = this.recognizeAssignment()).some) {
 			return result;
+		} else if ((result = this.recognizeInfixOperation(true)).some) {
+			// REVIEW: It would be odd to evaluate an infix expression,
+			// and then just throw the result away. None have any side effects...
+			return result;
 		} else if ((result = this.recognizeOperation(true)).some) {
 			return result;
 		} else {
@@ -452,7 +507,9 @@ var MAGIC = ((ns) => {
 		// We're committed to this rule now!
 		inst.store = t1.value;
 
-		if ((result = this.recognizeRVal()).some) {
+		if ((result = this.recognizeInfixOperation(false)).some) {
+			return result;
+		} else if ((result = this.recognizeRVal()).some) {
 			this.currentInstruction.opcode = 'store';
 			this.currentInstruction.args.push(result.value);
 			return {some: true, value: this.currentInstruction};
@@ -476,7 +533,14 @@ var MAGIC = ((ns) => {
 		}
 		if (t1.type === 'IDENTIFIER') {
 			let t2 = this.peek(1);
-			if (t2 && (t2.type === ':' || t2.type === '=')) {
+			if (!t2) {
+				// Well, it's certainly not the start of some other statement...
+				return {some: true, value: t1};
+			} else if (t2.type === ':') {
+				// It's a label
+				return {some: false};
+			} else if (t2.type === '=') {
+				// It's an lvalue
 				return {some: false};
 			}	else {
 				this.advance();
@@ -485,6 +549,44 @@ var MAGIC = ((ns) => {
 		}
 		return {some: false};
 	}
+
+	Compiler.prototype.recognizeInfixOperation = function (isLeadingEdge) {
+		// <operation> ::= <rval> <operator> <rval>...
+		let inst = this.currentInstruction;
+		var result;
+		
+		let t2 = this.peek(1);
+		if (!(t2 && t2.type === 'OPSYM')) {
+			return {some: false};
+		}
+
+		// We know there's an opsym token up ahead, 
+		// so it is now safe to call recognizeRVal().
+		// It calls advance(), if it succeeds, and that is something
+		// that we can't take back.
+		let t1 = this.recognizeRVal();		// This might be our leading edge
+		if (!t1.some) {
+			return {some: false};
+			// At this point, I think we are talking ERROR, not just failure...
+		}
+
+		inst.opcode = t2.value;
+		inst.args.push(t1.value);
+		if (isLeadingEdge) {
+			let dbg = this.currentInstruction.debug;
+			dbg.file = t1.debug.file;
+			dbg.line = t1.debug.line;
+			dbg.char = t1.debug.char;
+		}
+		this.advance();
+		// Advance just one token, because recognizeRVal(), above, already
+		// consumed one other.
+		while ((result = this.recognizeRVal()).some) {
+			this.currentInstruction.args.push(result.value);
+		}
+
+		return {some: true, value: this.currentInstruction};		
+	};
 
 	Compiler.prototype.recognizeOperation = function (isLeadingEdge) {
 		// <operation> ::= <operator> <rval>...
@@ -558,6 +660,22 @@ var MAGIC = ((ns) => {
 		this.advance();
 		return {some: true, value: t.value};
 	};
+
+	Compiler.prototype.recognizeOpSym = function (isLeadingEdge) {
+		let t = this.peek();
+		if (!t || t.type !== 'OPSYM') {
+			return {some: false};
+		}
+		if (isLeadingEdge) {
+			// No one has set instruction debug data yet
+			let dbg = this.currentInstruction.debug;
+			dbg.file = t.debug.file;
+			dbg.line = t.debug.line;
+			dbg.char = t.debug.char;
+		}
+		this.advance();
+		return {some: true, value: t.value};
+	}
 
 
 	function checkArgs(instruction) {

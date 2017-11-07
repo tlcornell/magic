@@ -3,10 +3,12 @@ var MAGIC = ((ns) => {
 	const OpCode = Object.freeze({
 		abs: {args: [{type: 'NUMBER'}], opt: []},
 		add: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		and: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		call: {args: [{type: 'ADDRESS'}], opt:[{type: 'ANY...'}]},
 		cos: {args: [{type: 'NUMBER'}], opt: [{type: 'NUMBER'}]},
 		debug: {args: [], opt: []},
 		div: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		eq: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		gt: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		gte: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		if: {args: [{type: 'NUMBER'}, {type: 'ADDRESS'}], opt: [{type: 'ADDRESS'}]},	
@@ -23,6 +25,8 @@ var MAGIC = ((ns) => {
 		lte: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		mod: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		mul: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		neq: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		not: {args: [{type: 'NUMBER'}], opt: []},
 		or: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},	
 		return: {args: [], opt: [{type: 'ANY'}]},
 		sin: {args: [{type: 'NUMBER'}], opt: [{type: 'NUMBER'}]},
@@ -32,8 +36,26 @@ var MAGIC = ((ns) => {
 		sync: {args: [], opt: []},
 	});
 
+	const OpSym = Object.freeze({
+		'==': 'eq',
+		'<=': 'lte',
+		'>=': 'gte',
+		'>': 'gt',
+		'<': 'lt',
+		'!=': 'neq',
+		'&&': 'and',
+		'||': 'or',
+		'!': 'not',
+		'+': 'add',
+		'-': 'sub',
+		'*': 'mul',
+		'/': 'div',
+		'%': 'mod',
+	});
+
 	// Exports
 	ns.OpCode = OpCode;
+	ns.OpSym = OpSym;
 
 	return ns;
 })(MAGIC || {});
