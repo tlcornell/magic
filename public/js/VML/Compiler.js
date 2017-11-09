@@ -246,6 +246,8 @@ var MAGIC = ((ns) => {
 				} else {
 					this.error(`Syntax error after '-'`);
 				}
+			} else if (isdigit(ch)) {
+				return scanNumber();
 			} else if (ch === '"') {
 				return scanString();
 			} else if (ch === ':') {
