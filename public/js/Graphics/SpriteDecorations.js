@@ -18,7 +18,7 @@ var MAGIC = ((ns) => {
 	SpriteDecorations.prototype.preRender = function (data) {
 		this.x = data.pos.x;
 		this.y = data.pos.y;
-		this.health = data.health;
+		this.health = data.getHealth();
 	};
 	SpriteDecorations.prototype.render = function (ctx) {
 		let barX = this.x - this.offset,

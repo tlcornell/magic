@@ -242,16 +242,75 @@ var MAGIC = ((ns) => {
 	// 2 - Speed 15
 	// 3 - Speed 20
 
-	function CpuClockModule (upgradePoints) {
+	function CpuClock (upgradePoints) {
 		this.cpuSpeed = 5 + (5 * upgradePoints);
 	}
 
+
+	//----------------------------------------------------------------------
+	// Power Supply Hardware Module
+	//
+	// This model does not support negative energy. You can only withdraw
+	// up to whatever is still available, but no more.
+	//
+
+	function PowerSupply (upgradePoints) {
+		this.maxEnergy = 20;	// base energy
+		this.availableEnergy = this.maxEnergy;
+	}
+
+	/**
+	 * Returns the amount of energy actually delivered, which may be less
+	 * than the desired amount, and may even be zero.
+	 */
+	PowerSupply.prototype.drawEnergy = function (desiredAmount) {
+		if (desiredAmount <= 0) {
+			return 0;
+		}
+		let delivered = 0;
+		if (desiredAmount > this.availableEnergy) {
+			delivered = this.availableEnergy;
+			this.availableEnergy = 0;
+		} else {
+			delivered = desiredAmount;
+			this.availableEnergy -= desiredAmount;
+		}
+		return delivered;
+	};
+
+	/**
+	 * Batteries recharge at a rate of two points per turn.
+	 */
+	PowerSupply.prototype.recharge = function () {
+		this.availableEnergy = Math.min(this.maxEnergy, this.availableEnergy + 2);
+	};
+
+
+
+	//----------------------------------------------------------------------
+	// Armor Hardware Module
+	//
+
+	function Armor (upgradePoints) {
+		this.maxDamage = 100;		// base value
+		this.sustainableDamage = this.maxDamage;
+	}
+
+	Armor.prototype.takeDamage = function (amount) {
+		this.sustainableDamage = Math.max(0, this.sustainableDamage - amount);
+	};
+
+	Armor.prototype.armorGone = function () {
+		return this.sustainableDamage <= 0;
+	};
 
 
 	// EXPORTS
 	ns.AgentsScanner = AgentsScanner;
 	ns.WallSensor = WallSensor;
-	ns.CpuClockModule = CpuClockModule;
+	ns.CpuClock = CpuClock;
+	ns.PowerSupply = PowerSupply;
+	ns.Armor = Armor;
 
 	return ns;
 

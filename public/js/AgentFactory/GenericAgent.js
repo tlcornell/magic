@@ -11,7 +11,9 @@ var MAGIC = ((ns) => {
 			zipForEach = ns.zipForEach;
 	let AgentsScanner = ns.AgentsScanner,
 			WallSensor = ns.WallSensor,
-			CpuClockModule = ns.CpuClockModule;
+			CpuClock = ns.CpuClock,
+			PowerSupply = ns.PowerSupply,
+			Armor = ns.Armor;
 	let LOG = ns.LOG;
 	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
 	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
@@ -47,12 +49,7 @@ var MAGIC = ((ns) => {
 			eventQueue: [],
 			state: Q_NOT_DEAD,
 			// "Hardware Registers"
-			//cpuSpeed: properties.hw.cpu,
-			energy: properties.hw.energy,
-			maxEnergy: properties.hw.energy,
 			fire: 0,
-			health: properties.hw.damage,
-			maxHealth: properties.hw.damage,
 			shields: properties.hw.shields,
 			maxShields: properties.hw.shields,
 			drv: {
@@ -65,7 +62,9 @@ var MAGIC = ((ns) => {
 			hw: {
 				agents: new AgentsScanner(this),
 				wall: new WallSensor(this),
-				cpuClock: new CpuClockModule(0),	// zero upgrade points, for now
+				cpuClock: new CpuClock(0),	// zero upgrade points, for now
+				power: new PowerSupply(0),	// zero upgrade points, for now
+				armor: new Armor(0),				// zero upgrade points, for now
 			},
 		});
 	}
@@ -180,8 +179,7 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericAgent.prototype.addBulletEnergy = function (e) {
-		this.fire += e;
-		this.energy -= e;
+		this.fire += this.hw.power.drawEnergy(e);
 	}
 
 	GenericAgent.prototype.clearBulletEnergy = function () {
@@ -189,39 +187,30 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericAgent.prototype.getEnergy = function () {
-		return this.energy;
+		return this.hw.power.availableEnergy;
 	}
 
 	GenericAgent.prototype.rechargeEnergy = function () {
-		this.energy = Math.min(this.maxEnergy, this.energy + 2);
+		this.hw.power.recharge();
 	}
 
 	GenericAgent.prototype.getMaxEnergy = function () {
-		return this.maxEnergy;
+		return this.hw.power.maxEnergy;
 	}
 
 	GenericAgent.prototype.getHealth = function () {
-		return this.health;
+		return this.hw.armor.sustainableDamage;
 	};
-
-	GenericAgent.prototype.setHealth = function (amt) {
-		this.health = Math.max(amt, 0);
-	}
 
 	GenericAgent.prototype.removeHealth = function (amt) {
 		if (amt < 0) {
 			this.error(`removeHealth: Negative amount (${amt})`);
 		}
-		let H = this.getHealth();
-		if (H === 0) {
-			return;
-		}
-		this.setHealth(H - amt);
-		// Note that setHealth floors out at zero. So it's okay even if H-amt is neg.
+		this.hw.armor.takeDamage(amt);
 	};
 
 	GenericAgent.prototype.getMaxHealth = function () {
-		return this.maxHealth;
+		return this.hw.armor.maxDamage;
 	};
 
 	GenericAgent.prototype.getShields = function () {
@@ -270,11 +259,10 @@ var MAGIC = ((ns) => {
 				dy0 = this.drv.y,
 				ycost = Math.abs(dy - dy0),
 				cost = Math.round(xcost + ycost);
-		this.energy -= cost;
-		this.energy = Math.min(this.maxEnergy, this.energy);
+		this.hw.power.drawEnergy(cost);
 		this.drv.x = dx;
 		this.drv.y = dy;
-		if (this.energy > 0) {
+		if (this.getEnergy() > 0) {
 			this.game.setBodyVelocity(this);
 		}
 	};
