@@ -403,7 +403,6 @@ var MAGIC = ((ns) => {
 		} else {
 			// (NOT repeat-game.checked) OR (NOT EXISTS this.lastGameData)
 			if (!this.lastGameData) {
-				console.log('WARNING: repeat-game checked, but no previous game data exists');
 				this.lastGameData = {};
 			}
 			initPosList = scatter(count);		// random positions, not too close
@@ -519,17 +518,10 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * Sets observer.hw.agents.data, if there is anything to see at
-	 * observer.sight.angle + observer.sight.offset. 
-	 * Object returned will be the closest, in case there are 
-	 * multiple candidates.
+	 * Returns agent data, if there is anything to see at from pos along sightRay. 
+	 * Object returned will be the closest, in case there are multiple candidates.
 	 */
-	Game.prototype.checkSightEvents = function (observer) {
-		let scanner = observer.hw.agents;
-		scanner.data = null;
-		let angle = observer.turret.angle + scanner.angle,
-				pos = observer.getPosition(),
-				sightRay = a2v(pos, angle, Game.const.SIGHT_DISTANCE);
+	Game.prototype.checkSightEvents = function (observer, pos, sightRay) {
 		let agents = this.objects.agents;
 		let candidates = [];
 		for (var i = 0; i < agents.length; ++i) {
@@ -560,14 +552,13 @@ var MAGIC = ((ns) => {
 			}
 		}
 		if (argmin) {
-			scanner.data = {
+			return {
 				thing: argmin,
 				dist: Math.sqrt(min),
 			};
-//			console.log(observer.getName(), 'sees', scanner.data.thing.getName());
+		} else {
+			return null;
 		}
-		// This was called by the agent. It will check the result and raise
-		// an interrupt, if warranted.
 	};
 
 	Game.prototype.updateTimeDisplay = function () {

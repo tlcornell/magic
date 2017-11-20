@@ -48,9 +48,10 @@ WallTurretBase:
 
 Shoot:
 	sys.aim = add sys.aim sys.agents.angle
-	A = gte sys.energy 50
-	ifz A SkipIt
-	sys.fire = 50
+	TooTiredToShoot = sys.energy < 5
+	if TooTiredToShoot SkipIt
+	sys.fire = sys.energy
+	sync
 SkipIt:
 	ircontinue
 

@@ -6,6 +6,12 @@ var MAGIC = ((ns) => {
 			degrees = ns.degrees;
 	
 
+	
+
+	//----------------------------------------------------------------------
+	// Agents Scanner Module
+	//
+
 	function AgentsScanner (agent) {
 		Object.assign(this, {
 			agent: agent,
@@ -85,6 +91,10 @@ var MAGIC = ((ns) => {
 	};
 
 
+
+	//----------------------------------------------------------------------
+	// Wall Scanner Hardware Module
+	//
 
 	/**
 	 * Walls are always checked in order: N, W, S, E

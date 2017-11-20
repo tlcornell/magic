@@ -8,5 +8,6 @@ Main:
 	sys.aim = add 7 sys.aim 
 	jump Main
 DoFire:
-	sys.fire = 50 
+	Force = min sys.energy 50
+	sys.fire = Force 
 	jump Main

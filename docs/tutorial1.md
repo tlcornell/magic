@@ -1,4 +1,4 @@
-# Agent Code Tutorial
+# Agent Development Tutorial
 
 ## A Simple Agent
 
@@ -7,16 +7,16 @@ It does not move; it just rotates its turret looking for enemies and shooting at
 
 ```
 Main:
-	A = sys.enemyRange > 0
+	A = sys.agents.data.dist > 0
 	ifnz A DoFire			# If A is not zero, jump to DoFire
-	sys.turretAngle += 7	# Rotate the turret 7 degrees
+	sys.aim = sys.aim + 7	# Rotate the turret 7 degrees
 	jump Main
 DoFire:
-	sys.attackEnergy = 50	# Store 50 energy into a bullet
+	sys.fire = 50			# Store 50 energy into a projectile
 	jump Main
 ```
 
-In this simple example, the turret angle is used both to aim the agent's weapon and to sight enemies. You will see later that the agent's vision system can support looking in one direction while shooting in another. This might be important if you want to lead your shots, for example.
+In this simple example, the turret angle (`sys.aim`) is used both to aim the agent's weapon and to sight enemies. You will see later that the agent's vision system can support looking in one direction while shooting in another. 
 
 The turret angle is expressed in degrees. You can assign angles greater than 360 or less than 0 to the turret, but they will be normalized to the interval from zero up to but not including 360. So if you assign an angle the the turret and immediately read it back, you may not get exactly the angle you wrote, but it will still be equivalent.
 

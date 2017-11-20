@@ -7,8 +7,8 @@
 	sys.heading = store2 4 RandomDirection 
 
 Main:
-	add Bounce sys.wall 
-	jump _
+	Address = add Bounce sys.wall 
+	jump Address
 Bounce:
 	jump CheckRange
 	jump GetOffNorthWall

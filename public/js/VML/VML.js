@@ -23,6 +23,8 @@ var MAGIC = ((ns) => {
 		log: {args: [], opt: [{type: 'ANY...'}]},
 		lt: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		lte: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		max: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		min: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		mod: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		mul: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		neq: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},

@@ -6,6 +6,7 @@ var MAGIC = ((ns) => {
 	let degrees = ns.degrees,
 			radians = ns.radians,
 			angle2vector = ns.angle2vector,
+			a2v = ns.a2v,
 			vector2angle = ns.vector2angle,
 			zipForEach = ns.zipForEach;
 	let AgentsScanner = ns.AgentsScanner,
@@ -65,11 +66,6 @@ var MAGIC = ((ns) => {
 				wall: new WallSensor(this),
 			},
 		});
-		/*
-		this.prog = {
-			main: runProgram,
-		};
-		*/
 	}
 
 	GenericAgent.const = ns.constants;
@@ -172,16 +168,6 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.setLookDegrees = function (deg) {
 		this.setLook(radians(deg));
 	}
-
-	/*
-	GenericAgent.prototype.getSightDist = function () {
-		if (this.sight.dist) {
-			return this.sight.dist;
-		} else {
-			return 0;
-		}
-	};
-	*/
 
 	GenericAgent.prototype.getCPU = function () {
 		return this.cpuSpeed;
@@ -294,7 +280,7 @@ var MAGIC = ((ns) => {
 	/**
 	 * Return {r, th}, where th (the azimuth) is in degrees, converted 
 	 * from radians. So this is meant for clients, not internal use,
-	 * which should maingain all angles in radians.
+	 * which should maintain all angles in radians.
 	 */
 	GenericAgent.prototype.getHeading = function () {
 		let hdg = vector2angle(this.drv.x, this.drv.y),
@@ -464,8 +450,22 @@ var MAGIC = ((ns) => {
 		return false;		
 	}
 
+	/**
+	 * REVIEW: This is only called by AgentsScanner. So it doesn't really
+	 * represent a proper service, and is instead kind of an intrusion of 
+	 * that particular scanner into what should be more generic platform-y 
+	 * code.
+	 */
 	GenericAgent.prototype.checkSightEvents = function () {
-		this.game.checkSightEvents(this);
+		let scanner = this.hw.agents;
+		scanner.data = null;
+		let angle = this.turret.angle + scanner.angle,
+				pos = this.getPosition(),
+				sightRay = a2v(pos, angle, GenericAgent.const.SIGHT_DISTANCE);
+		let data = this.game.checkSightEvents(this, pos, sightRay);
+		if (data) {
+			scanner.data = data;
+		}
 	};
 
 	GenericAgent.prototype.queueEvent = function (evt) {

@@ -550,6 +550,12 @@ var MAGIC = ((ns) => {
 			case 'lte':
 				binOp((a,b) => (a<=b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
 				break;
+			case 'max':
+				binOp(Math.max, rval(args[0]), rval(args[1]), dest);
+				break;
+			case 'min':
+				binOp(Math.min, rval(args[0]), rval(args[1]), dest);
+				break;
 			case 'mod':
 				binOp((a,b) => a % b, rval(args[0]), rval(args[1]), dest);
 				break;
