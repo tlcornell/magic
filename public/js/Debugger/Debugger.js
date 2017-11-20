@@ -33,6 +33,10 @@ var MAGIC = ((ns) => {
 		this.clock = 0;
 	};
 
+	Debugger.prototype.sync = function () {
+		this.clock = this.agent.getCPU();
+	};
+
 
 	Debugger.prototype.start = function () {
 		let container = e_('debug-container');

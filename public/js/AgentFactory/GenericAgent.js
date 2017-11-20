@@ -10,7 +10,8 @@ var MAGIC = ((ns) => {
 			vector2angle = ns.vector2angle,
 			zipForEach = ns.zipForEach;
 	let AgentsScanner = ns.AgentsScanner,
-			WallSensor = ns.WallSensor;
+			WallSensor = ns.WallSensor,
+			CpuClockModule = ns.CpuClockModule;
 	let LOG = ns.LOG;
 	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
 	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
@@ -46,7 +47,7 @@ var MAGIC = ((ns) => {
 			eventQueue: [],
 			state: Q_NOT_DEAD,
 			// "Hardware Registers"
-			cpuSpeed: properties.hw.cpu,
+			//cpuSpeed: properties.hw.cpu,
 			energy: properties.hw.energy,
 			maxEnergy: properties.hw.energy,
 			fire: 0,
@@ -64,6 +65,7 @@ var MAGIC = ((ns) => {
 			hw: {
 				agents: new AgentsScanner(this),
 				wall: new WallSensor(this),
+				cpuClock: new CpuClockModule(0),	// zero upgrade points, for now
 			},
 		});
 	}
@@ -170,7 +172,7 @@ var MAGIC = ((ns) => {
 	}
 
 	GenericAgent.prototype.getCPU = function () {
-		return this.cpuSpeed;
+		return this.hw.cpuClock.cpuSpeed;
 	}
 
 	GenericAgent.prototype.getBulletEnergy = function () {
@@ -363,16 +365,6 @@ var MAGIC = ((ns) => {
 
 	};
 
-	GenericAgent.prototype.debugUpdateStep = function (dbg) {
-		if (dbg.startOfChronon()) {
-			this.startChronon();
-		}
-		if (this.isNotDead() && !this.done(dbg.getClock())) {
-			this.interpreter.step();
-			dbg.advanceClock();
-		}
-	};
-
 	GenericAgent.prototype.startChronon = function () {
 		// Handle event notifications (event queue) for "external" events 
 		// coming in from the Game object.
@@ -417,12 +409,31 @@ var MAGIC = ((ns) => {
 		}
 	};
 
+	GenericAgent.prototype.debugUpdateStep = function (dbg) {
+		if (dbg.startOfChronon()) {
+			this.startChronon();
+		}
+		if (this.isNotDead() && !this.done(dbg.getClock())) {
+			this.interpreter.step();
+			if (this.interpreter.syncFlag) {
+				this.interpreter.syncFlag = false;
+				dbg.sync();
+			} else {
+				dbg.advanceClock();
+			}
+		}
+	};
+
 	/**
 	 * Kick off the recursive call to stepper().
 	 */
 	GenericAgent.prototype.runProgram = function () {
 
 		for (let tick = 0; !this.done(tick); ++tick) {
+			if (this.interpreter.syncFlag) {
+				this.interpreter.syncFlag = false;
+				continue;
+			}
 			this.interpreter.step();
 		}
 
@@ -433,10 +444,6 @@ var MAGIC = ((ns) => {
 			return true;
 		}
 		if (this.getEnergy() <= 0) {
-			return true;
-		}
-		if (this.interpreter.syncFlag) {
-			this.interpreter.syncFlag = false;
 			return true;
 		}
 		return false;		
