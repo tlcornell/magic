@@ -422,18 +422,10 @@ var MAGIC = ((ns) => {
 	 */
 	GenericAgent.prototype.runProgram = function () {
 
-		this.stepper(0);
-
-	};
-
-	GenericAgent.prototype.stepper = function (tick) {
-		if (this.done(tick)) {
-			return;
+		for (let tick = 0; !this.done(tick); ++tick) {
+			this.interpreter.step();
 		}
 
-		this.interpreter.step();
-
-		this.stepper(tick + 1);
 	};
 
 	GenericAgent.prototype.done = function (tick) {

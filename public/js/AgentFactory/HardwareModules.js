@@ -1,3 +1,7 @@
+////////////////////////////////////////////////////////////////////////////
+// HardwareModules.js
+//
+
 var MAGIC = ((ns) => {
 
 	// IMPORTS
@@ -228,9 +232,26 @@ var MAGIC = ((ns) => {
 	};
 
 
+
+	//----------------------------------------------------------------------
+	// CPU (Clock) Hardware Module
+	//
+	// Upgrade Points:
+	// 0 - Speed 5
+	// 1 - Speed 10
+	// 2 - Speed 15
+	// 3 - Speed 20
+
+	function CpuClockModule (upgradePoints) {
+		this.cpuSpeed = 5 + (5 * upgradePoints);
+	}
+
+
+
 	// EXPORTS
 	ns.AgentsScanner = AgentsScanner;
 	ns.WallSensor = WallSensor;
+	ns.CpuClockModule = CpuClockModule;
 
 	return ns;
 

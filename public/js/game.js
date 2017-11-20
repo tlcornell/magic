@@ -701,10 +701,9 @@ var MAGIC = ((ns) => {
 			++this.loopCounter;
 			this.physics.update();
 			this.objects.projectiles.forEach((proj) => proj.update());
-			//this.objects.agents.forEach((agent) => agent.update());
 			this.objects.agents.forEach((agent) => {
 				if (agent === this.debugger.agent) {
-					return;
+					return;	// equiv 'continue', in a forEach loop
 				}
 				agent.update();
 			});
