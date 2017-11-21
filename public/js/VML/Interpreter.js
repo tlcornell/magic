@@ -32,6 +32,8 @@ var MAGIC = ((ns) => {
 	};
 
 	InterruptQueue.prototype.insert = function (sensor) {
+		// Smaller priority value means higher priority
+		// (Sort queue in ascending order of priority)
 		let pri1 = sensor.getPriority();
 		for (let i = 0; i < this.queue.length; ++i) {
 			if (sensor === this.queue[i]) {
@@ -385,18 +387,18 @@ var MAGIC = ((ns) => {
 		};
 
 		let checkIRQ = () => {
+			if (!this.irflag) {
+				return;
+			}
 			let hdlr = -1;
 			// Get us the first interrupt with a valid handler address
 			while (this.irq.length() > 0 && hdlr === -1) {
 				let sensor = this.irq.shift();
 				hdlr = sensor.getHandler();
-				if (hdlr === -1) {
-					continue;
-				}
 			}
 			// irq empty OR hdlr exists
 			if (hdlr === -1) {
-				// No interrupts to service
+				// Queue empty. No interrupts to service
 				return;
 			}
 			if (isNaN(hdlr) || hdlr < 0 || hdlr >= this.program.instructions.length) {
@@ -405,6 +407,7 @@ var MAGIC = ((ns) => {
 			// Call interrupt handler as if it was a subroutine, 
 			let frame = pushNewFrame(this.framestack);
 			frame.return = this.pc;
+			// Don't add 1 to PC. We haven't executed this instruction yet.
 			this.irflag = false;	// turn off interrupts on branching to a handler
 			this.pc = hdlr;
 		};
