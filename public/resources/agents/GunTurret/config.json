@@ -4,9 +4,9 @@
 		"portrait": "sprite.png"
 	},
 	"script": "GunTurret.txt",
-	"loadout": {
-		"cpu": 5,
-		"energy": 20,
-		"damage": 100
+	"upgrades": {
+		"cpu": 0,
+		"energy": 1,
+		"damage": 2
 	}
 }

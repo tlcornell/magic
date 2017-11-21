@@ -51,8 +51,8 @@ Shoot:
 	TooTiredToShoot = sys.energy < 5
 	if TooTiredToShoot SkipIt
 	sys.fire = sys.energy
-	sync
 SkipIt:
+	sync
 	ircontinue
 
 RegainPosition:
@@ -67,38 +67,30 @@ RegainBase:
 	jump GetOffSouth
 	jump GetOffEast
 GetOffNorth:
-	log "GetOffNorth"
 	sys.velocity_dy = 2
 	sync
 	A = lte sys.y 50
-	log sys.y 50
 	if A GetOffNorth
 	sys.velocity_dy = 0
 	ircontinue
 GetOffWest:
-	log "GetOffWest"
 	sys.velocity_dx = 2
 	sync
 	A = lte sys.x 50
-	log sys.x 50
 	if A GetOffWest
 	sys.velocity_dx = 0
 	ircontinue
 GetOffSouth:
-	log "GetOffSouth"
 	sys.velocity_dy = -2
 	sync
 	A = gte sys.y 590
-	log sys.y 590
 	if A GetOffSouth
 	sys.velocity_dy = 0
 	ircontinue
 GetOffEast:
-	log "GetOffEast"
 	sys.velocity_dx = -2
 	sync
 	A = gte sys.x 750
-	log sys.x 750
 	if A GetOffEast
 	sys.velocity_dx = 0
 	ircontinue
@@ -124,7 +116,7 @@ OnNorthWall:
 	sys.aim = 170
 	sys.aim = 180
 	sys.agents.angle = add sys.agents.angle 1
-	sys.agents.angle = mod sys.agents.angle 7
+	sys.agents.angle = mod sys.agents.angle 10
 	jump OnNorthWall
 
 OnWestWall:
@@ -148,7 +140,7 @@ OnWestWall:
 	sys.aim = 440
 	sys.aim = 450
 	sys.agents.angle = add sys.agents.angle 1
-	sys.agents.angle = mod sys.agents.angle 7
+	sys.agents.angle = mod sys.agents.angle 10
 	jump OnWestWall
 
 OnSouthWall:
@@ -172,7 +164,7 @@ OnSouthWall:
 	sys.aim = 350
 	sys.aim = 360
 	sys.agents.angle = add sys.agents.angle 1
-	sys.agents.angle = mod sys.agents.angle 7
+	sys.agents.angle = mod sys.agents.angle 10
 	jump OnSouthWall
 
 OnEastWall:
@@ -196,7 +188,7 @@ OnEastWall:
 	sys.aim = 260
 	sys.aim = 270
 	sys.agents.angle = add sys.agents.angle 1
-	sys.agents.angle = mod sys.agents.angle 7
+	sys.agents.angle = mod sys.agents.angle 10
 	jump OnEastWall
 
 

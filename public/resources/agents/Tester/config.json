@@ -2,9 +2,9 @@
 	"sprites": {
 	},
 	"script": "script.txt",
-	"loadout": {
-		"cpu": 5,
-		"energy": 20,
-		"damage": 100
+	"upgrades": {
+		"cpu": 0,
+		"energy": 0,
+		"damage": 1
 	}
 }

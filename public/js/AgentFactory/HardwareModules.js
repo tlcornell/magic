@@ -51,6 +51,8 @@ var MAGIC = ((ns) => {
 	 */
 	AgentsScanner.prototype.update = function () {
 		this.agent.checkSightEvents();
+		// agent.checkSightEvents will set this.data if anything is in sight
+		
 		// Maybe trigger an interrupt?
 		if (!this.data) return;
 		if (this.handler === -1) return;
@@ -243,6 +245,7 @@ var MAGIC = ((ns) => {
 	// 3 - Speed 20
 
 	function CpuClock (upgradePoints) {
+		upgradePoints = Math.min(upgradePoints, 3);	// capped at 3
 		this.cpuSpeed = 5 + (5 * upgradePoints);
 	}
 
@@ -253,9 +256,15 @@ var MAGIC = ((ns) => {
 	// This model does not support negative energy. You can only withdraw
 	// up to whatever is still available, but no more.
 	//
+	// Upgrade Points:
+	//	0 - 20
+	//	1 - 30
+	//	2 - 40
+	//	3 - 50
 
 	function PowerSupply (upgradePoints) {
-		this.maxEnergy = 20;	// base energy
+		upgradePoints = Math.min(upgradePoints, 3);	// capped at 3
+		this.maxEnergy = 20 + (upgradePoints * 10);	// base energy
 		this.availableEnergy = this.maxEnergy;
 	}
 
@@ -290,9 +299,15 @@ var MAGIC = ((ns) => {
 	//----------------------------------------------------------------------
 	// Armor Hardware Module
 	//
+	// Upgrade Points:
+	//	0 - 100
+	//	1 - 150
+	//	2 - 200
+	//	3 - 250
 
 	function Armor (upgradePoints) {
-		this.maxDamage = 100;		// base value
+		upgradePoints = Math.min(upgradePoints, 3);	// capped at 3
+		this.maxDamage = 100 + (upgradePoints * 50);	
 		this.sustainableDamage = this.maxDamage;
 	}
 
@@ -305,12 +320,28 @@ var MAGIC = ((ns) => {
 	};
 
 
+
+	//----------------------------------------------------------------------
+	// Shields Hardware Module
+	//
+	// Energy shields, which consume energy to reduce damage. Not as effective
+	// as armor, but renewable.
+	//
+	// Currently unimplemented -- this is just a stub.
+
+	function EnergyShield (upgradePoints) {
+		this.maxShields = 0;
+		this.currentShields = this.maxShields;
+	}
+
+
 	// EXPORTS
 	ns.AgentsScanner = AgentsScanner;
 	ns.WallSensor = WallSensor;
 	ns.CpuClock = CpuClock;
 	ns.PowerSupply = PowerSupply;
 	ns.Armor = Armor;
+	ns.EnergyShield = EnergyShield;
 
 	return ns;
 

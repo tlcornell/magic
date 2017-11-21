@@ -138,7 +138,7 @@ var MAGIC = ((ns) => {
 			name: name,
 			type: agentType,
 			number: id,									// per-game unique ID
-			hw: kit.config.loadout,
+			hw: kit.config.upgrades,
 		};
 		let agent = new GenericAgent(this.game, properties);
 		agent.sourceCode = kit.script; 

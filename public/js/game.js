@@ -536,7 +536,7 @@ var MAGIC = ((ns) => {
 			}
 		}
 		if (candidates.length === 0) {
-			return;
+			return null;
 		}
 		let min = Infinity,
 				argmin = null;

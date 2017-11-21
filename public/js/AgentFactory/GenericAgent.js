@@ -13,7 +13,8 @@ var MAGIC = ((ns) => {
 			WallSensor = ns.WallSensor,
 			CpuClock = ns.CpuClock,
 			PowerSupply = ns.PowerSupply,
-			Armor = ns.Armor;
+			Armor = ns.Armor,
+			EnergyShield = ns.EnergyShield;
 	let LOG = ns.LOG;
 	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
 	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
@@ -50,8 +51,6 @@ var MAGIC = ((ns) => {
 			state: Q_NOT_DEAD,
 			// "Hardware Registers"
 			fire: 0,
-			shields: properties.hw.shields,
-			maxShields: properties.hw.shields,
 			drv: {
 				x: 0,
 				y: 0,
@@ -62,9 +61,10 @@ var MAGIC = ((ns) => {
 			hw: {
 				agents: new AgentsScanner(this),
 				wall: new WallSensor(this),
-				cpuClock: new CpuClock(0),	// zero upgrade points, for now
-				power: new PowerSupply(0),	// zero upgrade points, for now
-				armor: new Armor(0),				// zero upgrade points, for now
+				cpuClock: new CpuClock(properties.hw.cpu),
+				power: new PowerSupply(properties.hw.energy),
+				armor: new Armor(properties.hw.damage),
+				shields: new EnergyShield(0),	// not implemented yet
 			},
 		});
 	}
@@ -214,11 +214,11 @@ var MAGIC = ((ns) => {
 	};
 
 	GenericAgent.prototype.getShields = function () {
-		return this.shields;
+		return this.hw.shields.currentShields;
 	}
 
 	GenericAgent.prototype.getMaxShields = function () {
-		return this.maxShields;
+		return this.hw.shields.maxShields;
 	}
 
 
