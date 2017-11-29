@@ -278,6 +278,9 @@ var MAGIC = ((ns) => {
 		return {r: hdg.r, th: deg};
 	};
 
+	/**
+	 * @param th (the azimuth, 'theta') should be in radians
+	 */
 	GenericAgent.prototype.setHeading = function (r, th) {
 		let vec = angle2vector(th, r);
 		this.setVelocity(vec.x, vec.y);

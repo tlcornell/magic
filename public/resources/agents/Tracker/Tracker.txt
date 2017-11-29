@@ -1,0 +1,82 @@
+##########################################################################
+# Tracker.txt
+#
+# Experiment with tracking routines
+#
+
+	ircall sys.agents StartTracking
+	irstart
+
+AimLoop:
+
+	sys.aim = 0
+	sys.aim = 10
+	sys.aim = 20
+	sys.aim = 30
+	sys.aim = 40
+	sys.aim = 50
+	sys.aim = 60
+	sys.aim = 70
+	sys.aim = 80
+	sys.aim = 90
+	sys.aim = 100
+	sys.aim = 110
+	sys.aim = 120
+	sys.aim = 130
+	sys.aim = 140
+	sys.aim = 150
+	sys.aim = 160
+	sys.aim = 170
+	sys.aim = 180
+	sys.aim = 190
+	sys.aim = 200
+	sys.aim = 210
+	sys.aim = 220
+	sys.aim = 230
+	sys.aim = 240
+	sys.aim = 250
+	sys.aim = 260
+	sys.aim = 270
+	sys.aim = 280
+	sys.aim = 290
+	sys.aim = 300
+	sys.aim = 310
+	sys.aim = 320
+	sys.aim = 330
+	sys.aim = 340
+	sys.aim = 350
+	sys.agents.angle = sys.agents.angle + 1
+	sys.agents.angle = sys.agents.angle % 10
+	jump AimLoop
+
+StartTracking:
+	log "Found them! At:" sys.aim "+" sys.agents.angle
+	sys.aim = sys.aim + sys.agents.angle
+	sys.agents.angle = 0
+	log "Set course:" sys.aim
+	sys.heading = store2 3 sys.aim
+	ircontinue TrackingLoop
+
+TrackingLoop:
+#	sys.aim is our best guess at enemy direction
+#	sys.agents.angle should be zero
+	log "TrackingLoop"
+	sync
+	sys.agents.angle = 0	# to trigger interrupt if we are still right on target
+	sys.agents.angle = 5
+	sys.agents.angle = -5
+	sys.agents.angle = 10
+	sys.agents.angle = -10
+	sys.agents.angle = 15
+	sys.agents.angle = -15
+	sys.agents.angle = 20
+	sys.agents.angle = -20
+	sys.agents.angle = 25
+	sys.agents.angle = -25
+	sys.agents.angle = 30
+	sys.agents.angle = -30
+#	Looks like we lost them
+	log "Looks like we lost them"
+	sys.agents.angle = 0
+	sys.velocity = store2 0 0
+	jump AimLoop

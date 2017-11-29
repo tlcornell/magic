@@ -1,0 +1,9 @@
+{
+	"sprites": {},
+	"script": "Tracker.txt",
+	"upgrades": {
+		"cpu": 2,
+		"energy": 1,
+		"damage": 0
+	}
+}
