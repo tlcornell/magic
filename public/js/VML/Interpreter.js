@@ -6,6 +6,7 @@ var MAGIC = ((ns) => {
 
 	// IMPORTS
 	const constants = ns.constants,
+				radians = ns.radians,
 				zipForEach = ns.zipForEach;
 
 
@@ -267,6 +268,7 @@ var MAGIC = ((ns) => {
 			switch (module) {
 				case 'agents':
 					this.bot.module('agents').write(lval.key, x);
+					break;
 				case 'aim':
 					// lval.key should be []
 					this.bot.setAimDegrees(x);
@@ -300,7 +302,7 @@ var MAGIC = ((ns) => {
 					break;
 				case 'heading':
 					// v1 -> r, v2 -> th
-					this.bot.setHeading(v1, v2);
+					this.bot.setHeading(v1, radians(v2));
 					break;
 				default:
 					this.error(`Attempt to store to unrecognized hardware register (${lval.key.join(".")})`);
