@@ -36,6 +36,7 @@ var MAGIC = ((ns) => {
 		store2: {args:[{type: 'ANY'}, {type: 'ANY'}], opt: []},
 		sub: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		sync: {args: [], opt: []},
+		tuple: {args:[{type: 'ANY'}, {type: 'ANY'}], opt: [{type: 'ANY...'}]},
 	});
 
 	const OpSym = Object.freeze({

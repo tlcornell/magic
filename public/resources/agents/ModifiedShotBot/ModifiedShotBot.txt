@@ -4,7 +4,7 @@
 #
 
 	RandomDirection = mul sys.random 360 
-	sys.heading = store2 4 RandomDirection 
+	sys.heading = tuple 4 RandomDirection 
 
 Main:
 	Address = add Bounce sys.wall 

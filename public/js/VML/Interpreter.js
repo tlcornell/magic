@@ -309,6 +309,21 @@ var MAGIC = ((ns) => {
 			}
 		};
 
+		let storeTuple = (lval, tuple) => {
+			switch (lval.key[0]) {
+				case 'velocity':
+					// v1 -> dx, v2 -> dy
+					this.bot.setVelocity(tuple[0], tuple[1]);
+					break;
+				case 'heading':
+					// v1 -> r, v2 -> th
+					this.bot.setHeading(tuple[0], radians(tuple[1]));
+					break;
+				default:
+					this.error(`Attempt to store to unrecognized hardware register (${lval.key.join(".")})`);
+			}
+		};
+
 		let getFromHardware = (agent, path) => {
 			let reg0 = path.shift();
 			switch (reg0) {
@@ -603,6 +618,13 @@ var MAGIC = ((ns) => {
 			case 'sync':
 				this.syncFlag = true;
 				++this.pc;
+				break;
+			case 'tuple': {
+					let t = [];
+					args.forEach((a) => t.push(rval(a)));
+					storeTuple(dest, t);
+					++this.pc;
+				}
 				break;
 			default:
 				console.log("------------------------------------------");
