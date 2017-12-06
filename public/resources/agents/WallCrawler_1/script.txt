@@ -1,0 +1,72 @@
+############################################################################
+# WallCrawler_1
+#
+# Example bot that moves to the closest wall, and then starts running
+# clockwise around the edges of the arena.
+#
+
+	# Set wall sensor sensitivity very high, so that we are for sure
+	# within that many pixels of the closest wall.
+	sys.wall.limit = 1000
+	jumpOffset = sys.wall
+	jumpOffset = jumpOffset * 2		# table cell size
+	jumpOffset = StartTable + jumpOffset
+	jump jumpOffset
+StartTable:
+	log "unreachable"
+	log "unreachable"
+HeadForNorthWall:
+	call GoNorth
+	jump Traveling
+HeadForWestWall:
+	call GoWest
+	jump Traveling
+HeadForSouthWall:
+	call GoSouth
+	jump Traveling
+HeadForEastWall:
+	call GoEast
+	jump Traveling
+
+Traveling:
+	sync
+	test = call user.wallTest
+	ifz test Traveling
+# Near a wall, so turn and run along it
+	call user.nextMove
+	jump Traveling
+
+GoNorth:
+	sys.velocity = tuple 0 -5
+	user.wallTest = NearNorthWall
+	user.nextMove = GoEast
+	return
+GoWest:
+	sys.velocity = tuple -5 0
+	user.wallTest = NearWestWall
+	user.nextMove = GoNorth
+	return
+GoSouth:
+	sys.velocity = tuple 0 5
+	user.wallTest = NearSouthWall
+	user.nextMove = GoWest
+	return
+GoEast:
+	sys.velocity = tuple 5 0
+	user.wallTest = NearEastWall
+	user.nextMove = GoSouth
+	return
+
+
+NearNorthWall:
+	test = sys.wall.north < 30
+	return test
+NearWestWall:
+	test = sys.wall.west < 30
+	return test
+NearSouthWall:
+	test = sys.wall.south < 30
+	return test
+NearEastWall:
+	test = sys.wall.east < 30
+	return test

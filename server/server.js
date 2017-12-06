@@ -65,7 +65,10 @@ function agentListRequest(req, res) {
 
 }
 
-
+/**
+ * Returns the list of directories that are direct children of 'root',
+ * or an error.
+ */
 function justTheDirs (root, done) {
 	let results = [];
 	fs.readdir(root, (err, entries) => {

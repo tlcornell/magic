@@ -3,36 +3,38 @@
 # Basically a clay pigeon, with no weapons.
 #
 
-	RandomDirection = mul sys.random 360 
-	sys.heading = store2 3 RandomDirection 
+	RandomDirection = sys.random * 360 
+	sys.heading = tuple 3 RandomDirection 
 	jump Main
 
-Traveling:
-	sync
 Main:
-	A = add Bounce sys.wall 
+	A = add SelectBehavior sys.wall 
 	jump A
-Bounce:
-	jump Traveling
-	jump GetOffNorthWall
-	jump GetOffWestWall
-	jump GetOffSouthWall
-	jump GetOffEastWall
+SelectBehavior:
+	jump ContinueMoving
+	jump BounceOffNorthWall
+	jump BounceOffWestWall
+	jump BounceOffSouthWall
+	jump BounceOffEastWall
 
-GetOffNorthWall:
+ContinueMoving:
+	sync
+	jump Main
+
+BounceOffNorthWall:
 	# make sure velocity_dy is positive
 	sys.velocity_dy = abs sys.velocity_dy 
-	jump Traveling
-GetOffWestWall:
+	jump ContinueMoving
+BounceOffWestWall:
 	sys.velocity_dx = abs sys.velocity_dx 
-	jump Traveling
-GetOffSouthWall:
+	jump ContinueMoving
+BounceOffSouthWall:
 	# make sure velocity_dy is negative
 	A = abs sys.velocity_dy 
-	sys.velocity_dy = mul -1 A 
-	jump Traveling
-GetOffEastWall:
+	sys.velocity_dy = -1 * A 
+	jump ContinueMoving
+BounceOffEastWall:
 	A = abs sys.velocity_dx 
-	sys.velocity_dx = mul -1 A 
-	jump Traveling
+	sys.velocity_dx = -1 * A 
+	jump ContinueMoving
 

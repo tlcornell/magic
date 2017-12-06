@@ -165,8 +165,15 @@ var MAGIC = ((ns) => {
 		}
 	};
 
-	WallSensor.prototype.write = function (_path, _val) {
-		this.agent.error(`WallSensor: No writable registers`);
+	WallSensor.prototype.write = function (path, val) {
+		if (path.length === 0) {
+			this.agent.error(`WallSensor: Illegal write`);
+		}
+		if (path[0] === 'limit') {
+			this.setSensitivity(val);
+		} else {
+			this.agent.error(`WallSensor: Illegal write (${path.join('.')})`);
+		}
 	};
 
 	WallSensor.prototype.update = function () {

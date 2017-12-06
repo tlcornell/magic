@@ -286,6 +286,9 @@ var MAGIC = ((ns) => {
 					// lval.key should be []
 					this.bot.setSpeedY(x);
 					break;
+				case 'wall':
+					this.bot.module('wall').write(lval.key, x);
+					break;
 				default:
 					this.error(`Attempt to write to unrecognized or read-only hardware register (${module})`);
 			}
