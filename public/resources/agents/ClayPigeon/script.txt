@@ -8,8 +8,8 @@
 	jump Main
 
 Main:
-	A = add SelectBehavior sys.wall 
-	jump A
+	whatToDo = add SelectBehavior sys.wall 
+	jump whatToDo
 SelectBehavior:
 	jump ContinueMoving
 	jump BounceOffNorthWall

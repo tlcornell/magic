@@ -14,7 +14,7 @@
 	jump jumpOffset
 StartTable:
 	log "unreachable"
-	log "unreachable"
+	noop
 HeadForNorthWall:
 	call GoNorth
 	jump Traveling

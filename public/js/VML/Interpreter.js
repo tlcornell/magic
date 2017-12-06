@@ -585,6 +585,15 @@ var MAGIC = ((ns) => {
 			case 'mul':
 				binOp((a,b)=>a*b, rval(args[0]), rval(args[1]), dest);
 				break;
+			case 'neq':
+				binOp((a,b)=>(a!==b) ? 1 : 0, rval(args[0]), rval(args[1]), dest);
+				break;
+			case 'noop':
+				++this.pc;
+				break;
+			case 'not':
+				unaryOp((a)=>!a, rval(args[0]), dest);
+				break;
 			case 'or':
 				binOp((a,b)=>a||b, rval(args[0]), rval(args[1]), dest);
 				break;
