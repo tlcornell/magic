@@ -34,7 +34,6 @@ var MAGIC = ((ns) => {
 		return: {args: [], opt: [{type: 'ANY'}]},
 		sin: {args: [{type: 'NUMBER'}], opt: [{type: 'NUMBER'}]},
 		store: {args: [{type: 'ANY'}], opt: []},
-		store2: {args:[{type: 'ANY'}, {type: 'ANY'}], opt: []},
 		sub: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		sync: {args: [], opt: []},
 		tuple: {args:[{type: 'ANY'}, {type: 'ANY'}], opt: [{type: 'ANY...'}]},

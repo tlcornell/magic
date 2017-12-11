@@ -8,6 +8,7 @@ var MAGIC = ((ns) => {
 	function ERROR (file, line, char, msg) {
 		logmsg = `[${file}:${line}.${char}] ERROR ${msg}`;
 		console.log(logmsg);
+		alert(logmsg);
 		throw new Error(logmsg);
 	}
 

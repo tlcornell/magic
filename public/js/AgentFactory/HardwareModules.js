@@ -342,6 +342,173 @@ var MAGIC = ((ns) => {
 	}
 
 
+	//----------------------------------------------------------------------
+	// Standard Motor Hardware Module
+	//
+
+	function StandardMotor (agent) {
+		this.agent = agent;
+		this.drv = {
+			x: 0,
+			y: 0,
+		};
+	}
+
+	StandardMotor.prototype.read = function (prop) {
+		let reg = prop.shift;
+		if (reg === 'velocity') {
+			reg = prop.shift();
+			if (reg === 'dx') {
+				return this.getSpeedX();
+			} else if (reg === 'dy') {
+				return this.getSpeedY();
+			} else {
+				this.agent.error(`Attempt to read unknown motor register (velocity.${reg})`);
+			}
+		} else if (reg === 'heading') {
+			reg = prop.shift();
+			if (reg === 'r') {
+				return this.getRadius();
+			} else if (reg === 'th') {
+				return this.getAzimuth();
+			} else {
+				this.agent.error(`Attempt to read unknown motor register (heading.${reg})`);
+			}
+		} else {
+			this.agent.error(`Attempt to read unknown motor register (${reg})`);
+		}
+	};
+
+	/**
+	 * Single valued write. Use writev() for tuple values.
+	 */
+	StandardMotor.prototype.write = function (path, val) {
+		let reg = path.shift();
+		if (reg === 'velocity') {
+			if (path.length === 0) {
+				// Ooops! We need a tuple here -- use writev!
+				this.agent.error(`Internal Error: write to [velocity] needs tuple argument`);
+			}
+			reg = path.shift();
+			if (reg === 'dx') {
+				// Change drv.x, holding drv.y constant
+				this.setSpeedX(val);
+			} else if (reg === 'dy') {
+				// Change drv.y, holding drv.x constant
+				this.setSpeedY(val);
+			} else {
+				this.agent.error(`Unrecognized motor register (velocity.${reg})`);
+			}
+		} else if (reg === 'heading') {
+			if (path.length === 0) {
+				this.agent.error(`Internal Error: write to [heading] needs tuple argument`);
+			} else if (reg === 'r') {
+				this.setRadius(val);
+			} else if (reg === 'th') {
+				this.setAzimuth(val);
+			} else {
+				this.agent.error(`Unrecognized motor register (heading.${reg})`);
+			}
+		} else {
+			this.agent.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
+		}
+	};
+
+	StandardMotor.prototype.writev = function (path, vals) {
+		let reg = path.shift();
+		if (reg === 'velocity') {
+			this.setVelocity(vals[0], vals[1]);
+		} else if (reg === 'heading') {
+			this.setHeading(vals[0], vals[1]);
+		} else {
+			this.agent.error(`Attempt to write unknown motor register (${reg})`);
+		}
+	};
+
+	StandardMotor.prototype.getSpeedX = function () {
+		return this.drv.x;
+	};
+
+	StandardMotor.prototype.setSpeedX = function (dx) {
+		this.setVelocity(dx, this.drv.y);
+	}
+
+	StandardMotor.prototype.getSpeedY = function () {
+		return this.drv.y;
+	};
+
+	StandardMotor.prototype.setSpeedY = function (dy) {
+		this.setVelocity(this.drv.x, dy);
+	};
+
+	/**
+	 * This is the core method that all other API calls should reduce to.
+	 * That will assure that energy costs are assessed uniformly.
+	 */
+	StandardMotor.prototype.setVelocity = function (dx, dy) {
+		let dx0 = this.drv.x,
+				xcost = Math.abs(dx - dx0),
+				dy0 = this.drv.y,
+				ycost = Math.abs(dy - dy0),
+				cost = Math.round(xcost + ycost);
+		this.agent.hw.power.drawEnergy(cost);
+		this.drv.x = dx;
+		this.drv.y = dy;
+		if (this.agent.getEnergy() > 0) {
+			this.agent.game.setBodyVelocity(this.agent);
+		}
+	};
+
+	/**
+	 * Return {r, th}, where th (the azimuth) is in degrees, converted 
+	 * from radians. So this is meant for clients, not internal use,
+	 * which should maintain all angles in radians.
+	 */
+	StandardMotor.prototype.getHeading = function () {
+		let hdg = vector2angle(this.drv.x, this.drv.y),
+				deg = degrees(hdg.th);
+		return {r: hdg.r, th: deg};
+	};
+
+	/**
+	 * @param th (the azimuth, 'theta') should be in radians
+	 */
+	StandardMotor.prototype.setHeading = function (r, th) {
+		let vec = angle2vector(th, r);
+		this.setVelocity(vec.x, vec.y);
+	};
+
+	StandardMotor.prototype.getRadius = function () {
+		return this.getHeading().r;
+	};
+
+	StandardMotor.prototype.getAzimuth = function () {
+		return this.getHeading().th;
+	};
+
+	/**
+	 * Change the heading's radial coordinate (speed), keeping the azimuth
+	 * (direction) constant.
+	 */
+	StandardMotor.prototype.setRadius = function (r) {
+		let azimuth = this.getHeading().th,
+		    vec = angle2vector(azimuth, r);
+		this.setVelocity(vec.x, vec.y);
+	};
+
+	/**
+	 * Change the heading's polar coordinate (azimuth, i.e., direction), keeping
+	 * its radial coordinate (radius, i.e., speed) constant.
+	 *
+	 * @param th (the azimuth, 'theta') should be in radians
+	 */
+	StandardMotor.prototype.setAzimuth = function (th) {
+		let radius = this.getHeading().r,
+				vec = angle2vector(th, radius);
+		this.setVelocity(vec.x, vec.y);
+	};
+
+
 	// EXPORTS
 	ns.AgentsScanner = AgentsScanner;
 	ns.WallSensor = WallSensor;
@@ -349,6 +516,7 @@ var MAGIC = ((ns) => {
 	ns.PowerSupply = PowerSupply;
 	ns.Armor = Armor;
 	ns.EnergyShield = EnergyShield;
+	ns.StandardMotor = StandardMotor;
 
 	return ns;
 

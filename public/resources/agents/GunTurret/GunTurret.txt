@@ -4,11 +4,18 @@
 #
 
 Main:
-	sys.velocity = store2 0 0
-	ifnz sys.agents.data.dist DoFire
-	sys.aim = add 7 sys.aim 
-	jump Main
+	sys.mv.velocity = tuple 0 0
+	if sys.agents DoFire KeepLooking
+
 DoFire:
-	Force = min sys.energy 50
-	sys.fire = Force 
+	lowEnergy = sys.energy < 20
+	if lowEnergy DontFire
+	sys.fire = 30
+	jump Main
+DontFire:
+	sync	# let us recharge a bit
+	jump Main
+
+KeepLooking:
+	sys.aim = sys.aim + 13
 	jump Main

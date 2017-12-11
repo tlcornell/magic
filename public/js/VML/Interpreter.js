@@ -82,6 +82,7 @@ var MAGIC = ((ns) => {
 		energy: true,
 		fire: true,
 		heading: true,
+		mv: true,
 		random: true,
 		velocity_dx: true,
 		velocity_dy: true,
@@ -278,6 +279,9 @@ var MAGIC = ((ns) => {
 					this.bot.addBulletEnergy(x);
 					this.bot.fireWeapons();
 					break;
+				case 'mv':
+					this.bot.module('mv').write(lval.key, x);
+					break;
 				case 'velocity_dx':
 					// lval.key should be []
 					this.bot.setSpeedX(x);
@@ -294,26 +298,13 @@ var MAGIC = ((ns) => {
 			}
 		};
 
-		let storeObject = (lval, v1, v2) => {
-			// lval of the form {container: C, key: K}
-			// lval.container should === this.bot in all cases (aka 'sys')
-			// lval.key should be a singleton array (['velocity'] or ['heading'])
-			switch (lval.key[0]) {
-				case 'velocity':
-					// v1 -> dx, v2 -> dy
-					this.bot.setVelocity(v1, v2);
-					break;
-				case 'heading':
-					// v1 -> r, v2 -> th
-					this.bot.setHeading(v1, radians(v2));
-					break;
-				default:
-					this.error(`Attempt to store to unrecognized hardware register (${lval.key.join(".")})`);
-			}
-		};
-
 		let storeTuple = (lval, tuple) => {
-			switch (lval.key[0]) {
+			let path = lval.key,
+					reg = path.shift();
+			switch (reg) {
+				case 'mv':
+					this.bot.module('mv').writev(path, tuple);
+					break;
 				case 'velocity':
 					// v1 -> dx, v2 -> dy
 					this.bot.setVelocity(tuple[0], tuple[1]);
@@ -323,23 +314,25 @@ var MAGIC = ((ns) => {
 					this.bot.setHeading(tuple[0], radians(tuple[1]));
 					break;
 				default:
-					this.error(`Attempt to store to unrecognized hardware register (${lval.key.join(".")})`);
+					this.error(`Attempt to store to unrecognized hardware register (${reg}.${path.join(".")})`);
 			}
 		};
 
 		let getFromHardware = (agent, path) => {
 			let reg0 = path.shift();
 			switch (reg0) {
+				case 'agents':
+					return this.bot.module('agents').read(path);
 				case 'aim':
 					return this.bot.getAimDegrees();
 				case 'energy':
 					return this.bot.getEnergy();
 				case 'fire':
 					return 0;
+				case 'mv':
+					return this.bot.module('mv').read(path);
 				case 'random':
 					return Math.random();
-				case 'agents':
-					return this.bot.module('agents').read(path);
 				case 'velocity_dx':
 					return this.bot.getSpeedX();
 				case 'velocity_dy':
@@ -617,12 +610,6 @@ var MAGIC = ((ns) => {
 				break;
 			case 'store':
 				unaryOp((a)=>a, rval(args[0]), dest);
-				break;
-			case 'store2':
-				let val1 = rval(args[0]),
-						val2 = rval(args[1]);
-				storeObject(dest, val1, val2);
-				++this.pc;
 				break;
 			case 'sub':
 				binOp((a,b)=>a-b, rval(args[0]), rval(args[1]), dest);

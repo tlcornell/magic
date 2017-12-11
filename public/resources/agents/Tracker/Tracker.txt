@@ -14,7 +14,7 @@ SearchLoop:
 TargetLost:
 	log "Target lost."
 	sys.agents.angle = 0
-	sys.velocity = store2 0 0
+	sys.velocity = tuple 0 0
 	jump SearchLoop
 
 StartTracking:
@@ -22,7 +22,7 @@ StartTracking:
 	sys.aim = sys.aim + sys.agents.angle
 	sys.agents.angle = 0
 	log "Set course:" sys.aim
-	sys.heading = store2 2 sys.aim
+	sys.heading = tuple 2 sys.aim
 	ircontinue TrackingLoop
 
 TrackingLoop:

@@ -14,7 +14,8 @@ var MAGIC = ((ns) => {
 			CpuClock = ns.CpuClock,
 			PowerSupply = ns.PowerSupply,
 			Armor = ns.Armor,
-			EnergyShield = ns.EnergyShield;
+			EnergyShield = ns.EnergyShield,
+			StandardMotor = ns.StandardMotor;
 	let LOG = ns.LOG;
 	const Q_NOT_DEAD = ns.constants.AGENT_STATE.Q_NOT_DEAD;
 	const Q_DEAD = ns.constants.AGENT_STATE.Q_DEAD;
@@ -60,11 +61,12 @@ var MAGIC = ((ns) => {
 			},
 			hw: {
 				agents: new AgentsScanner(this),
-				wall: new WallSensor(this),
-				cpuClock: new CpuClock(properties.hw.cpu),
-				power: new PowerSupply(properties.hw.energy),
 				armor: new Armor(properties.hw.damage),
+				cpuClock: new CpuClock(properties.hw.cpu),
+				mv: new StandardMotor(this),
+				power: new PowerSupply(properties.hw.energy),
 				shields: new EnergyShield(0),	// not implemented yet
+				wall: new WallSensor(this),
 			},
 		});
 	}
@@ -286,6 +288,28 @@ var MAGIC = ((ns) => {
 		this.setVelocity(vec.x, vec.y);
 	};
 
+	/**
+	 * Change the heading's radial coordinate (speed), keeping the azimuth
+	 * (direction) constant.
+	 */
+	GenericAgent.prototype.setRadius = function (r) {
+		let azimuth = this.getHeading().th,
+		    vec = angle2vector(azimuth, r);
+		this.setVelocity(vec.x, vec.y);
+	};
+
+	/**
+	 * Change the heading's polar coordinate (azimuth, i.e., direction), keeping
+	 * its radial coordinate (radius, i.e., speed) constant.
+	 *
+	 * @param th (the azimuth, 'theta') should be in radians
+	 */
+	GenericAgent.prototype.setAzimuth = function (th) {
+		let radius = this.getHeading().r,
+				vec = angle2vector(th, radius);
+		this.setVelocity(vec.x, vec.y);
+	};
+
 	//
 	// End of course control
 	//////////////////////////////////////////////////////////////////////////
@@ -329,18 +353,15 @@ var MAGIC = ((ns) => {
 	GenericAgent.prototype.fireWeapons = function () {
 		let payload = this.getBulletEnergy(),
 				angle = this.getAim();
-		// Cap the energy payload at this agent's available energy
-		//payload = Math.min(this.getEnergy(), payload);
 		if (payload > 0) {
 			this.launchProjectile(angle, payload);
 			this.clearBulletEnergy();
 		}
-		// No other attacks supported at this time
 	}
 
 	GenericAgent.prototype.launchProjectile = function (angle, energy) {
 		let norm = angle2vector(angle, 1),	// direction of shot
-				drv = Matter.Vector.mult(norm, 12),	// scale by velocity
+				drv = Matter.Vector.mult(norm, 12),	// scale by speed
 				offset = Matter.Vector.mult(norm, GenericAgent.const.AGENT_RADIUS + 2), // start outside of shooter bot
 				pos = Matter.Vector.add(this.getPosition(), offset);
 		this.game.createProjectile(this, pos, drv, energy);
