@@ -33,6 +33,9 @@ var MAGIC = ((ns) => {
 		this.clock = 0;
 	};
 
+	/**
+	 * This basically makes sure that endOfChronon() will return 'true'.
+	 */
 	Debugger.prototype.sync = function () {
 		this.clock = this.agent.getCPU();
 	};

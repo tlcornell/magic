@@ -37,22 +37,22 @@ Traveling:
 	jump Traveling
 
 GoNorth:
-	sys.velocity = tuple 0 -5
+	sys.mv.velocity = tuple 0 -5
 	user.wallTest = NearNorthWall
 	user.nextMove = GoEast
 	return
 GoWest:
-	sys.velocity = tuple -5 0
+	sys.mv.velocity = tuple -5 0
 	user.wallTest = NearWestWall
 	user.nextMove = GoNorth
 	return
 GoSouth:
-	sys.velocity = tuple 0 5
+	sys.mv.velocity = tuple 0 5
 	user.wallTest = NearSouthWall
 	user.nextMove = GoWest
 	return
 GoEast:
-	sys.velocity = tuple 5 0
+	sys.mv.velocity = tuple 5 0
 	user.wallTest = NearEastWall
 	user.nextMove = GoSouth
 	return

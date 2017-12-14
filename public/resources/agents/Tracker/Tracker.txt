@@ -14,7 +14,7 @@ SearchLoop:
 TargetLost:
 	log "Target lost."
 	sys.agents.angle = 0
-	sys.velocity = tuple 0 0
+	sys.mv.velocity = tuple 0 0
 	jump SearchLoop
 
 StartTracking:
@@ -22,20 +22,20 @@ StartTracking:
 	sys.aim = sys.aim + sys.agents.angle
 	sys.agents.angle = 0
 	log "Set course:" sys.aim
-	sys.heading = tuple 2 sys.aim
+	sys.mv.heading = tuple 2 sys.aim
 	ircontinue TrackingLoop
 
 TrackingLoop:
-	# We can't lose the target until it actually moves. So 'sync'.
-	# Also, this will trigger a sys.agents interrupt if the target is still
-	# in our sights, so we don't waste time reacquiring a target we never
-	# lost.
+# We can't lose the target until it actually moves. So 'sync'.
+# Also, this will trigger a sys.agents interrupt if the target is still
+# in our sights, so we don't waste time reacquiring a target we never
+# lost.
 	sync
-	# We will search at probeAngle and -probeAngle, which will increase 
-	# gradually until we reacquire our target (or give up).
+# We will search at probeAngle and -probeAngle, which will increase 
+# gradually until we reacquire our target (or give up).
 	probeAngle = 0
-	# 'step' and 'limit' are constants, really. We assign them here to make it
-	# easier to fiddle with the precise tuning of the tracking code.
+# 'step' and 'limit' are constants, really. We assign them here to make it
+# easier to fiddle with the precise tuning of the tracking code.
 	step = 5
 	limit = 45
 	log "Reacquiring..."

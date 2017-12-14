@@ -557,7 +557,6 @@ var MAGIC = ((ns) => {
 				});
 				console.log(logmsg);
 				++this.pc;
-				//this.step();	// log is a free instruction, so do one more
 				thisOnesFree = true;
 				break;
 			case 'lt':

@@ -4,7 +4,7 @@
 #
 
 	RandomDirection = sys.random * 360 
-	sys.heading = tuple 3 RandomDirection 
+	sys.mv.heading = tuple 3 RandomDirection 
 	jump Main
 
 Main:
@@ -22,19 +22,19 @@ ContinueMoving:
 	jump Main
 
 BounceOffNorthWall:
-	# make sure velocity_dy is positive
-	sys.velocity_dy = abs sys.velocity_dy 
+	# make sure mv.velocity.dy is positive
+	sys.mv.velocity.dy = abs sys.mv.velocity.dy 
 	jump ContinueMoving
 BounceOffWestWall:
-	sys.velocity_dx = abs sys.velocity_dx 
+	sys.mv.velocity.dx = abs sys.mv.velocity.dx 
 	jump ContinueMoving
 BounceOffSouthWall:
-	# make sure velocity_dy is negative
-	A = abs sys.velocity_dy 
-	sys.velocity_dy = -1 * A 
+	# make sure mv.velocity.dy is negative
+	A = abs sys.mv.velocity.dy 
+	sys.mv.velocity.dy = -1 * A 
 	jump ContinueMoving
 BounceOffEastWall:
-	A = abs sys.velocity_dx 
-	sys.velocity_dx = -1 * A 
+	A = abs sys.mv.velocity.dx 
+	sys.mv.velocity.dx = -1 * A 
 	jump ContinueMoving
 

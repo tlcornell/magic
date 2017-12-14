@@ -7,7 +7,8 @@ var MAGIC = ((ns) => {
 	// IMPORTS
 	let constants = ns.constants;
 	let radians = ns.radians,
-			degrees = ns.degrees;
+			degrees = ns.degrees,
+			angle2vector = ns.angle2vector;
 	
 
 	
@@ -348,14 +349,18 @@ var MAGIC = ((ns) => {
 
 	function StandardMotor (agent) {
 		this.agent = agent;
-		this.drv = {
+		this.drive = {
 			x: 0,
 			y: 0,
 		};
 	}
 
+	StandardMotor.prototype.error = function (msg) {
+		this.agent.error(msg);
+	};
+
 	StandardMotor.prototype.read = function (prop) {
-		let reg = prop.shift;
+		let reg = prop.shift();
 		if (reg === 'velocity') {
 			reg = prop.shift();
 			if (reg === 'dx') {
@@ -363,19 +368,19 @@ var MAGIC = ((ns) => {
 			} else if (reg === 'dy') {
 				return this.getSpeedY();
 			} else {
-				this.agent.error(`Attempt to read unknown motor register (velocity.${reg})`);
+				this.error(`Attempt to read unknown motor register (velocity.${reg})`);
 			}
 		} else if (reg === 'heading') {
 			reg = prop.shift();
 			if (reg === 'r') {
 				return this.getRadius();
 			} else if (reg === 'th') {
-				return this.getAzimuth();
+				return degrees(this.getAzimuth());
 			} else {
-				this.agent.error(`Attempt to read unknown motor register (heading.${reg})`);
+				this.error(`Attempt to read unknown motor register (heading.${reg})`);
 			}
 		} else {
-			this.agent.error(`Attempt to read unknown motor register (${reg})`);
+			this.error(`Attempt to read unknown motor register (${reg})`);
 		}
 	};
 
@@ -387,30 +392,30 @@ var MAGIC = ((ns) => {
 		if (reg === 'velocity') {
 			if (path.length === 0) {
 				// Ooops! We need a tuple here -- use writev!
-				this.agent.error(`Internal Error: write to [velocity] needs tuple argument`);
+				this.error(`Internal Error: write to [velocity] needs tuple argument`);
 			}
 			reg = path.shift();
 			if (reg === 'dx') {
-				// Change drv.x, holding drv.y constant
+				// Change drive.x, holding drive.y constant
 				this.setSpeedX(val);
 			} else if (reg === 'dy') {
-				// Change drv.y, holding drv.x constant
+				// Change drive.y, holding drive.x constant
 				this.setSpeedY(val);
 			} else {
-				this.agent.error(`Unrecognized motor register (velocity.${reg})`);
+				this.error(`Unrecognized motor register (velocity.${reg})`);
 			}
 		} else if (reg === 'heading') {
 			if (path.length === 0) {
-				this.agent.error(`Internal Error: write to [heading] needs tuple argument`);
+				this.error(`Internal Error: write to [heading] needs tuple argument`);
 			} else if (reg === 'r') {
 				this.setRadius(val);
 			} else if (reg === 'th') {
-				this.setAzimuth(val);
+				this.setAzimuth(radians(val));
 			} else {
-				this.agent.error(`Unrecognized motor register (heading.${reg})`);
+				this.error(`Unrecognized motor register (heading.${reg})`);
 			}
 		} else {
-			this.agent.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
+			this.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
 		}
 	};
 
@@ -419,26 +424,26 @@ var MAGIC = ((ns) => {
 		if (reg === 'velocity') {
 			this.setVelocity(vals[0], vals[1]);
 		} else if (reg === 'heading') {
-			this.setHeading(vals[0], vals[1]);
+			this.setHeading(vals[0], radians(vals[1]));
 		} else {
-			this.agent.error(`Attempt to write unknown motor register (${reg})`);
+			this.error(`Attempt to write unknown motor register (${reg})`);
 		}
 	};
 
 	StandardMotor.prototype.getSpeedX = function () {
-		return this.drv.x;
+		return this.drive.x;
 	};
 
 	StandardMotor.prototype.setSpeedX = function (dx) {
-		this.setVelocity(dx, this.drv.y);
+		this.setVelocity(dx, this.drive.y);
 	}
 
 	StandardMotor.prototype.getSpeedY = function () {
-		return this.drv.y;
+		return this.drive.y;
 	};
 
 	StandardMotor.prototype.setSpeedY = function (dy) {
-		this.setVelocity(this.drv.x, dy);
+		this.setVelocity(this.drive.x, dy);
 	};
 
 	/**
@@ -446,16 +451,16 @@ var MAGIC = ((ns) => {
 	 * That will assure that energy costs are assessed uniformly.
 	 */
 	StandardMotor.prototype.setVelocity = function (dx, dy) {
-		let dx0 = this.drv.x,
+		let dx0 = this.drive.x,
 				xcost = Math.abs(dx - dx0),
-				dy0 = this.drv.y,
+				dy0 = this.drive.y,
 				ycost = Math.abs(dy - dy0),
 				cost = Math.round(xcost + ycost);
-		this.agent.hw.power.drawEnergy(cost);
-		this.drv.x = dx;
-		this.drv.y = dy;
+		this.agent.drawEnergy(cost);
+		this.drive.x = dx;
+		this.drive.y = dy;
 		if (this.agent.getEnergy() > 0) {
-			this.agent.game.setBodyVelocity(this.agent);
+			this.agent.setBodyVelocity(this.drive.x, this.drive.y);
 		}
 	};
 
@@ -465,7 +470,7 @@ var MAGIC = ((ns) => {
 	 * which should maintain all angles in radians.
 	 */
 	StandardMotor.prototype.getHeading = function () {
-		let hdg = vector2angle(this.drv.x, this.drv.y),
+		let hdg = vector2angle(this.drive.x, this.drive.y),
 				deg = degrees(hdg.th);
 		return {r: hdg.r, th: deg};
 	};

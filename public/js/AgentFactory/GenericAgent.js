@@ -134,6 +134,10 @@ var MAGIC = ((ns) => {
 		return this.getPosition().y;
 	};
 
+	GenericAgent.prototype.getDriveVector = function () {
+		return this.hw.mv.drive;
+	};
+
 	/** 
 	* Return contents of AIM register, which are natively in radians.
 	*/
@@ -161,44 +165,48 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.getLookDegrees = function () {
 		return degrees(this.turret.offset);
-	}
+	};
 
 	GenericAgent.prototype.setLook = function (rad) {
 		this.vision.offset = rad;
 		this.hw.agents.update();
-	}
+	};
 
 	GenericAgent.prototype.setLookDegrees = function (deg) {
 		this.setLook(radians(deg));
-	}
+	};
 
 	GenericAgent.prototype.getCPU = function () {
 		return this.hw.cpuClock.cpuSpeed;
-	}
+	};
 
 	GenericAgent.prototype.getBulletEnergy = function () {
 		return this.fire;
-	}
+	};
 
 	GenericAgent.prototype.addBulletEnergy = function (e) {
 		this.fire += this.hw.power.drawEnergy(e);
-	}
+	};
 
 	GenericAgent.prototype.clearBulletEnergy = function () {
 		this.fire = 0;
-	}
+	};
 
 	GenericAgent.prototype.getEnergy = function () {
 		return this.hw.power.availableEnergy;
-	}
+	};
+
+	GenericAgent.prototype.drawEnergy = function (e) {
+		return this.hw.power.drawEnergy(e);
+	};
 
 	GenericAgent.prototype.rechargeEnergy = function () {
 		this.hw.power.recharge();
-	}
+	};
 
 	GenericAgent.prototype.getMaxEnergy = function () {
 		return this.hw.power.maxEnergy;
-	}
+	};
 
 	GenericAgent.prototype.getHealth = function () {
 		return this.hw.armor.sustainableDamage;
@@ -223,97 +231,9 @@ var MAGIC = ((ns) => {
 		return this.hw.shields.maxShields;
 	}
 
-
-	////////////////////////////////////////////////////////////////////////
-	// Course Control
-	//
-	// There are two ways to control movement: using vectors (dx,dy), 
-	// or using polar-style coordinates (radius, azimuth) (here called (r, th)).
-	// 
-	// The primitive control data is conveyed to the physics system via the
-	// 'drv' property (drv:{x,y}), for "drive".
-	// So all API calls ultimately boil down to setting drv.x and drv.y.
-	// 
-
-	GenericAgent.prototype.getSpeedX = function () {
-		return this.drv.x;
+	GenericAgent.prototype.setBodyVelocity = function (dx, dy) {
+		this.game.setBodyVelocity(this);
 	};
-
-	GenericAgent.prototype.setSpeedX = function (dx) {
-		this.setVelocity(dx, this.drv.y);
-	}
-
-	GenericAgent.prototype.getSpeedY = function () {
-		return this.drv.y;
-	};
-
-	GenericAgent.prototype.setSpeedY = function (dy) {
-		this.setVelocity(this.drv.x, dy);
-	};
-
-	/**
-	 * This is the core method that all other API calls should reduce to.
-	 * That will assure that energy costs are assessed uniformly.
-	 */
-	GenericAgent.prototype.setVelocity = function (dx, dy) {
-		let dx0 = this.drv.x,
-				xcost = Math.abs(dx - dx0),
-				dy0 = this.drv.y,
-				ycost = Math.abs(dy - dy0),
-				cost = Math.round(xcost + ycost);
-		this.hw.power.drawEnergy(cost);
-		this.drv.x = dx;
-		this.drv.y = dy;
-		if (this.getEnergy() > 0) {
-			this.game.setBodyVelocity(this);
-		}
-	};
-
-	/**
-	 * Return {r, th}, where th (the azimuth) is in degrees, converted 
-	 * from radians. So this is meant for clients, not internal use,
-	 * which should maintain all angles in radians.
-	 */
-	GenericAgent.prototype.getHeading = function () {
-		let hdg = vector2angle(this.drv.x, this.drv.y),
-				deg = degrees(hdg.th);
-		return {r: hdg.r, th: deg};
-	};
-
-	/**
-	 * @param th (the azimuth, 'theta') should be in radians
-	 */
-	GenericAgent.prototype.setHeading = function (r, th) {
-		let vec = angle2vector(th, r);
-		this.setVelocity(vec.x, vec.y);
-	};
-
-	/**
-	 * Change the heading's radial coordinate (speed), keeping the azimuth
-	 * (direction) constant.
-	 */
-	GenericAgent.prototype.setRadius = function (r) {
-		let azimuth = this.getHeading().th,
-		    vec = angle2vector(azimuth, r);
-		this.setVelocity(vec.x, vec.y);
-	};
-
-	/**
-	 * Change the heading's polar coordinate (azimuth, i.e., direction), keeping
-	 * its radial coordinate (radius, i.e., speed) constant.
-	 *
-	 * @param th (the azimuth, 'theta') should be in radians
-	 */
-	GenericAgent.prototype.setAzimuth = function (th) {
-		let radius = this.getHeading().r,
-				vec = angle2vector(th, radius);
-		this.setVelocity(vec.x, vec.y);
-	};
-
-	//
-	// End of course control
-	//////////////////////////////////////////////////////////////////////////
-
 
 	GenericAgent.prototype.module = function (modName) {
 		if (!this.hw.hasOwnProperty(modName)) {
@@ -429,7 +349,7 @@ var MAGIC = ((ns) => {
 			this.interpreter.step();
 			if (this.interpreter.syncFlag) {
 				this.interpreter.syncFlag = false;
-				dbg.sync();
+				dbg.sync();	// set clock to max to trigger end-of-chronon processing in caller
 			} else {
 				dbg.advanceClock();
 			}
@@ -437,14 +357,19 @@ var MAGIC = ((ns) => {
 	};
 
 	/**
-	 * Kick off the recursive call to stepper().
+	 * Run one chronon's worth of instructions.
 	 */
 	GenericAgent.prototype.runProgram = function () {
 
+		// Loop: Run instructions until we hit the CPU limit for inst/ch,
+		// or we run out of energy, or we encounter a sync instruction.
 		for (let tick = 0; !this.done(tick); ++tick) {
+			// Syncs are handled differently in debug mode, which also uses done(),
+			// so we can't just add 'or the sync flag is up' to the done-ness 
+			// conditions.
 			if (this.interpreter.syncFlag) {
 				this.interpreter.syncFlag = false;
-				continue;
+				break;
 			}
 			this.interpreter.step();
 		}
@@ -458,6 +383,12 @@ var MAGIC = ((ns) => {
 		if (this.getEnergy() <= 0) {
 			return true;
 		}
+		/*
+		if (this.interpreter.syncFlag) {
+			this.interpreter.syncFlag = false;
+			return true;
+		}
+		*/
 		return false;		
 	}
 

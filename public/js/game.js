@@ -500,8 +500,8 @@ var MAGIC = ((ns) => {
 	 */
 	Game.prototype.setBodyVelocity = function (object) {
 		//let realV = Matter.Vector.mult(velocity, Game.const.CHRONONS_PER_FRAME);
-		Matter.Body.setVelocity(object.body, object.drv);
-		//let force = Matter.Vector.create(object.drv.x, object.drv.y);
+		Matter.Body.setVelocity(object.body, object.getDriveVector());
+		//let force = Matter.Vector.create(object.drive.x, object.drive.y);
 		//Matter.Body.applyForce(object.body, this.getPosition(object), force);
 	};
 
@@ -772,7 +772,7 @@ var MAGIC = ((ns) => {
 		Object.assign(this, {
 			game: game,
 			name: `Projectile_${Projectile.idCounter++}`,
-			drv: velocity,
+			drive: velocity,
 			pos: startpos,
 			energy: energy,
 			eventQueue: [],
@@ -794,6 +794,10 @@ var MAGIC = ((ns) => {
 		}
 		return this.pos;
 	};
+
+	Projectile.prototype.getDriveVector = function () {
+		return this.drive;
+	}
 
 	Projectile.prototype.queueEvent = function (evt) {
 		this.eventQueue.push(evt);
