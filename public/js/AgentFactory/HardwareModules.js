@@ -46,10 +46,6 @@ var MAGIC = ((ns) => {
 		this.sensitivity = param;
 	};
 
-	/** 
-	 * Ideally, the current state of the ir-flag will be passed in 
-	 * as an argument.
-	 */
 	AgentsScanner.prototype.update = function () {
 		this.agent.checkSightEvents();
 		// agent.checkSightEvents will set this.data if anything is in sight
@@ -91,6 +87,7 @@ var MAGIC = ((ns) => {
 		let reg = path.shift();
 		if (reg === 'angle') {
 			this.angle = radians(val);
+			this.update();
 		}
 		else {
 			this.agent.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
