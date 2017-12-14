@@ -4,7 +4,7 @@
 #
 
 	RandomDirection = mul sys.random 360 
-	sys.heading = tuple 4 RandomDirection 
+	sys.mv.heading = tuple 4 RandomDirection 
 
 Main:
 	Address = add Bounce sys.wall 
@@ -17,20 +17,20 @@ Bounce:
 	jump GetOffEastWall
 
 GetOffNorthWall:
-	# make sure velocity_dy is positive
-	sys.velocity_dy = abs sys.velocity_dy 
+	# make sure velocity.dy is positive
+	sys.mv.velocity.dy = abs sys.mv.velocity.dy 
 	jump CheckRange
 GetOffWestWall:
-	sys.velocity_dx = abs sys.velocity_dx 
+	sys.mv.velocity.dx = abs sys.mv.velocity.dx 
 	jump CheckRange
 GetOffSouthWall:
-	# make sure velocity_dy is negative
-	A = abs sys.velocity_dy 
-	sys.velocity_dy = mul -1 A 
+	# make sure velocity.dy is negative
+	A = abs sys.mv.velocity.dy 
+	sys.mv.velocity.dy = mul -1 A 
 	jump CheckRange
 GetOffEastWall:
-	A = abs sys.velocity_dx 
-	sys.velocity_dx = mul -1 A 
+	A = abs sys.mv.velocity.dx 
+	sys.mv.velocity.dx = mul -1 A 
 	jump CheckRange
 
 

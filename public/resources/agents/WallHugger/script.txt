@@ -20,16 +20,16 @@ StartTableBase:
 	jump GoEast
 
 GoNorth:
-	sys.velocity_dy = -3 
+	sys.mv.velocity.dy = -3 
 	jump SeekingWall
 GoWest:
-	sys.velocity_dx = -3 
+	sys.mv.velocity.dx = -3 
 	jump SeekingWall
 GoSouth:
-	sys.velocity_dy = 3 
+	sys.mv.velocity.dy = 3 
 	jump SeekingWall
 GoEast:
-	sys.velocity_dx = 3 
+	sys.mv.velocity.dx = 3 
 	jump SeekingWall
 
 
@@ -39,9 +39,9 @@ SeekingWall:
 	
 
 HugWall:
-	dx = sys.velocity_dx
-	sys.velocity_dx = sys.velocity_dy
-	sys.velocity_dy = dx
+	dx = sys.mv.velocity.dx
+	sys.mv.velocity.dx = sys.mv.velocity.dy
+	sys.mv.velocity.dy = dx
 	ircontinue HugLoop	# pop stack frame, re-enable interrupts
 HugLoop:
 	ircall sys.wall ReverseDirection
@@ -50,8 +50,8 @@ HugLoop:
 
 ReverseDirection:
 	# One of dx or dy is zero, so this is okay
-	sys.velocity_dx = mul -1 sys.velocity_dx
-	sys.velocity_dy = mul -1 sys.velocity_dy
+	sys.mv.velocity.dx = mul -1 sys.mv.velocity.dx
+	sys.mv.velocity.dy = mul -1 sys.mv.velocity.dy
 	ircontinue
 
 CheckRange:

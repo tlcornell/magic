@@ -16,24 +16,24 @@ JumpTableBase:
 	jump StartMovingEast
 
 StartMovingNorth:
-	sys.velocity_dy = -5
+	sys.mv.velocity.dy = -5
 	jump Traveling
 StartMovingWest:
-	sys.velocity_dx = -5
+	sys.mv.velocity.dx = -5
 	jump Traveling
 StartMovingSouth:
-	sys.velocity_dy = 5
+	sys.mv.velocity.dy = 5
 	jump Traveling
 StartMovingEast:
-	sys.velocity_dx = 5
+	sys.mv.velocity.dx = 5
 	jump Traveling
 
 Traveling:
 	jump Traveling
 
 ArrivedAtWall:
-	sys.velocity_dx = 0
-	sys.velocity_dy = 0
+	sys.mv.velocity.dx = 0
+	sys.mv.velocity.dy = 0
 	ircall sys.agents Shoot
 	irparam sys.agents 10000
 	ircall sys.wall RegainPosition
@@ -67,32 +67,32 @@ RegainBase:
 	jump GetOffSouth
 	jump GetOffEast
 GetOffNorth:
-	sys.velocity_dy = 2
+	sys.mv.velocity.dy = 2
 	sync
 	A = lte sys.y 50
 	if A GetOffNorth
-	sys.velocity_dy = 0
+	sys.mv.velocity.dy = 0
 	ircontinue
 GetOffWest:
-	sys.velocity_dx = 2
+	sys.mv.velocity.dx = 2
 	sync
 	A = lte sys.x 50
 	if A GetOffWest
-	sys.velocity_dx = 0
+	sys.mv.velocity.dx = 0
 	ircontinue
 GetOffSouth:
-	sys.velocity_dy = -2
+	sys.mv.velocity.dy = -2
 	sync
 	A = gte sys.y 590
 	if A GetOffSouth
-	sys.velocity_dy = 0
+	sys.mv.velocity.dy = 0
 	ircontinue
 GetOffEast:
-	sys.velocity_dx = -2
+	sys.mv.velocity.dx = -2
 	sync
 	A = gte sys.x 750
 	if A GetOffEast
-	sys.velocity_dx = 0
+	sys.mv.velocity.dx = 0
 	ircontinue
 
 OnNorthWall:
