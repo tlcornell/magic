@@ -5,17 +5,32 @@
 
 Main:
 	sys.mv.velocity = tuple 0 0
+	sync
 	if sys.agents DoFire KeepLooking
 
 DoFire:
 	lowEnergy = sys.energy < 20
-	if lowEnergy DontFire
+	if lowEnergy Main
+	pos1 = sys.agents.data.pos
+	pos0.x = sys.x
+	pos0.y = sys.y
+	vObs.x = pos1.x - pos0.x
+	vObs.y = pos1.y - pos1.x
+	dist = sys.agents.data.dist
+	drv = sys.agents.data.drive
+	time = dist / 12
+	time = round time
+	vMvt.x = time * drv.x
+	vMvt.y = time * drv.y
+	vNxt.x = vObs.x + vMvt.x
+	vNxt.y = vObs.y + vMvt.y
+	aNxt = atan vNxt.y vNxt.x
+	aObs = atan vObs.y vObs.x
+	angle = aNxt - aObs
+	sys.aim = sys.aim + angle
 	sys.fire = 30
-	jump Main
-DontFire:
-	sync	# let us recharge a bit
 	jump Main
 
 KeepLooking:
-	sys.aim = sys.aim + 13
+	sys.aim = sys.aim + 7
 	jump Main

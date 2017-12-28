@@ -6,12 +6,15 @@ var MAGIC = ((ns) => {
 
 	// IMPORTS
 	const constants = ns.constants,
+				degrees = ns.degrees,
 				radians = ns.radians,
 				zipForEach = ns.zipForEach;
 
 
 	function ERROR (file, line, char, msg) {
+		let logEntry = `[${file}:${line}.${char}] ERROR ${msg}`;
 		console.log(`[${file}:${line}.${char}] ERROR ${msg}`);
+		alert(logEntry);
 		throw new Error(msg);
 	}
 
@@ -153,8 +156,7 @@ var MAGIC = ((ns) => {
 		let readFromPath = (object, path) => {
 			if (path.length === 0) {
 				return object;
-			}
-			else {
+			}	else {
 				let nxt = path.shift();
 				if (!object.hasOwnProperty(nxt)) {
 					this.error(`Attempt to read from non-existent location '${nxt}'`);
@@ -475,12 +477,19 @@ var MAGIC = ((ns) => {
 			case 'add':
 				binOp((a,b)=>a+b, rval(args[0]), rval(args[1]), dest);
 				break;
+			case 'and':
+				binOp((a,b)=>a&&b, rval(args[0]), rval(args[1]), dest);
+				break;
+			case 'atan':
+				// Math.atan2(y, x)
+				binOp((y,x) => degrees(Math.atan2(y,x)), rval(args[0]), rval(args[1]), dest);
+				break;
 			case 'call':
 				doCall(rval(args[0]), args, dest);
 				break;
 			case 'cos':
 				scale = (args.length > 1) ? rval(args[1]) : 1;
-				binOp((a,b)=>Math.cos(a)*b, rval(args[0]), scale, dest);
+				binOp((a,b)=>Math.cos(radians(a))*b, rval(args[0]), scale, dest);
 				break;
 			case 'debug':
 				console.log(`Turning tracing on for ${this.bot.getName()}`);
@@ -603,9 +612,12 @@ var MAGIC = ((ns) => {
 					this.pc = frame.return;
 				}
 				break;
+			case 'round':
+				unaryOp(Math.round, rval(args[0]), dest);
+				break;
 			case 'sin':
 				scale = (args.length > 1) ? rval(args[1]) : 1;
-				binOp((a,b) => Math.sin(a) * b, rval(args[0]), scale, dest);
+				binOp((a,b) => Math.sin(radians(a)) * b, rval(args[0]), scale, dest);
 				break;
 			case 'store':
 				unaryOp((a)=>a, rval(args[0]), dest);

@@ -518,7 +518,7 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * Returns agent data, if there is anything to see at from pos along sightRay. 
+	 * Returns agent data, if there is anything to see from pos along sightRay. 
 	 * Object returned will be the closest, in case there are multiple candidates.
 	 */
 	Game.prototype.checkSightEvents = function (observer, pos, sightRay) {
@@ -555,10 +555,57 @@ var MAGIC = ((ns) => {
 			return {
 				thing: argmin,
 				dist: Math.sqrt(min),
+				drive: {
+					x: argmin.getDriveVector().x,
+					y: argmin.getDriveVector().y
+				},
 			};
 		} else {
 			return null;
 		}
+	};
+
+	/**
+	 * Compute the velocity of an observed agent perpendicular to the 
+	 * observation vector.
+	 * @param A The observer's coordinates
+	 * @param B The target's coordinates
+	 */
+	Game.prototype.perpendicularVelocity = function (A, B) {
+		let vB = B.getDriveVector(),
+				a = A.getPosition(),
+				b = B.getPosition(),
+				vObs = Matter.Vector.sub(b, a),
+				num = Matter.Vector.dot(vB, vObs),
+				den = Matter.Vector.dot(vObs, vObs),
+				f2 = Matter.Vector.mult(vObs, num/den),
+				rslt = Matter.Vector.sub(vB, f2);
+		console.log('perpendicularVelocity', rslt.x, rslt.y);
+		return rslt;
+	};
+
+	/**
+	 * Compute the angle between v1 = B-A, the vector from A to B, 
+	 * and v2 = B + B.drv, the place where B is going to be in one chronon.
+	 */
+	Game.prototype.computeAngularSpeed = function (A, B) {
+		let vB = B.getDriveVector(),
+				a = A.getPosition(),
+				b = B.getPosition(),
+				vObs = Matter.Vector.sub(b, a),
+				vNxt = Matter.Vector.add(vObs, vB),
+				nObs = Matter.Vector.normalise(vObs),
+				nNxt = Matter.Vector.normalise(vNxt),
+				dot = Matter.Vector.dot(nObs, nNxt),
+				theta = Math.acos(dot);
+		theta = Math.atan2(vNxt.y, vNxt.x) - Math.atan2(vObs.y, vObs.x);
+		/*
+		if (theta < 0) {
+			theta += 2 * Math.PI;
+		}
+		*/
+//		console.log('computeAngularSpeed:', theta);
+		return theta;
 	};
 
 	Game.prototype.updateTimeDisplay = function () {
@@ -570,6 +617,7 @@ var MAGIC = ((ns) => {
 				timeDisplay = e_("elapsed-time");
 		turnDisplay.innerHTML = this.loopCounter;
 		timeDisplay.innerHTML = elapsedTime.toString();
+//		console.log('chronon:', this.loopCounter);
 		LOG({
 			type: 'frame-boundary', 
 			loopCounter: this.loopCounter, 

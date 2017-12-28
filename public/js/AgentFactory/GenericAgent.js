@@ -163,19 +163,6 @@ var MAGIC = ((ns) => {
 		this.setAim(angle);
 	};
 
-	GenericAgent.prototype.getLookDegrees = function () {
-		return degrees(this.turret.offset);
-	};
-
-	GenericAgent.prototype.setLook = function (rad) {
-		this.vision.offset = rad;
-		this.hw.agents.update();
-	};
-
-	GenericAgent.prototype.setLookDegrees = function (deg) {
-		this.setLook(radians(deg));
-	};
-
 	GenericAgent.prototype.getCPU = function () {
 		return this.hw.cpuClock.cpuSpeed;
 	};
@@ -281,7 +268,7 @@ var MAGIC = ((ns) => {
 
 	GenericAgent.prototype.launchProjectile = function (angle, energy) {
 		let norm = angle2vector(angle, 1),	// direction of shot
-				drv = Matter.Vector.mult(norm, 12),	// scale by speed
+				drv = Matter.Vector.mult(norm, GenericAgent.const.BULLET_SPEED),	// scale by speed
 				offset = Matter.Vector.mult(norm, GenericAgent.const.AGENT_RADIUS + 2), // start outside of shooter bot
 				pos = Matter.Vector.add(this.getPosition(), offset);
 		this.game.createProjectile(this, pos, drv, energy);

@@ -5,8 +5,8 @@
 	},
 	"script": "GunTurret.txt",
 	"upgrades": {
-		"cpu": 0,
-		"energy": 1,
-		"damage": 2
+		"cpu": 3,
+		"energy": 0,
+		"damage": 0
 	}
 }

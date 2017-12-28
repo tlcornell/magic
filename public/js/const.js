@@ -4,6 +4,7 @@ var MAGIC = ((ns) => {
 	constants = {
 		AGENT_RADIUS: 15,
 		BULLET_RADIUS: 2,
+		BULLET_SPEED: 12,
 		BUMP_DAMAGE: 1,
 		MAX_ROSTER_SLOTS: 6,
 		SIGHT_DISTANCE: 1024,	// size of arena diagonal, apparently

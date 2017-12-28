@@ -4,6 +4,7 @@ var MAGIC = ((ns) => {
 		abs: {args: [{type: 'NUMBER'}], opt: []},
 		add: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
 		and: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},
+		atan: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},	// Math.atan2(y, x)
 		call: {args: [{type: 'ADDRESS'}], opt:[{type: 'ANY...'}]},
 		cos: {args: [{type: 'NUMBER'}], opt: [{type: 'NUMBER'}]},
 		debug: {args: [], opt: []},
@@ -32,6 +33,7 @@ var MAGIC = ((ns) => {
 		not: {args: [{type: 'NUMBER'}], opt: []},
 		or: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},	
 		return: {args: [], opt: [{type: 'ANY'}]},
+		round: {args: [{type: 'NUMBER'}], opt: []},
 		sin: {args: [{type: 'NUMBER'}], opt: [{type: 'NUMBER'}]},
 		store: {args: [{type: 'ANY'}], opt: []},
 		sub: {args: [{type: 'NUMBER'}, {type: 'NUMBER'}], opt: []},

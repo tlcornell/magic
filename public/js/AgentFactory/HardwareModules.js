@@ -29,12 +29,16 @@ var MAGIC = ((ns) => {
 		});
 	}
 
+	AgentsScanner.prototype.error = function (msg) {
+		this.agent.error(msg);
+	};
+
 	AgentsScanner.prototype.getHandler = function () {
 		return this.handler;
 	};
 
 	AgentsScanner.prototype.setHandler = function (addr) {
-		if (isNaN(addr)) this.agent.error(`setHandler: ${addr} is not a number`);
+		if (isNaN(addr)) this.error(`setHandler: ${addr} is not a number`);
 		this.handler = addr;
 	};
 
@@ -71,16 +75,20 @@ var MAGIC = ((ns) => {
 				if (!this.data) return 0;
 				let reg1 = path.shift();
 				switch (reg1) {
-					case 'thing':
-						return this.data.thing;
 					case 'dist':
 						return this.data.dist;
+					case 'drive':
+						return this.data.drive;
+					case 'pos':
+						return this.data.thing.getPosition();
+					case 'thing':
+						return this.data.thing;
 				}
 			}
 			case 'param':
 				return this.sensitivity;
 		}
-		this.agent.error(`AgentsScanner: Bad register '${path.join(".")}'`);
+		this.error(`AgentsScanner: Bad register '${path.join(".")}'`);
 	};
 
 	AgentsScanner.prototype.write = function (path, val) {
@@ -90,7 +98,7 @@ var MAGIC = ((ns) => {
 			this.update();
 		}
 		else {
-			this.agent.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
+			this.error(`AgentsScanner: Can't write to register '${path.join(".")}'`);
 		}
 	};
 
@@ -214,9 +222,7 @@ var MAGIC = ((ns) => {
 	};
 
 	WallSensor.prototype.setSensitivity = function (param) {
-		//this._clearOldFlags();
 		this.sensitivity = param;
-		//this.update();
 	};
 
 	WallSensor.prototype.getHandler = function () {
