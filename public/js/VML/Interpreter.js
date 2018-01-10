@@ -481,7 +481,6 @@ var MAGIC = ((ns) => {
 				binOp((a,b)=>a&&b, rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'atan':
-				// Math.atan2(y, x)
 				binOp((y,x) => degrees(Math.atan2(y,x)), rval(args[0]), rval(args[1]), dest);
 				break;
 			case 'call':

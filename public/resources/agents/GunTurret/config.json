@@ -3,7 +3,7 @@
 		"notDead": "sprite.png",
 		"portrait": "sprite.png"
 	},
-	"script": "GunTurret.txt",
+	"script": "ShotLeading.txt",
 	"upgrades": {
 		"cpu": 3,
 		"energy": 0,
