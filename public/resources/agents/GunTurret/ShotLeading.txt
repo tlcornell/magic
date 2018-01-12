@@ -6,44 +6,49 @@
 Main:
 	sys.mv.velocity = tuple 0 0
 	sync
-	if sys.agents DoFire KeepLooking
-
-KeepLooking:
+	if sys.agents DoFire 
 	sys.aim = sys.aim + 7
-	jump Main
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire Main
 
 DoFire:
-	lowEnergy = sys.energy < 20
-	if lowEnergy Main
-
-# pos0 is our position
-# pos1 is their position
 	pos1 = sys.agents.data.pos
-	pos0.x = sys.x
-	pos0.y = sys.y
-# vObs is the "observation vector" pointing from us to them
-	vObs.x = pos1.x - pos0.x
-	vObs.y = pos1.y - pos0.y
-
 	dist = sys.agents.data.dist		# their distance from us
 	drv = sys.agents.data.drive		# their movement vector
 
+	lowEnergy = sys.energy < 20
+	if lowEnergy Main
+
+	pos0.x = sys.x
+	pos0.y = sys.y
+	vObs.x = pos1.x - pos0.x
+	vObs.y = pos1.y - pos0.y
+
 	time = dist / 12
 	time = round time				# num chronons until impact
-# vMvt is the vector representing their movement from pos0 over 'time' chronons
+
 	vMvt.x = time * drv.x
 	vMvt.y = time * drv.y
-# vNxt is the vector from us to where they will be in 'time' chronons
+
 	vNxt.x = vObs.x + vMvt.x
 	vNxt.y = vObs.y + vMvt.y
-# aNxt is the angle from the X-axis to vNxt. 
-# Since vNxt is computed relative to us (pos0), that makes us the origin,
-# and therefore the "X-axis" is our zero degrees aim angle.
-# So aNxt is where we should be aiming so as to intercept them in 'time'
-# chronons.
-	aNxt = atan vNxt.y vNxt.x		# aim angle to future them
-	sys.aim = aNxt
 
-	sys.fire = 30
+	aNxt = atan vNxt.y vNxt.x		# aim angle to future them
+
+	sys.aim = aNxt
+	sys.fire = sys.energy
 	jump Main
 
