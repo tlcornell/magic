@@ -358,7 +358,17 @@ var MAGIC = ((ns) => {
 				this.interpreter.syncFlag = false;
 				break;
 			}
-			this.interpreter.step();
+			try {
+				this.interpreter.step();
+			} catch (e) {
+				// this agent should die now...
+				this.game.queueEvent({
+					op: 'agentDied',
+					agent: this,
+				});
+				this.setState(Q_DEAD);
+				return;
+			}
 		}
 
 	};
