@@ -518,12 +518,14 @@ var MAGIC = ((ns) => {
 	}
 
 	/**
-	 * Returns agent data, if there is anything to see from pos along sightRay. 
-	 * Object returned will be the closest, in case there are multiple candidates.
+	 * Checks from pos along sightRay. If sightRay intersects any other agents,
+	 * we return data about the agent. Otherwise return null.
+	 * Returns: A struct of the form {thing: <agent>, dist: <distance>}
 	 */
-	Game.prototype.checkSightEvents = function (observer, pos, sightRay) {
-		let agents = this.objects.agents;
-		let candidates = [];
+	Game.prototype.checkSightEvents = function (observer, sightRay) {
+		let pos = observer.getPosition(),
+		    agents = this.objects.agents,
+		    candidates = [];
 		for (var i = 0; i < agents.length; ++i) {
 			let agent = agents[i];
 			if (!agent.isNotDead() || observer === agent) {
@@ -555,10 +557,6 @@ var MAGIC = ((ns) => {
 			return {
 				thing: argmin,
 				dist: Math.sqrt(min),
-				drive: {
-					x: argmin.getDriveVector().x,
-					y: argmin.getDriveVector().y
-				},
 			};
 		} else {
 			return null;

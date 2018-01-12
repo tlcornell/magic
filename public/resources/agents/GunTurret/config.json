@@ -3,7 +3,7 @@
 		"notDead": "sprite.png",
 		"portrait": "sprite.png"
 	},
-	"script": "ShotLeading.txt",
+	"script": "ShotLeadingWithSync.txt",
 	"upgrades": {
 		"cpu": 3,
 		"energy": 0,

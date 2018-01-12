@@ -5,12 +5,24 @@
 
 Main:
 	sys.mv.velocity = tuple 0 0
-	if sys.agents DoFire KeepLooking
-
-KeepLooking:
+	sync
+	if sys.agents DoFire 
 	sys.aim = sys.aim + 7
-	jump Main
-
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire 
+	sys.aim = sys.aim + 7
+	if sys.agents DoFire Main
 
 DoFire:
 	pos1 = sys.agents.data.pos

@@ -22,7 +22,19 @@ var MAGIC = ((ns) => {
 			agent: agent,
 			name: 'agents',
 			angle: 0,
-			data: null,		// {thing: (object), dist: (pixels)}
+			data: {
+				fresh: false,
+				thing: null,
+				dist: 0,
+				pos: {
+					x: 0,
+					y: 0,
+				},
+				drive: {
+					x: 0,
+					y: 0,
+				},
+			},
 			priority: 60,
 			sensitivity: constants.SIGHT_DISTANCE,
 			handler: -1,
@@ -51,11 +63,20 @@ var MAGIC = ((ns) => {
 	};
 
 	AgentsScanner.prototype.update = function () {
-		this.agent.checkSightEvents();
-		// agent.checkSightEvents will set this.data if anything is in sight
-		
+		let data = this.agent.checkSightEvents(this.angle);
+		if (!data) {
+			this.data.fresh = false;
+			return;
+		}
+		this.data.fresh = true;
+		this.data.thing = data.thing;
+		this.data.dist = data.dist;
+		this.data.pos.x = data.thing.getPosition().x;
+		this.data.pos.y = data.thing.getPosition().y;
+		this.data.drive.x = data.thing.getDriveVector().x;
+		this.data.drive.y = data.thing.getDriveVector().y;
+
 		// Maybe trigger an interrupt?
-		if (!this.data) return;
 		if (this.handler === -1) return;
 		if (this.data.dist > this.sensitivity) return;
 		// Trigger interrupt (no edge triggering behavior here)
@@ -64,7 +85,7 @@ var MAGIC = ((ns) => {
 
 	AgentsScanner.prototype.read = function (path) {
 		if (path.length === 0) {
-			if (!this.data) return 0;
+			if (!this.data.fresh) return 0;
 			return this.data.dist;
 		} 
 		let reg = path.shift();

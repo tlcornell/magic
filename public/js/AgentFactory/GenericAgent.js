@@ -394,17 +394,17 @@ var MAGIC = ((ns) => {
 	 * represent a proper service, and is instead kind of an intrusion of 
 	 * that particular scanner into what should be more generic platform-y 
 	 * code.
+	 * Basically, we just need GenericAgent to get us from the scanner
+	 * (which knows its agent) to the game object (known by the agent).
+	 * Maybe scanners need a more direct link to their environment?
+	 * We also need to get some data from the Agent, like position and 
+	 * turret angle.
 	 */
-	GenericAgent.prototype.checkSightEvents = function () {
-		let scanner = this.hw.agents;
-		scanner.data = null;
-		let angle = this.turret.angle + scanner.angle,
+	GenericAgent.prototype.checkSightEvents = function (scannerAngle) {
+		let angle = this.turret.angle + scannerAngle,
 				pos = this.getPosition(),
 				sightRay = a2v(pos, angle, GenericAgent.const.SIGHT_DISTANCE);
-		let data = this.game.checkSightEvents(this, pos, sightRay);
-		if (data) {
-			scanner.data = data;
-		}
+		return this.game.checkSightEvents(this, sightRay);
 	};
 
 	GenericAgent.prototype.queueEvent = function (evt) {
