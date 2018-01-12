@@ -374,10 +374,13 @@ var MAGIC = ((ns) => {
 			this.pc = addr;
 		};
 
+		/**
+		 * brElse defaults to -1, meaning there is no else branch.
+		 */
 		let doConditional = (cond, brThen, brElse) => {
 			if (cond) {
 				this.pc = brThen;
-			} else if (brElse) {	// REVIEW: what if the else addr is actually zero?
+			} else if (brElse !== -1) {	
 				this.pc = brElse;
 			} else {
 				++this.pc;
@@ -510,11 +513,11 @@ var MAGIC = ((ns) => {
 				break;
 			case 'if':
 			case 'ifnz':
-				brElse = (args.length === 3) ? rval(args[2]) : null;
+				brElse = (args.length === 3) ? rval(args[2]) : -1;
 				doConditional(rval(args[0]), rval(args[1]), brElse);
 				break;
 			case 'ifz':
-				brElse = (args.length === 3) ? rval(args[2]) : null;
+				brElse = (args.length === 3) ? rval(args[2]) : -1;
 				doConditional(!rval(args[0]), rval(args[1]), brElse);
 				break;
 			case 'ircall': 	// <interrupt name> <addr> 
