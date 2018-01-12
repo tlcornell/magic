@@ -109,9 +109,12 @@ but it remains important to keep in mind that this is only one strategy you migh
 ## Caveat #3: Chronon breaks introduce instability
 
 One problem with any long-ish algorithm is that chronon breaks can happen in the middle of it. That means that suddenly you move, and they move too, making sensor data obsolete.
-Worse, you may have lost sight of them, meaning that `sys.agents.data` is now a `null` value, and trying to read drive or distance values from it will trigger an error.
+The `sys.agents` (pseudo-) register, or the `sys.agents.data.fresh` register can be tested if you need to know how fresh your data is.
 
-First, you want to get sensor data into local variables as soon as possible, because local variables aren't affected by what's going on in the arena. 
+> There is a remote possibility that on a chronon break you will pick up 
+  fresh data about a different target. So in the worst case you might get the X coordinate of one target and the Y coordinate of another. This is going to be pretty rare, and the only penalty is you waste a shot, so probably not something to lose sleep over.
+
+You probably want to get sensor data into local variables as soon as possible, because local variables aren't affected by what's going on in the arena. 
 The code as presented does not always do that, because I wanted to present it in a logical order, introducing new things as much as possible only when they are about to be needed.
 In fact, your very first lines of code should really be:
 
@@ -123,8 +126,7 @@ In fact, your very first lines of code should really be:
 	pos0.y = sys.y
 ```
 
-Unfortunately, even so, it is possible for a chronon break to fall somewhere in those first three lines of code, which will kill your agent due to a program error.
-
+Even so, it is possible for a chronon break to fall somewhere in those first three lines of code.
 One solution is to insert a `sync` instruction in the main loop:
 
 ```
@@ -134,7 +136,8 @@ Main:
 	if sys.agents DoFire KeepLooking
 ```
 
-However, this means that you only get to move your turret once each chronon, which makes you very slow at spotting enemies.
+This assures that your data will stay fresh for 20 instructions (assuming max CPU speed).
+However, this also means that you only get to move your turret once each chronon, which makes you very slow at spotting enemies.
 
 We can improve this version by *unrolling* our aim loop. 
 
@@ -167,4 +170,7 @@ DoFire:
 ```
 
 If you count from the `sync` instruction, you will see that the longest possible path from `sync` through the first part of `DoFire` is 20 instructions, which is our CPU speed. So even in the worst case, where we spot a target in the very last `if`-statement, we can make it through our critical instructions in a single chronon.
+
+It is still possible for the data you capture so carefully will be out of date by the time you make your shot. One possible way to address that would be to add another `sync` instruction after the code above. That assures you that your data is one chronon out of date, so you can add 1 to the `time` variable to compensate.
+Or you can just count on the size of the target to assure you that one chronon here or there probably won't make a whole lot of difference in the long run.
 
